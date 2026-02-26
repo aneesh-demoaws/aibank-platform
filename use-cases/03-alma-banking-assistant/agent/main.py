@@ -42,6 +42,20 @@ customer_goals: goal_id(PK), customer_id(FK), goal_type, goal_title, target_amou
 - Category names: JOIN merchant_categories ON category_id
 - Salary = transaction_type='credit' AND category_id='CAT014'
 
+## SQL EXAMPLES (use these patterns)
+
+Category spending: SELECT mc.category_name, COUNT(*) as txn_count, SUM(t.amount) as total FROM transactions t JOIN merchant_categories mc ON t.category_id = mc.category_id WHERE t.transaction_type = 'debit' AND mc.category_name LIKE '%Groceries%' AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH) GROUP BY mc.category_name;
+
+Monthly trend: SELECT DATE_FORMAT(t.transaction_date, '%Y-%m') as month, SUM(t.amount) as total FROM transactions t WHERE t.transaction_type = 'debit' AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH) GROUP BY month ORDER BY month;
+
+Top merchants: SELECT t.merchant_name, mc.category_name, COUNT(*) as visits, SUM(t.amount) as total FROM transactions t JOIN merchant_categories mc ON t.category_id = mc.category_id WHERE t.transaction_type = 'debit' GROUP BY t.merchant_name, mc.category_name ORDER BY total DESC LIMIT 10;
+
+Salary/income: SELECT t.amount, t.transaction_date, t.description FROM transactions t WHERE t.transaction_type = 'credit' AND t.category_id = 'CAT014' ORDER BY t.transaction_date DESC LIMIT 3;
+
+Day-of-week: SELECT DAYNAME(t.transaction_date) as day_name, COUNT(*) as txns, SUM(t.amount) as total FROM transactions t WHERE t.transaction_type = 'debit' GROUP BY day_name ORDER BY total DESC;
+
+IMPORTANT: Always use merchant_categories JOIN for category filtering, never LIKE on merchant_name for categories.
+
 ## RESPONSE STYLE
 - Friendly, professional, concise
 - Use customer's currency with correct decimals (BHD=3, SAR/AED=2)
