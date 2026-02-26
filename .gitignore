@@ -1,0 +1,16 @@
+config/env.sh
+.env
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.bedrock_agentcore/
+*.zip
+dependencies.zip
+dependencies.hash
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
