@@ -15,19 +15,20 @@ rds = boto3.client("rds-data", region_name="me-south-1")
 _customer_cache = {}
 
 
-def get_customer_id(email):
+def get_customer_info(email):
     if email in _customer_cache:
         return _customer_cache[email]
     resp = rds.execute_statement(
         resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database="corebanking",
-        sql="SELECT customer_id FROM customers WHERE email = :e LIMIT 1",
+        sql="SELECT customer_id, first_name FROM customers WHERE email = :e LIMIT 1",
         parameters=[{"name": "e", "value": {"stringValue": email}}]
     )
     if resp["records"]:
         cid = resp["records"][0][0]["stringValue"]
-        _customer_cache[email] = cid
-        return cid
-    return None
+        fname = resp["records"][0][1]["stringValue"]
+        _customer_cache[email] = (cid, fname)
+        return cid, fname
+    return None, None
 
 
 def validate_session(event):
@@ -86,7 +87,7 @@ def handler(event, context):
     if not email:
         return resp(401, {"error": "Authentication required. Please log in."})
 
-    customer_id = get_customer_id(email)
+    customer_id, customer_first_name = get_customer_info(email)
     if not customer_id:
         return resp(403, {"error": "No banking profile found for this account."})
 
@@ -98,7 +99,7 @@ def handler(event, context):
         r = agentcore.invoke_agent_runtime(
             agentRuntimeArn=BANKING_ARN,
             runtimeSessionId=chat_session,
-            payload=json.dumps({"prompt": prompt, "customer_id": customer_id}),
+            payload=json.dumps({"prompt": prompt, "customer_id": customer_id, "customer_first_name": customer_first_name}),
             qualifier="DEFAULT",
         )
         stream = r.get("response") or r.get("body")
