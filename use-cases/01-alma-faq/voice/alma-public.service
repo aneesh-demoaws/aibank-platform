@@ -1,0 +1,21 @@
+[Unit]
+Description=Alma Public AI Assistant (AI Bank)
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/home/ec2-user/alma-public
+Environment="PATH=/home/ec2-user/alma-public/venv/bin:/usr/local/bin:/usr/bin"
+Environment="ALMA_KB_ID=ONBKA3KQLO"
+Environment="ALMA_KB_REGION=eu-west-1"
+Environment="ALMA_SONIC_REGION=eu-north-1"
+Environment="ALMA_VOICE=tiffany"
+Environment="ALMA_BANK_NAME=AI Bank"
+Environment="ALMA_CORS_ORIGINS=https://aibank.demoaws.com,http://localhost:5173"
+ExecStart=/home/ec2-user/alma-public/venv/bin/python alma_server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
