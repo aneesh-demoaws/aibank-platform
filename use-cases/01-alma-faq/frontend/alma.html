@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alma — AI Banking Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/design-system.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--nb-bg); font-family: 'Inter', sans-serif; }
+
+    .alma-header {
+      padding: var(--nb-space-md) var(--nb-space-xl);
+      background: rgba(255,255,255,0.85); backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--nb-border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .alma-header a { text-decoration: none; color: var(--nb-text); font-weight: 700; font-size: 1.1rem; }
+    .alma-header .accent { color: var(--nb-accent); }
+    .alma-header .back { font-size: 0.85rem; color: var(--nb-text-secondary); }
+    .alma-header .back:hover { color: var(--nb-accent); }
+
+    .mode-toggle { display: flex; gap: 4px; background: var(--nb-bg-secondary, #f1f5f9); border-radius: 10px; padding: 4px; }
+    .mode-btn {
+      padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 0.85rem; font-weight: 600; background: transparent; color: var(--nb-text-secondary); transition: all 0.2s;
+    }
+    .mode-btn.active { background: white; color: var(--nb-accent); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+    .chat-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .messages { flex: 1; overflow-y: auto; padding: var(--nb-space-lg) var(--nb-space-xl); display: flex; flex-direction: column; gap: var(--nb-space-md); }
+    .msg { max-width: 75%; padding: 12px 16px; border-radius: 16px; font-size: 0.9rem; line-height: 1.6; word-wrap: break-word; }
+    .msg.bot { align-self: flex-start; background: white; border: 1px solid var(--nb-border); border-bottom-left-radius: 4px; }
+    .msg.user { align-self: flex-end; background: var(--nb-accent); color: white; border-bottom-right-radius: 4px; }
+
+    .input-bar {
+      padding: var(--nb-space-md) var(--nb-space-xl); border-top: 1px solid var(--nb-border);
+      background: white; display: flex; gap: 12px; align-items: center;
+    }
+    .input-bar input {
+      flex: 1; padding: 12px 16px; border: 1px solid var(--nb-border); border-radius: 12px;
+      font-size: 0.9rem; outline: none; font-family: inherit;
+    }
+    .input-bar input:focus { border-color: var(--nb-accent); }
+    .send-btn {
+      padding: 12px 20px; background: var(--nb-accent); color: white; border: none;
+      border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .suggestions { display: flex; gap: 8px; padding: 0 var(--nb-space-xl) var(--nb-space-sm); flex-wrap: wrap; }
+    .suggestion {
+      padding: 8px 14px; background: white; border: 1px solid var(--nb-border); border-radius: 20px;
+      font-size: 0.8rem; cursor: pointer; color: var(--nb-text-secondary); transition: all 0.2s;
+    }
+    .suggestion:hover { border-color: var(--nb-accent); color: var(--nb-accent); }
+
+    .voice-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--nb-space-lg); padding: var(--nb-space-xl); }
+    .voice-status { font-size: 1rem; color: var(--nb-text-secondary); text-align: center; }
+    .mic-btn {
+      width: 100px; height: 100px; border-radius: 50%; border: none; font-size: 2.5rem;
+      cursor: pointer; transition: all 0.3s;
+      background: linear-gradient(145deg, var(--nb-accent), #1d4ed8); color: white;
+      box-shadow: 0 8px 32px rgba(37,99,235,0.3);
+    }
+    .mic-btn.recording { background: linear-gradient(145deg, #22c55e, #16a34a); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 50% { box-shadow: 0 0 0 20px rgba(34,197,94,0); } }
+    .voice-transcript {
+      width: 100%; max-width: 600px; max-height: 250px; overflow-y: auto;
+      padding: var(--nb-space-md); background: rgba(255,255,255,0.8); border-radius: 12px;
+      border: 1px solid var(--nb-border); text-align: left;
+    }
+    .voice-transcript .v-msg { padding: 6px 0; border-bottom: 1px solid var(--nb-border); font-size: 0.85rem; }
+    .voice-transcript .v-msg:last-child { border-bottom: none; }
+    .voice-transcript .v-msg.user { color: #22c55e; }
+    .voice-transcript .v-msg.assistant { color: var(--nb-accent); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="alma-header">
+    <a href="/"><span class="accent">AI</span> Bank</a>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="textModeBtn" onclick="switchMode('text')">💬 Text</button>
+      <button class="mode-btn" id="voiceModeBtn" onclick="switchMode('voice')">🎤 Voice</button>
+    </div>
+    <a href="/" class="back">← Home</a>
+  </div>
+
+  <!-- TEXT MODE -->
+  <div class="chat-area" id="textMode">
+    <div class="messages" id="messages">
+      <div class="msg bot">Hello! I'm Alma, your AI assistant at AI Bank. Ask me anything about our products and services. How can I help?</div>
+    </div>
+    <div class="suggestions" id="suggestions">
+      <button class="suggestion" onclick="sendMessage('What loans do you offer?')">What loans do you offer?</button>
+      <button class="suggestion" onclick="sendMessage('What are your card benefits?')">Card benefits</button>
+      <button class="suggestion" onclick="sendMessage('Tell me about savings accounts')">Savings accounts</button>
+      <button class="suggestion" onclick="sendMessage('Do you offer Islamic banking?')">Islamic banking</button>
+    </div>
+    <div class="input-bar">
+      <input type="text" id="chatInput" placeholder="Ask Alma anything about AI Bank..." onkeydown="if(event.key==='Enter')sendMessage()">
+      <button class="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <!-- VOICE MODE -->
+  <div class="voice-area hidden" id="voiceMode">
+    <div style="font-size:3rem">🤖</div>
+    <div class="voice-status" id="voiceStatus">Click the microphone to start talking with Alma</div>
+    <button class="mic-btn" id="micBtn" onclick="toggleVoice()">🎤</button>
+    <div class="voice-transcript" id="voiceTranscript"></div>
+  </div>
+
+  <script>
+    const ALMA_API = 'https://nowkq8lqy5.execute-api.eu-west-1.amazonaws.com';
+    const ALMA_WS = 'wss://aibank-alb.demoaws.com/voice';
+
+    function switchMode(mode) {
+      document.getElementById('textMode').classList.toggle('hidden', mode !== 'text');
+      document.getElementById('voiceMode').classList.toggle('hidden', mode !== 'voice');
+      document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
+      document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
+      if (mode === 'text' && isRecording) stopVoice();
+    }
+
+    // ── TEXT CHAT ──
+    const messagesEl = document.getElementById('messages');
+    let chatSessionId = null;
+
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    let isSending = false;
+    async function sendMessage(text) {
+      const input = document.getElementById('chatInput');
+      const msg = text || input.value.trim();
+      if (!msg || isSending) return;
+      input.value = '';
+      document.getElementById('suggestions').classList.add('hidden');
+      addMessage('user', msg);
+
+      const botDiv = document.createElement('div');
+      botDiv.className = 'msg bot';
+      botDiv.textContent = '...';
+      messagesEl.appendChild(botDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      isSending = true;
+      try {
+        const payload = { message: msg };
+        if (chatSessionId) payload.session_id = chatSessionId;
+        const resp = await fetch(`${ALMA_API}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (data.session_id) chatSessionId = data.session_id;
+        const answer = (data.answer || '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
+        let i = 0;
+        const type = () => {
+          if (i < answer.length) { botDiv.textContent = answer.slice(0, ++i); messagesEl.scrollTop = messagesEl.scrollHeight; requestAnimationFrame(type); }
+        };
+        type();
+      } catch (e) {
+        botDiv.textContent = "I'm having trouble connecting right now. Please try again.";
+      }
+      isSending = false;
+    }
+
+    // ── VOICE CHAT ──
+    let ws, audioCtx, mediaStream, isRecording = false;
+    let playbackCtx, nextPlayTime = 0;
+    const pendingBuffers = [];
+    let isAssistantSpeaking = false;
+
+    function toggleVoice() { isRecording ? stopVoice() : startVoice(); }
+
+    async function startVoice() {
+      const status = document.getElementById('voiceStatus');
+      const micBtn = document.getElementById('micBtn');
+      status.textContent = 'Connecting...';
+
+      ws = new WebSocket(ALMA_WS);
+      ws.onopen = async () => {
+        status.textContent = '🎙️ Listening... speak anytime';
+        audioCtx = new AudioContext({ sampleRate: 16000 });
+        playbackCtx = new AudioContext({ sampleRate: 16000 });
+        nextPlayTime = playbackCtx.currentTime;
+
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+        const source = audioCtx.createMediaStreamSource(mediaStream);
+        const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+        processor.onaudioprocess = (e) => {
+          if (ws?.readyState === WebSocket.OPEN) {
+            const pcm = e.inputBuffer.getChannelData(0);
+            const int16 = new Int16Array(pcm.length);
+            for (let i = 0; i < pcm.length; i++) int16[i] = Math.max(-32768, Math.min(32767, pcm[i] * 32768));
+            ws.send(JSON.stringify({ type: 'audio', data: arrayBufferToBase64(int16.buffer) }));
+          }
+        };
+        source.connect(processor);
+        processor.connect(audioCtx.destination);
+        isRecording = true;
+        micBtn.classList.add('recording');
+        micBtn.textContent = '🎙️';
+      };
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'audio') {
+          scheduleAudio(msg.data);
+          if (!isAssistantSpeaking) { isAssistantSpeaking = true; status.textContent = '🔊 Alma is speaking...'; }
+        } else if (msg.type === 'transcript') {
+          updateVoiceTranscript(msg.role, msg.text, msg.is_final);
+        } else if (msg.type === 'interruption') {
+          clearAudioQueue(); isAssistantSpeaking = false; status.textContent = '🎙️ Listening...';
+          addVoiceMsg('system', '⚡ Interrupted');
+        } else if (msg.type === 'response_end') {
+          isAssistantSpeaking = false; status.textContent = '🎙️ Listening... speak anytime';
+        } else if (msg.type === 'error') {
+          status.textContent = '❌ ' + msg.message;
+        }
+      };
+
+      ws.onclose = () => { stopVoice(); status.textContent = 'Disconnected — click to reconnect'; };
+      ws.onerror = () => { stopVoice(); status.textContent = 'Connection error'; };
+    }
+
+    function stopVoice() {
+      if (ws?.readyState === WebSocket.OPEN) { ws.send(JSON.stringify({ type: 'stop' })); ws.close(); }
+      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      if (audioCtx) audioCtx.close().catch(() => {});
+      if (playbackCtx) playbackCtx.close().catch(() => {});
+      clearAudioQueue();
+      isRecording = false; isAssistantSpeaking = false;
+      document.getElementById('micBtn').classList.remove('recording');
+      document.getElementById('micBtn').textContent = '🎤';
+      document.getElementById('voiceStatus').textContent = 'Click the microphone to start talking with Alma';
+    }
+
+    function arrayBufferToBase64(buf) { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+    function base64ToInt16Array(b64) { const s = atob(b64); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return new Int16Array(b.buffer); }
+
+    function scheduleAudio(b64) {
+      if (!playbackCtx) return;
+      const int16 = base64ToInt16Array(b64);
+      const f32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768;
+      const buf = playbackCtx.createBuffer(1, f32.length, 16000);
+      buf.copyToChannel(f32, 0);
+      const src = playbackCtx.createBufferSource();
+      src.buffer = buf; src.connect(playbackCtx.destination);
+      const now = playbackCtx.currentTime;
+      if (nextPlayTime < now) nextPlayTime = now;
+      src.start(nextPlayTime);
+      pendingBuffers.push(src);
+      nextPlayTime += buf.duration;
+      src.onended = () => { const idx = pendingBuffers.indexOf(src); if (idx > -1) pendingBuffers.splice(idx, 1); };
+    }
+
+    function clearAudioQueue() {
+      pendingBuffers.forEach(s => { try { s.stop(); } catch(e) {} });
+      pendingBuffers.length = 0;
+      if (playbackCtx) nextPlayTime = playbackCtx.currentTime;
+    }
+
+    let currentPreview = null;
+    function updateVoiceTranscript(role, text, isFinal) {
+      const div = document.getElementById('voiceTranscript');
+      if (!isFinal) {
+        if (!currentPreview || currentPreview.dataset.role !== role) {
+          currentPreview = document.createElement('div');
+          currentPreview.className = 'v-msg ' + role;
+          currentPreview.dataset.role = role;
+          div.appendChild(currentPreview);
+        }
+        currentPreview.textContent = (role === 'user' ? '👤 ' : '🤖 ') + text + '...';
+      } else {
+        if (currentPreview && currentPreview.dataset.role === role) {
+          currentPreview.textContent = (role === 'user' ? '👤 ' : '🤖 ') + text;
+          currentPreview = null;
+        } else { addVoiceMsg(role, text); }
+      }
+      div.scrollTop = div.scrollHeight;
+    }
+
+    function addVoiceMsg(role, text) {
+      const div = document.getElementById('voiceTranscript');
+      const p = document.createElement('div');
+      p.className = 'v-msg ' + role;
+      p.textContent = (role === 'user' ? '👤 ' : role === 'system' ? '⚡ ' : '🤖 ') + text;
+      div.appendChild(p);
+      div.scrollTop = div.scrollHeight;
+    }
+  </script>
+</body>
+</html>
