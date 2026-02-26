@@ -1,4 +1,4 @@
-"""Alma Banking Assistant \u2014 Lambda proxy with session auth."""
+"""Alma Banking Assistant — Lambda proxy with session auth."""
 import json, uuid, time, re, boto3, os
 
 BANKING_ARN = os.environ.get("BANKING_AGENT_ARN", "arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/alma_banking_assistant-zxGWis2H4O")
@@ -12,7 +12,6 @@ session_table = ddb.Table(SESSION_TABLE)
 agentcore = boto3.client("bedrock-agentcore", region_name="eu-west-1")
 rds = boto3.client("rds-data", region_name="me-south-1")
 
-# Cache email\u2192customer_id for Lambda warm starts
 _customer_cache = {}
 
 
@@ -34,12 +33,10 @@ def get_customer_id(email):
 def validate_session(event):
     """Extract and validate session from cookie."""
     sid = None
-    # HTTP API v2 payload format 2.0: cookies in event["cookies"] list
     for c in event.get("cookies", []):
         if c.startswith("aibank_sid="):
             sid = c.split("=", 1)[1]
             break
-    # Fallback: check headers
     if not sid:
         for part in (event.get("headers", {}).get("cookie", "") or "").split(";"):
             p = part.strip()
@@ -74,7 +71,6 @@ def resp(status, body):
 
 
 def handler(event, context):
-    # CORS preflight
     if event.get("requestContext", {}).get("http", {}).get("method") == "OPTIONS":
         return {
             "statusCode": 200,
@@ -86,17 +82,14 @@ def handler(event, context):
             },
         }
 
-    # Validate session
     email, session_id = validate_session(event)
     if not email:
         return resp(401, {"error": "Authentication required. Please log in."})
 
-    # Resolve customer_id
     customer_id = get_customer_id(email)
     if not customer_id:
         return resp(403, {"error": "No banking profile found for this account."})
 
-    # Parse request
     body = json.loads(event.get("body", "{}"))
     prompt = body.get("message", "Hello")
     chat_session = body.get("session_id", str(uuid.uuid4()))
