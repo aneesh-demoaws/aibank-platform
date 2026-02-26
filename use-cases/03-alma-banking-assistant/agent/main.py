@@ -84,7 +84,7 @@ scoped_accounts AS (
   FROM accounts WHERE customer_id = '{cid}'
 ),
 scoped_transactions AS (
-  SELECT t.transaction_id, t.account_id, CAST(t.transaction_type AS CHAR) as transaction_type, t.amount, t.currency, t.description, t.balance_after, t.transaction_date, t.merchant_name, t.category_id, t.mcc_code
+  SELECT t.transaction_id, t.account_id, a.customer_id, CAST(t.transaction_type AS CHAR) as transaction_type, t.amount, t.currency, t.description, t.balance_after, t.transaction_date, t.merchant_name, t.category_id, t.mcc_code
   FROM transactions t INNER JOIN accounts a ON t.account_id = a.account_id WHERE a.customer_id = '{cid}'
 ),
 scoped_goals AS (
@@ -154,11 +154,13 @@ app = BedrockAgentCoreApp()
 def invoke(payload):
     user_message = payload.get("prompt", "Hello")
     customer_id = payload.get("customer_id", "")
+    customer_first_name = payload.get("customer_first_name", "")
 
     if not customer_id:
         return {"answer": "Authentication required. Please log in to use Alma Banking Assistant."}
 
-    prompt = f"[Customer ID: {customer_id}] {user_message}"
+    name_ctx = f", name: {customer_first_name}" if customer_first_name else ""
+    prompt = f"[Customer ID: {customer_id}{name_ctx}] {user_message}"
     model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
     agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data])
     result = agent(prompt)
