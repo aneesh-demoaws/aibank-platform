@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alma Banking Assistant — AI Bank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles/design-system.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--nb-bg); font-family: 'Inter', sans-serif; }
+    .alma-header { padding: var(--nb-space-md) var(--nb-space-xl); background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--nb-border); display: flex; align-items: center; justify-content: space-between; }
+    .alma-header a { text-decoration: none; color: var(--nb-text); font-weight: 700; font-size: 1.1rem; }
+    .alma-header .accent { color: var(--nb-accent); }
+    .user-badge { font-size: 0.85rem; color: var(--nb-text-secondary); display: flex; align-items: center; gap: 8px; }
+    .user-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .messages { flex: 1; overflow-y: auto; padding: var(--nb-space-lg) var(--nb-space-xl); display: flex; flex-direction: column; gap: var(--nb-space-md); }
+    .msg { max-width: 80%; padding: 12px 16px; border-radius: 16px; font-size: 0.9rem; line-height: 1.6; word-wrap: break-word; }
+    .msg.bot { align-self: flex-start; background: white; border: 1px solid var(--nb-border); border-bottom-left-radius: 4px; }
+    .msg.user { align-self: flex-end; background: var(--nb-accent); color: white; border-bottom-right-radius: 4px; }
+    .msg.bot table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 0.82rem; }
+    .msg.bot th, .msg.bot td { border: 1px solid var(--nb-border); padding: 6px 10px; text-align: left; }
+    .msg.bot th { background: var(--nb-bg); font-weight: 600; }
+    .msg.bot h2, .msg.bot h3 { margin: 12px 0 6px; font-size: 0.95rem; }
+    .msg.bot p { margin: 4px 0; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 var(--nb-space-xl) var(--nb-space-md); }
+    .suggestion { padding: 8px 14px; border: 1px solid var(--nb-border); border-radius: 20px; background: white; cursor: pointer; font-size: 0.82rem; color: var(--nb-text-secondary); transition: all 0.2s; }
+    .suggestion:hover { border-color: var(--nb-accent); color: var(--nb-accent); }
+    .input-bar { padding: var(--nb-space-md) var(--nb-space-xl); border-top: 1px solid var(--nb-border); background: white; display: flex; gap: 12px; align-items: center; }
+    .input-bar input { flex: 1; padding: 12px 16px; border: 1px solid var(--nb-border); border-radius: 12px; font-size: 0.9rem; outline: none; font-family: inherit; }
+    .input-bar input:focus { border-color: var(--nb-accent); }
+    .send-btn { padding: 12px 20px; background: var(--nb-accent); color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-wall { display: flex; align-items: center; justify-content: center; flex: 1; text-align: center; }
+    .auth-wall p { color: var(--nb-text-secondary); font-size: 1rem; }
+    .auth-wall a { color: var(--nb-accent); font-weight: 600; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="alma-header">
+    <div><a href="/"><span class="accent">AI Bank</span></a> · Alma Banking Assistant</div>
+    <div class="user-badge" id="userBadge"></div>
+  </div>
+  <div class="auth-wall" id="authWall">
+    <div>
+      <p>🔒 Please log in to access your banking assistant.</p>
+      <p><a href="/login.html?redirect=/banking/alma-chat.html">Log in</a></p>
+    </div>
+  </div>
+  <div class="chat-area hidden" id="chatArea">
+    <div class="messages" id="messages">
+      <div class="msg bot">Hello! I'm <strong>Alma</strong>, your personal banking assistant. How can I help you today?</div>
+    </div>
+    <div class="suggestions" id="suggestions">
+      <button class="suggestion" onclick="sendMessage('What is my account balance?')">Account balance</button>
+      <button class="suggestion" onclick="sendMessage('Show my top spending categories this month')">Spending breakdown</button>
+      <button class="suggestion" onclick="sendMessage('What are my recent transactions?')">Recent transactions</button>
+      <button class="suggestion" onclick="sendMessage('How much did I spend on dining?')">Dining expenses</button>
+    </div>
+    <div class="input-bar">
+      <input type="text" id="chatInput" placeholder="Ask about your accounts, spending, transactions..." onkeydown="if(event.key==='Enter')sendMessage()">
+      <button class="send-btn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+  <script>
+    const API = 'https://nowkq8lqy5.execute-api.eu-west-1.amazonaws.com';
+    const messagesEl = document.getElementById('messages');
+    let chatSessionId = null, isSending = false;
+
+    async function checkSession() {
+      try {
+        const r = await fetch(`${API}/banking/chat`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'hello' }) });
+        if (r.ok) { const d = await r.json(); if (d.customer_id) { showChat(d.customer_id); if (d.session_id) chatSessionId = d.session_id; return; } }
+      } catch (e) {}
+      document.getElementById('authWall').classList.remove('hidden');
+    }
+
+    function showChat(cid) {
+      document.getElementById('authWall').classList.add('hidden');
+      document.getElementById('chatArea').classList.remove('hidden');
+      document.getElementById('userBadge').innerHTML = `<span class="dot"></span> ${cid}`;
+    }
+
+    function addMessage(role, html) {
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      if (role === 'bot') div.innerHTML = html; else div.textContent = html;
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage(text) {
+      const input = document.getElementById('chatInput');
+      const msg = text || input.value.trim();
+      if (!msg || isSending) return;
+      input.value = '';
+      document.getElementById('suggestions').classList.add('hidden');
+      addMessage('user', msg);
+      const botDiv = addMessage('bot', '<em>Thinking...</em>');
+      isSending = true;
+      try {
+        const payload = { message: msg };
+        if (chatSessionId) payload.session_id = chatSessionId;
+        const resp = await fetch(`${API}/banking/chat`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (resp.status === 401) { botDiv.innerHTML = '🔒 Session expired. Please <a href="/login.html">log in again</a>.'; isSending = false; return; }
+        const data = await resp.json();
+        if (data.session_id) chatSessionId = data.session_id;
+        botDiv.innerHTML = marked.parse((data.answer || '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim());
+      } catch (e) { botDiv.textContent = "I'm having trouble connecting. Please try again."; }
+      isSending = false;
+    }
+
+    checkSession();
+  </script>
+</body>
+</html>
