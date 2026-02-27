@@ -92,6 +92,14 @@
       body.voice-active .alma-header { display: none; }
       body.voice-active .voice-area { height: 100vh; }
     }
+
+    /* KYC Upload Widget */
+    #kycOverlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center; }
+    .kyc-widget { background:white;border-radius:16px;width:90%;max-width:420px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+    .kyc-header { display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--nb-border);font-weight:600; }
+    .kyc-body { padding:20px; }
+    .kyc-dropzone { display:block;border:2px dashed var(--nb-border);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all 0.2s; }
+    .kyc-dropzone:hover { border-color:var(--nb-accent);background:rgba(0,212,170,0.05); }
   </style>
 </head>
 <body>
@@ -169,6 +177,7 @@
             document.getElementById('loadingState').classList.add('hidden');
             // Show chat immediately with static personalized welcome
             const firstName = (profile.name || profile.email.split('@')[0]).split(' ')[0];
+            if (profile.customer_id) window._kycCustomerId = profile.customer_id;
             showChat(profile.name || profile.email, firstName);
             return;
           }
@@ -245,13 +254,80 @@
 
         const data = await resp.json();
         if (data.session_id) chatSessionId = data.session_id;
-        const answer = (data.answer || '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
+        let answer = (data.answer || '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
+        // Detect KYC upload URLs in text chat response
+        const uploadMatch = answer.match(/"uploadUrl"\s*:\s*"([^"]+)"/);
+        if (uploadMatch) {
+          // Agent returned a presigned URL — show upload widget instead
+          const docTypeMatch = answer.match(/"documentType"\s*:\s*"(\w+)"/);
+          showKycUpload(docTypeMatch ? docTypeMatch[1] : 'identity');
+        }
         botDiv.innerHTML = marked.parse(answer);
       } catch (e) {
         botDiv.textContent = "I'm having trouble connecting right now. Please try again.";
       }
       isSending = false;
     }
+
+    // ── KYC Upload Widget ──
+    const KYC_API = '/kyc/upload/presigned-url';
+    window._kycCustomerId = '';
+
+    function showKycUpload(docType) {
+      let overlay = document.getElementById('kycOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'kycOverlay';
+        overlay.innerHTML = `<div class="kyc-widget">
+          <div class="kyc-header"><span>📄 Upload KYC Document</span><button onclick="hideKycUpload()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;">✕</button></div>
+          <div class="kyc-body">
+            <p id="kycDocLabel" style="font-size:0.85rem;color:var(--nb-text-secondary);margin:0 0 12px;"></p>
+            <label class="kyc-dropzone" id="kycDropzone">
+              <input type="file" id="kycFileInput" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="handleKycFile(this)">
+              <div id="kycDropText">📎 Click to select a file<br><span style="font-size:0.75rem;color:#999;">PDF, JPG, PNG — max 10MB</span></div>
+            </label>
+            <div id="kycProgress" class="hidden" style="margin-top:12px;">
+              <div style="background:var(--nb-border);border-radius:8px;height:6px;overflow:hidden;"><div id="kycBar" style="height:100%;background:var(--nb-accent);width:0%;transition:width 0.3s;"></div></div>
+              <p id="kycStatus" style="font-size:0.8rem;color:var(--nb-text-secondary);margin:6px 0 0;"></p>
+            </div>
+          </div></div>`;
+        document.body.appendChild(overlay);
+      }
+      document.getElementById('kycDocLabel').textContent = docType === 'address' ? 'Upload an address document (driving license or utility bill)' : 'Upload an identity document (passport, CPR, or driving license)';
+      document.getElementById('kycDropzone').dataset.docType = docType;
+      document.getElementById('kycFileInput').value = '';
+      document.getElementById('kycDropText').innerHTML = '📎 Click to select a file<br><span style="font-size:0.75rem;color:#999;">PDF, JPG, PNG — max 10MB</span>';
+      document.getElementById('kycProgress').classList.add('hidden');
+      overlay.classList.remove('hidden');
+    }
+    window.showKycUpload = showKycUpload;
+
+    function hideKycUpload() { const o = document.getElementById('kycOverlay'); if (o) o.classList.add('hidden'); }
+    window.hideKycUpload = hideKycUpload;
+
+    async function handleKycFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const docType = document.getElementById('kycDropzone').dataset.docType || 'identity';
+      const bar = document.getElementById('kycBar');
+      const status = document.getElementById('kycStatus');
+      document.getElementById('kycDropText').textContent = '📄 ' + file.name;
+      document.getElementById('kycProgress').classList.remove('hidden');
+      bar.style.width = '10%'; status.textContent = 'Getting upload URL...';
+      try {
+        const r = await fetch(KYC_API, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: window._kycCustomerId, documentType: docType, fileName: file.name, fileSize: file.size }) });
+        const data = await r.json();
+        if (!r.ok || data.error) { status.textContent = '❌ ' + (data.error || 'Failed'); return; }
+        bar.style.width = '30%'; status.textContent = 'Uploading...';
+        const ext = file.name.split('.').pop().toLowerCase();
+        const ct = ext === 'pdf' ? 'application/pdf' : 'image/' + (ext === 'jpg' ? 'jpeg' : ext);
+        const up = await fetch(data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': ct }, body: file });
+        if (up.ok) { bar.style.width = '100%'; status.textContent = '✅ Uploaded! Your document is being processed.'; setTimeout(hideKycUpload, 2500); }
+        else { status.textContent = '❌ Upload failed. Please try again.'; }
+      } catch (e) { status.textContent = '❌ Error: ' + e.message; }
+    }
+    window.handleKycFile = handleKycFile;
 
     // Init
     checkSession();
@@ -396,7 +472,7 @@
         const source=audioCtx.createMediaStreamSource(mediaStream);const proc=audioCtx.createScriptProcessor(2048,1,1);
         proc.onaudioprocess=e=>{if(ws?.readyState===WebSocket.OPEN){const pcm=e.inputBuffer.getChannelData(0);const srcRate=audioCtx.sampleRate;const tgtRate=16000;const ratio=srcRate/tgtRate;const outLen=Math.floor(pcm.length/ratio);const i16=new Int16Array(outLen);for(let i=0;i<outLen;i++){const idx=i*ratio;const lo=Math.floor(idx);const hi=Math.min(lo+1,pcm.length-1);const frac=idx-lo;const s=pcm[lo]+(pcm[hi]-pcm[lo])*frac;i16[i]=Math.max(-32768,Math.min(32767,s*32768))}ws.send(JSON.stringify({type:'audio',data:ab2b64(i16.buffer)}))}};
         source.connect(proc);proc.connect(audioCtx.destination);isRecording=true;updateMic();setStatus('🎙️ Listening... speak anytime');
-        ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='audio'){scheduleAudio(msg.data);if(!isAssistantSpeaking){isAssistantSpeaking=true;updateMic();startViseme();setStatus('🔊 Alma is speaking... (interrupt anytime)')}}else if(msg.type==='transcript'){updateTranscript(msg.role,msg.text,msg.is_final)}else if(msg.type==='interruption'){clearAudio();isAssistantSpeaking=false;updateMic();stopViseme();setStatus('🎙️ Listening...');addSystemMessage('⚡ Interrupted')}else if(msg.type==='response_end'){isAssistantSpeaking=false;updateMic();stopViseme();setStatus('🎙️ Listening... speak anytime')}else if(msg.type==='error'){setStatus('❌ '+msg.message)}};
+        ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='audio'){scheduleAudio(msg.data);if(!isAssistantSpeaking){isAssistantSpeaking=true;updateMic();startViseme();setStatus('🔊 Alma is speaking... (interrupt anytime)')}}else if(msg.type==='transcript'){updateTranscript(msg.role,msg.text,msg.is_final)}else if(msg.type==='kyc_upload'){showKycUpload(msg.documentType||'identity')}else if(msg.type==='interruption'){clearAudio();isAssistantSpeaking=false;updateMic();stopViseme();setStatus('🎙️ Listening...');addSystemMessage('⚡ Interrupted')}else if(msg.type==='response_end'){isAssistantSpeaking=false;updateMic();stopViseme();setStatus('🎙️ Listening... speak anytime')}else if(msg.type==='error'){setStatus('❌ '+msg.message)}};
         ws.onclose=()=>{stopVoice();setStatus('Disconnected — click to reconnect')};ws.onerror=()=>{stopVoice();setStatus('Connection error')};
       }catch(err){setStatus('Error: '+err.message)}
     }
