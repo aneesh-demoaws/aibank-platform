@@ -24,15 +24,17 @@ logger = logging.getLogger(__name__)
 
 # Config
 SONIC_REGION = os.environ.get("ALMA_SONIC_REGION", "eu-north-1")
-VOICE_NAME = os.environ.get("ALMA_VOICE", "matthew")
+VOICE_NAME = os.environ.get("ALMA_VOICE", "arjun")
 MEMORY_ID = os.environ.get("BEDROCK_AGENTCORE_MEMORY_ID", "alma_banking_assistant_mem-ijns9pFcc6")
 MEMORY_REGION = os.environ.get("MEMORY_REGION", "eu-west-1")
 DB_REGION = os.environ.get("DB_REGION", "me-south-1")
 CLUSTER_ARN = os.environ.get("CLUSTER_ARN", "arn:aws:rds:me-south-1:519124228967:cluster:aibank-core-banking")
 SECRET_ARN = os.environ.get("SECRET_ARN", "arn:aws:secretsmanager:me-south-1:519124228967:secret:aibank-core-banking-credentials-DEdCPJ")
 DB_NAME = os.environ.get("DB_NAME", "corebanking")
+KYC_TABLE = os.environ.get("KYC_TABLE", "aibank-customer-kyc")
 
 rds = boto3.client("rds-data", region_name=DB_REGION)
+dynamodb = boto3.resource("dynamodb", region_name=DB_REGION)
 
 SYSTEM_PROMPT = """You are Alma, the AI Banking voice assistant for AI Bank Bahrain.
 
@@ -146,7 +148,21 @@ SQL: SELECT goal_title, goal_type, target_amount, current_amount, target_date, s
 2. ONLY provide information from the query result
 3. If query returns no data: say "No data found" clearly
 4. If query fails: say "I'm having trouble accessing that information"
-5. Follow the exact SQL patterns from the examples above"""
+5. Follow the exact SQL patterns from the examples above
+
+## KYC VERIFICATION (Voice)
+When a customer asks about identity verification, KYC, or document upload:
+1. Use check_kyc_status FIRST to see their current status
+2. Based on status:
+   - NOT_STARTED: Say "I can help you verify your identity. I'm pulling up the document upload on your screen now." then include [ACTION:KYC_UPLOAD:identity] in your response
+   - PROCESSING: Tell them their documents are being analyzed and they'll be notified
+   - VERIFIED: Tell them their identity is already verified
+   - REJECTED: Explain they need to re-upload and include [ACTION:KYC_UPLOAD:identity]
+3. If they need to upload more documents, include the appropriate action marker:
+   - For identity docs (passport, CPR, license): [ACTION:KYC_UPLOAD:identity]
+   - For address docs (license, utility bill): [ACTION:KYC_UPLOAD:address]
+4. Requirements: 2 identity documents + 1 address document
+5. IMPORTANT: The [ACTION:...] markers trigger the upload widget on the customer's screen. Include them naturally in your spoken response — the frontend will strip them before audio playback."""
 
 # Customer context stored per WebSocket connection
 _ws_customer = {}
@@ -226,6 +242,45 @@ def query_customer_data(sql_query: str, customer_id: str) -> str:
         return f"Query error: {str(e)}"
 
 
+@tool
+def check_kyc_status(customer_id: str) -> str:
+    """Check the current KYC verification status for a customer.
+
+    Args:
+        customer_id: The authenticated customer's ID (e.g. CUST00000001).
+
+    Returns:
+        KYC status details including documents collected and verification status.
+    """
+    try:
+        table = dynamodb.Table(KYC_TABLE)
+        resp = table.get_item(Key={"customer_id": customer_id})
+        item = resp.get("Item")
+
+        if not item:
+            return json.dumps({
+                "status": "NOT_STARTED",
+                "message": "No KYC documents submitted yet.",
+                "identity_docs_needed": 2,
+                "address_docs_needed": 1,
+            }, default=str)
+
+        return json.dumps({
+            "status": item.get("kyc_status", "PENDING"),
+            "identity_docs_collected": int(item.get("total_id_collected_no", 0)),
+            "identity_docs_verified": int(item.get("total_id_verified_no", 0)),
+            "address_docs_collected": int(item.get("total_address_collected_no", 0)),
+            "address_docs_verified": int(item.get("total_address_verified_no", 0)),
+            "full_name": item.get("full_name", ""),
+            "nationality": item.get("nationality", ""),
+            "verification_details": item.get("verification_details"),
+            "last_updated": item.get("last_updated", ""),
+        }, default=str)
+    except Exception as e:
+        logger.error(f"KYC status check error: {e}")
+        return f"Error checking KYC status: {str(e)}"
+
+
 def get_customer_id(email: str) -> tuple[str, str]:
     """Look up customer_id and first_name from email."""
     resp = rds.execute_statement(
@@ -291,7 +346,7 @@ async def banking_voice_chat(websocket: WebSocket):
     )
     session_manager = AgentCoreMemorySessionManager(memory_config, region_name=MEMORY_REGION)
 
-    agent = BidiAgent(model=model, tools=[query_customer_data], system_prompt=personal_prompt, session_manager=session_manager)
+    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status], system_prompt=personal_prompt, session_manager=session_manager)
     input_queue = asyncio.Queue()
     stop_event = asyncio.Event()
 
@@ -312,9 +367,16 @@ async def banking_voice_chat(websocket: WebSocket):
             if t == "bidi_audio_stream":
                 await websocket.send_json({"type": "audio", "data": event["audio"]})
             elif t == "bidi_transcript_stream":
+                text = event.get("text", "")
+                # Extract KYC action markers before sending transcript
+                kyc_actions = re.findall(r'\[ACTION:KYC_UPLOAD:(\w+)\]', text)
+                for doc_type in kyc_actions:
+                    await websocket.send_json({"type": "kyc_upload", "documentType": doc_type})
+                # Strip markers from spoken text
+                clean_text = re.sub(r'\[ACTION:KYC_UPLOAD:\w+\]', '', text).strip()
                 await websocket.send_json({
                     "type": "transcript", "role": event.get("role", ""),
-                    "text": event.get("text", ""), "is_final": event.get("is_final", False),
+                    "text": clean_text, "is_final": event.get("is_final", False),
                 })
             elif t == "bidi_interruption":
                 await websocket.send_json({"type": "interruption"})
