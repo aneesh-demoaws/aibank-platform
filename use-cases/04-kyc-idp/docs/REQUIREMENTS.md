@@ -1,13 +1,14 @@
-# KYC Document Processing (Use Case 03) — Requirements
+# KYC — Intelligent Document Processing — Requirements
 
 ## Overview
-AI-powered document verification and identity extraction that moves customers from KYC PENDING → VERIFIED. This is the critical data enrichment step that unlocks NBA (Next Best Action) by populating employer, salary, job title, and address data.
+AI-powered document verification and identity extraction integrated into the Alma Banking Assistant chat experience. Customers upload documents directly through the chat interface — Bedrock Data Automation (BDA) extracts structured fields, validates against onboarding data, and moves customers from KYC PENDING → VERIFIED.
 
 ## Depends On
 | Dependency | Status |
 |-----------|--------|
-| Foundation (Aurora, Cognito) | ✅ Done |
+| Foundation (Aurora, Cognito, Sessions) | ✅ Done |
 | Customer Onboarding (account creation) | ✅ Done |
+| Alma Banking Assistant (chat + voice) | ✅ Done |
 
 ## Unlocks
 | Downstream | What KYC Provides |
@@ -18,39 +19,60 @@ AI-powered document verification and identity extraction that moves customers fr
 | Customer 360 | Complete employment_info, financial health scoring |
 | Loan Applications | Salary verification, employer confirmation |
 
-## Customer Journey
+## Customer Journey (Chat-Integrated)
 ```
-Customer logs in (KYC = PENDING)
-  → Dashboard shows "Complete your verification" banner
-  → Upload: National ID / Passport + Salary Certificate + Proof of Address
-  → AI extracts: name, DOB, nationality, ID number, employer, salary, address
-  → Validation: extracted data vs onboarding data (name, DOB match?)
-  → If match: KYC = VERIFIED, employment_info updated in Aurora
-  → If mismatch: KYC = PROCESSING (manual review queue)
+Customer logs in → Alma Banking Assistant
+  → Alma detects KYC = PENDING, proactively offers verification
+  → OR customer asks "How do I verify my identity?"
+  → Alma: "I can help! Please upload your Passport or Bahrain CPR"
+  → Customer uploads document via chat file upload widget
+  → Document → S3 presigned URL → BDA extracts fields
+  → Alma: "I found your details: [name], [DOB], [nationality]. Uploading your second ID..."
+  → After 2 ID docs + 1 address doc:
+    → Auto-verification: extracted name/DOB vs onboarding data
+    → If match (>80%): KYC = VERIFIED ✅
+    → If mismatch: KYC = PROCESSING (manual review)
+  → Alma: "Great news! Your identity has been verified. You now have full access."
 ```
 
 ## Key Requirements
 | ID | Requirement | Priority | Notes |
 |----|-------------|----------|-------|
-| KY-01 | Document upload UI (ID, salary cert, proof of address) | P0 | S3 presigned URLs, max 10MB per doc |
-| KY-02 | AI document extraction (Bedrock Data Automation) | P0 | Extract structured fields via custom blueprints |
-| KY-03 | Intelligent document classification (BDA) | P0 | Auto-classify: passport vs CPR vs license vs salary cert |
-| KY-04 | Data validation — match extracted vs onboarding data | P0 | Name, DOB, nationality cross-check |
-| KY-05 | Employment info extraction from salary certificate | P0 | Employer name, job title, monthly salary |
-| KY-06 | Address extraction from utility bill / proof of address | P0 | City, country, area |
-| KY-07 | KYC status update in Aurora (PENDING → VERIFIED/REJECTED) | P0 | Update customers.kyc_status |
-| KY-08 | Populate employment_info JSON in Aurora | P0 | {employer, job_title, monthly_salary, employment_type, city} |
-| KY-09 | Step Functions workflow orchestration | P0 | Upload → Extract → Validate → Update |
-| KY-10 | Manual review queue for mismatches | P1 | RM dashboard for PROCESSING status |
-| KY-11 | Document storage in S3 with encryption | P0 | SSE-S3, lifecycle policy |
-| KY-12 | GCC document support (CPR, Iqama, Emirates ID) | P0 | Bahrain CPR, Saudi Iqama, UAE Emirates ID |
+| KY-01 | Chat-integrated document upload | P0 | Presigned URLs via Alma tool, max 10MB per doc |
+| KY-02 | AI document extraction (BDA eu-west-1) | P0 | Custom blueprints: Passport, CPR, License |
+| KY-03 | Intelligent document classification | P0 | BDA auto-classifies against all blueprints |
+| KY-04 | Data validation — extracted vs onboarding | P0 | Name, DOB, nationality cross-check |
+| KY-05 | DynamoDB intermediary for processing state | P0 | Atomic counters, stream triggers, extraction data |
+| KY-06 | Aurora sync via DynamoDB Streams | P0 | kyc_status update in core banking |
+| KY-07 | Alma real-time status updates | P0 | Agent reports extraction results + verification status |
+| KY-08 | Document storage in S3 with encryption | P0 | SSE-S3, lifecycle policy, me-south-1 |
+| KY-09 | GCC document support (Phase 1: BH) | P0 | Bahrain CPR, Passport, License |
+| KY-10 | Salary certificate extraction | P1 | Employer, job_title, monthly_salary (Phase 2) |
+| KY-11 | Saudi Iqama + UAE Emirates ID | P1 | Phase 2 blueprints |
+| KY-12 | Manual review queue for mismatches | P1 | RM dashboard for PROCESSING status |
+| KY-13 | Employment info population in Aurora | P1 | Phase 2: employment_info JSON on VERIFIED |
 
 ## GCC Document Types
-| Country | ID Document | Format |
-|---------|-----------|--------|
-| BH | CPR (Central Population Registry) card | 9-digit number |
-| SA | Iqama (Residency Permit) or National ID | 10-digit number |
-| AE | Emirates ID | 15-digit number |
-| All | Passport | Standard ICAO format |
+| Country | ID Document | Format | Phase |
+|---------|-----------|--------|-------|
+| BH | CPR (Central Population Registry) card | 9-digit number | Phase 1 |
+| BH | Driving License | License number | Phase 1 |
+| All | Passport | Standard ICAO format | Phase 1 |
+| SA | Iqama (Residency Permit) | 10-digit number | Phase 2 |
+| AE | Emirates ID | 15-digit number | Phase 2 |
 
-## Status: NEXT TO BUILD
+## Two-Database Architecture (Proven from NeoBank)
+| Database | Region | Purpose |
+|----------|--------|---------|
+| DynamoDB `aibank-customer-kyc` | me-south-1 | Processing state: extracted fields, counters, triggers, confidence scores |
+| Aurora `corebanking.customers` | me-south-1 | Source of truth: kyc_status column (PENDING/VERIFIED/REJECTED) |
+
+**Why DynamoDB intermediary:**
+- Atomic counters for concurrent document uploads (no race conditions)
+- DynamoDB Streams for event-driven Aurora sync (no polling)
+- Trigger logic: 2 ID docs + 1 address doc = invoke verification
+- Semi-structured extraction data varies by document type
+- TTL for auto-expiry of old processing records
+- Clean separation: processing state vs banking state
+
+## Status: 🚧 IN PROGRESS
