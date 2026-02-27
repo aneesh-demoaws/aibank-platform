@@ -1,109 +1,143 @@
-# KYC — Intelligent Document Processing (Use Case 03)
+# KYC — Intelligent Document Processing — Design
 
-## Design — Based on Proven NeoBank Architecture
+## Architecture Source
+Adapted from proven NeoBank KYC pipeline (us-west-2) — see [EXISTING-NEOBANK-KYC-REVIEW.md](./EXISTING-NEOBANK-KYC-REVIEW.md)
 
-**Source:** neobank.demoaws.com KYC pipeline (us-west-2) — reviewed and documented in [EXISTING-NEOBANK-KYC-REVIEW.md](./EXISTING-NEOBANK-KYC-REVIEW.md)
+## Key Decision: eu-west-1 for BDA
+BDA is available in eu-west-1. Blueprints recreated from NeoBank (they're just JSON schemas, no training needed). All compute in eu-west-1, data in me-south-1.
 
-## Depends On
-Foundation ✅, Customer Onboarding ✅
-
-## Proven Architecture (Reuse from NeoBank)
+## Architecture
 
 ```
-Customer uploads docs via presigned URL
+Customer in Alma Banking Chat
+  → "I want to verify my identity"
+  → Alma tool: generate_kyc_upload_url(customer_id, doc_type)
     │
     ▼
-API Gateway → Lambda (presigned URL generator)
+API Gateway (eu-west-1) → Lambda: aibank-kyc-presigned-url
+  → Returns S3 presigned PUT URL
     │
-    ▼ (direct S3 upload from browser)
-S3: aibank-kyc-processing/documents/input/{customer_id}/{type}/{uuid}_{file}
+    ▼ (Frontend uploads directly to S3)
+S3: aibank-kyc-documents (me-south-1)
+  documents/input/{customer_id}/{type}/{uuid}_{filename}
+  type = "identity" | "address"
     │
-    ├──▶ Lambda: document-processor (S3 trigger)
+    ├──▶ Lambda: aibank-kyc-document-processor (S3 trigger, eu-west-1)
     │    • Validate file (≤10MB, PDF/JPG/PNG)
-    │    • Create DynamoDB record (PROCESSING)
+    │    • Create/update DynamoDB record (PROCESSING)
     │
-    └──▶ Lambda: bda-extraction (S3 trigger) ← CORE PROCESSOR
+    └──▶ Lambda: aibank-kyc-bda-extraction (S3 trigger, eu-west-1)
          │
          ▼
-    Bedrock Data Automation (BDA)
+    Bedrock Data Automation (eu-west-1)
     ┌─────────────────────────────────────────────┐
     │  Project: AIBank-KYC                         │
+    │  ARN: ...data-automation-project/8f1b377c2305│
     │                                              │
-    │  Blueprints (reuse + new):                   │
-    │  ✅ Passport_Blueprint (reuse)               │
-    │  ✅ Bahrain_CPR_v2 (reuse)                   │
-    │  ✅ Bahrain_License (reuse)                   │
-    │  🆕 Salary_Certificate (NEW — for NBA)       │
-    │  🆕 Saudi_Iqama (NEW — SA customers)         │
-    │  🆕 UAE_Emirates_ID (NEW — AE customers)     │
+    │  Blueprints (Phase 1):                       │
+    │  ✅ Passport_Blueprint  (84c71660e8a1)       │
+    │  ✅ Bahrain_CPR_v2      (fd3e92741bea)       │
+    │  ✅ Bahrain_License     (e509dda6daed)       │
+    │                                              │
+    │  Phase 2 (to add):                           │
+    │  🔲 Salary_Certificate                       │
+    │  🔲 Saudi_Iqama                              │
+    │  🔲 UAE_Emirates_ID                          │
     └─────────────────────────────────────────────┘
          │
          ▼
-    DynamoDB: aibank-customer-kyc (intermediary)
+    DynamoDB: aibank-customer-kyc (me-south-1)
     • Stores extracted fields per customer
+    • Atomic counters for document collection
     • Trigger: 2 ID docs + 1 address → invoke verification
          │
-         ├──▶ Lambda: verification
+         ├──▶ Lambda: aibank-kyc-verification (async invoke)
          │    • Cross-check extracted name/DOB vs Aurora onboarding data
-         │    • Set kyc_status = VERIFIED or REJECTED
+         │    • Fuzzy match with confidence scoring
+         │    • Set kyc_status = VERIFIED (>80%) or REJECTED (<80%)
          │
-         └──▶ DynamoDB Stream → Lambda: kyc-sync
-              • Sync kyc_status to Aurora Core Banking
-              • On VERIFIED: populate employment_info JSON
-              • On VERIFIED: trigger Neptune + Personalize enrichment (NBA)
+         └──▶ DynamoDB Stream → Lambda: aibank-kyc-sync
+              • Sync kyc_status to Aurora Core Banking (Data API)
+              • On VERIFIED: update customers.kyc_status
+              • Phase 2: populate employment_info, trigger Neptune/Personalize
 ```
 
-## Key Differences from NeoBank
+## AWS Resources
+
+### Already Created ✅
+| Resource | Region | ARN / ID |
+|----------|--------|----------|
+| BDA Project: AIBank-KYC | eu-west-1 | `arn:aws:bedrock:eu-west-1:519124228967:data-automation-project/8f1b377c2305` |
+| Blueprint: Passport | eu-west-1 | `arn:aws:bedrock:eu-west-1:519124228967:blueprint/84c71660e8a1` |
+| Blueprint: Bahrain_CPR_v2 | eu-west-1 | `arn:aws:bedrock:eu-west-1:519124228967:blueprint/fd3e92741bea` |
+| Blueprint: Bahrain_License | eu-west-1 | `arn:aws:bedrock:eu-west-1:519124228967:blueprint/e509dda6daed` |
+| Aurora Core Banking | me-south-1 | `arn:aws:rds:me-south-1:519124228967:cluster:aibank-core-banking` |
+
+### To Create
+| Resource | Region | Purpose |
+|----------|--------|---------|
+| S3: `aibank-kyc-documents` | me-south-1 | Document storage (data residency) |
+| DynamoDB: `aibank-customer-kyc` | me-south-1 | Processing state + extraction data |
+| Lambda × 4 | eu-west-1 | Pipeline functions |
+| API Gateway endpoint | eu-west-1 | Presigned URL generation |
+| IAM roles | — | Lambda → S3, DynamoDB, BDA, Aurora Data API |
+
+## Differences from NeoBank
 
 | Aspect | NeoBank (us-west-2) | AI Bank |
-|--------|-------------------|---------|
+|--------|---------------------|---------|
+| BDA region | us-west-2 | eu-west-1 ✅ |
 | Data region | us-west-2 | me-south-1 (S3, DynamoDB, Aurora) |
-| Compute region | us-west-2 | eu-west-1 (Lambda, BDA) |
-| BDA project | NeoBank-KYC (6 blueprints) | AIBank-KYC (6+3 new blueprints) |
+| Integration | Separate upload page | Chat-integrated via Alma tool |
 | Verification | Mock (auto-PASS) | Real cross-check vs onboarding data |
-| Sync target | neo-bank-core-banking (pymysql) | aibank-core-banking (Data API) |
-| Post-verify | Just status update | + employment_info + Neptune + Personalize |
-| GCC docs | Bahrain only | Bahrain + Saudi + UAE |
-| Salary cert | Not processed | BDA blueprint extracts employer, salary |
+| Aurora sync | pymysql direct connection | Aurora Data API (serverless) |
+| BDA profile ARN | `us.data-automation-v1` | `eu.data-automation-v1` |
+| CORS origin | neobank.demoaws.com | aibank.demoaws.com |
+| Blueprints | 6 (3 relevant + 3 bonus) | 3 Phase 1 + 3 Phase 2 |
 
-## New BDA Blueprints Needed
+## DynamoDB Schema: aibank-customer-kyc
 
-| Blueprint | Fields to Extract | Purpose |
-|-----------|------------------|---------|
-| Salary_Certificate | employer_name, job_title, monthly_salary, employment_date, currency | Populate employment_info → Neptune WORKS_AT edge |
-| Saudi_Iqama | iqama_number, name, nationality, DOB, expiry, employer, occupation | SA customer identity |
-| UAE_Emirates_ID | emirates_id, name, nationality, DOB, expiry, card_number | AE customer identity |
-
-## Post-Verification Data Flow (NEW — feeds NBA)
-
+```json
+{
+  "customer_id": "CUST00000001",          // Partition Key
+  "kyc_status": "VERIFIED",
+  "full_name": "ANEESH MOHAN",
+  "date_of_birth": "13/01/1986",
+  "gender": "Male",
+  "nationality": "INDIAN",
+  "passport_number": "Z2693882",
+  "id_number": "860126340",
+  "document_expiry": "11/06/2028",
+  "address": "Flat 123, Building 456, Manama",
+  "address_document_type": "Bahrain_License",
+  "total_id_collected_no": 2,
+  "total_id_verified_no": 2,
+  "total_address_collected_no": 1,
+  "total_address_verified_no": 1,
+  "verification_details": {
+    "overall_status": "VERIFIED",
+    "identity_verification": { "status": "PASSED", "confidence": 0.95 },
+    "address_verification": { "status": "PASSED", "confidence": 0.90 },
+    "name_match": { "extracted": "ANEESH MOHAN", "onboarding": "Aneesh Mohan", "score": 0.98 },
+    "dob_match": { "extracted": "13/01/1986", "onboarding": "1986-01-13", "score": 1.0 }
+  },
+  "created_at": "2026-02-27T10:00:00Z",
+  "last_updated": "2026-02-27T10:05:00Z"
+}
 ```
-KYC VERIFIED
-  │
-  ├── Aurora: UPDATE customers SET kyc_status='VERIFIED'
-  │
-  ├── Aurora: UPDATE customers SET employment_info = JSON
-  │   {employer, job_title, monthly_salary, employment_type, city}
-  │   (extracted from salary certificate by BDA)
-  │
-  ├── Neptune: CREATE (:Customer)-[:WORKS_AT]->(:Employer)
-  │            CREATE (:Customer)-[:LIVES_IN]->(:Location)
-  │
-  ├── Personalize: UpdateUser(salary_band, segment, country)
-  │
-  └── customer_360_metrics: Recalculate financial health
+
+## S3 Bucket Structure
+```
+aibank-kyc-documents/
+├── documents/
+│   ├── input/{customer_id}/
+│   │   ├── identity/    ← Passport, CPR, License
+│   │   └── address/     ← License (has address), utility bill
+│   ├── output/{customer_id}/
+│   │   ├── identity/    ← BDA extraction results (JSON)
+│   │   └── address/     ← BDA extraction results (JSON)
+│   ├── quarantine/      ← Invalid files
+│   └── error/           ← Processing failures
 ```
 
-## AWS Services
-
-| Service | Region | Purpose |
-|---------|--------|---------|
-| S3 | me-south-1 | Document storage (data residency) |
-| Bedrock Data Automation | eu-west-1* | Document classification + extraction |
-| DynamoDB | me-south-1 | Intermediary KYC state |
-| Lambda (5 functions) | eu-west-1 | Processing pipeline |
-| API Gateway | eu-west-1 | Presigned URL endpoint |
-| Aurora | me-south-1 | Core Banking (sync target) |
-
-*BDA availability in eu-west-1 needs verification. Fallback: us-west-2 with cross-region S3 access.
-
-## Status: NEXT TO BUILD
+## Status: 🚧 IN PROGRESS — Phase 1 Infrastructure
