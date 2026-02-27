@@ -1,6 +1,6 @@
 """
 Alma Banking Assistant — AgentCore Runtime
-Authenticated customer agent with Text-to-SQL and row-level security.
+Authenticated customer agent with Text-to-SQL, row-level security, and KYC tools.
 """
 import os, json, logging, re
 import boto3
@@ -18,10 +18,14 @@ DB_NAME = os.environ.get("DB_NAME", "corebanking")
 DB_REGION = os.environ.get("DB_REGION", "me-south-1")
 REGION = os.environ.get("AWS_REGION", "eu-west-1")
 MODEL_ID = os.environ.get("MODEL_ID", "eu.anthropic.claude-sonnet-4-20250514-v1:0")
+KYC_TABLE = os.environ.get("KYC_TABLE", "aibank-customer-kyc")
+KYC_PRESIGNED_URL_LAMBDA = os.environ.get("KYC_PRESIGNED_URL_LAMBDA", "aibank-kyc-presigned-url")
 
 rds = boto3.client("rds-data", region_name=DB_REGION)
+dynamodb = boto3.resource("dynamodb", region_name=DB_REGION)
+lambda_client = boto3.client("lambda", region_name=REGION)
 
-SYSTEM_PROMPT = """You are Alma Banking Assistant for AI Bank. You help authenticated customers query their banking data.
+SYSTEM_PROMPT = """You are Alma Banking Assistant for AI Bank. You help authenticated customers query their banking data and manage KYC verification.
 
 ## CRITICAL RULES
 1. Row-level security is enforced automatically — the tool scopes all tables to the authenticated customer
@@ -55,6 +59,20 @@ Salary/income: SELECT t.amount, t.transaction_date, t.description FROM transacti
 Day-of-week: SELECT DAYNAME(t.transaction_date) as day_name, COUNT(*) as txns, SUM(t.amount) as total FROM transactions t WHERE t.transaction_type = 'debit' GROUP BY day_name ORDER BY total DESC;
 
 IMPORTANT: Always use merchant_categories JOIN for category filtering, never LIKE on merchant_name for categories.
+
+## KYC VERIFICATION
+When a customer asks about identity verification, KYC, or document upload:
+1. Use check_kyc_status FIRST to see their current status
+2. If not started or needs more documents, use generate_kyc_upload_url to get upload URLs
+3. Guide them through: they need 2 identity documents (passport, CPR, or license) + 1 address document
+
+KYC statuses: PENDING (not started), PROCESSING (documents being analyzed), VERIFIED (complete), REJECTED (mismatch found)
+
+Document types:
+- "identity": passport, national ID (CPR), driving license
+- "address": driving license (has address), utility bill
+
+When providing upload URLs, tell the customer to upload the file using the URL within 1 hour. The system will automatically extract and verify their information.
 
 ## RESPONSE STYLE
 - Friendly, professional, concise
@@ -147,6 +165,86 @@ def query_customer_data(sql_query: str, customer_id: str) -> str:
         return f"Query error: {str(e)}"
 
 
+@tool
+def generate_kyc_upload_url(customer_id: str, document_type: str, file_name: str, file_size: int) -> str:
+    """Generate a presigned URL for the customer to upload a KYC document.
+
+    Args:
+        customer_id: The authenticated customer's ID (e.g. CUST00000001).
+        document_type: Either "identity" (passport, CPR, license) or "address" (license, utility bill).
+        file_name: Original filename with extension (e.g. "passport.jpg"). Allowed: pdf, jpg, jpeg, png.
+        file_size: File size in bytes. Maximum 10MB (10485760 bytes).
+
+    Returns:
+        JSON with uploadUrl, key, and fileId — or an error message.
+    """
+    try:
+        resp = lambda_client.invoke(
+            FunctionName=KYC_PRESIGNED_URL_LAMBDA,
+            Payload=json.dumps({
+                "body": json.dumps({
+                    "customer_id": customer_id,
+                    "documentType": document_type,
+                    "fileName": file_name,
+                    "fileSize": file_size,
+                }),
+            }),
+        )
+        result = json.loads(resp["Payload"].read())
+        body = json.loads(result.get("body", "{}"))
+        if result.get("statusCode") != 200:
+            return f"Error: {body.get('error', 'Unknown error')}"
+        return json.dumps({
+            "uploadUrl": body["uploadUrl"],
+            "key": body["key"],
+            "documentType": body["documentType"],
+            "fileId": body["fileId"],
+            "expiresIn": body["expiresIn"],
+        })
+    except Exception as e:
+        logger.error(f"KYC upload URL error: {e}")
+        return f"Error generating upload URL: {str(e)}"
+
+
+@tool
+def check_kyc_status(customer_id: str) -> str:
+    """Check the current KYC verification status for a customer.
+
+    Args:
+        customer_id: The authenticated customer's ID (e.g. CUST00000001).
+
+    Returns:
+        KYC status details including documents collected, verification status, and any extracted info.
+    """
+    try:
+        table = dynamodb.Table(KYC_TABLE)
+        resp = table.get_item(Key={"customer_id": customer_id})
+        item = resp.get("Item")
+
+        if not item:
+            return json.dumps({
+                "status": "NOT_STARTED",
+                "message": "No KYC documents submitted yet.",
+                "identity_docs_needed": 2,
+                "address_docs_needed": 1,
+            }, default=str)
+
+        return json.dumps({
+            "status": item.get("kyc_status", "PENDING"),
+            "identity_docs_collected": int(item.get("total_id_collected_no", 0)),
+            "identity_docs_verified": int(item.get("total_id_verified_no", 0)),
+            "address_docs_collected": int(item.get("total_address_collected_no", 0)),
+            "address_docs_verified": int(item.get("total_address_verified_no", 0)),
+            "full_name": item.get("full_name", ""),
+            "nationality": item.get("nationality", ""),
+            "verification_details": item.get("verification_details"),
+            "last_updated": item.get("last_updated", ""),
+        }, default=str)
+    except Exception as e:
+        logger.error(f"KYC status check error: {e}")
+        return f"Error checking KYC status: {str(e)}"
+
+
 # ── AgentCore App ──
 app = BedrockAgentCoreApp()
 
@@ -162,7 +260,7 @@ def invoke(payload):
     name_ctx = f", name: {customer_first_name}" if customer_first_name else ""
     prompt = f"[Customer ID: {customer_id}{name_ctx}] {user_message}"
     model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
-    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data])
+    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status])
     result = agent(prompt)
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
     return {"answer": answer, "customer_id": customer_id}
