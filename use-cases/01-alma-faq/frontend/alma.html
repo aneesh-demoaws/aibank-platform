@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Alma — AI Banking Assistant</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles/design-system.css">
   <link rel="preload" href="/assets/3d/characters/adult_female/cristine/cristine.gltf" as="fetch" crossorigin>
   <link rel="preload" href="/assets/3d/host.three.js" as="script">
   <script src="https://cdn.jsdelivr.net/npm/three@0.127.0/build/three.min.js"></script>
@@ -36,6 +35,10 @@
     .messages { flex: 1; overflow-y: auto; padding: var(--nb-space-lg) var(--nb-space-xl); display: flex; flex-direction: column; gap: var(--nb-space-md); }
     .msg { max-width: 75%; padding: 12px 16px; border-radius: 16px; font-size: 0.9rem; line-height: 1.6; word-wrap: break-word; }
     .msg.bot { align-self: flex-start; background: white; border: 1px solid var(--nb-border); border-bottom-left-radius: 4px; }
+    .msg.bot strong { color: #1a365d; }
+    .msg.bot ul { list-style: disc; }
+    .msg.bot li { margin: 2px 0; }
+    .msg.bot a { color: var(--nb-accent); text-decoration: underline; }
     .msg.user { align-self: flex-end; background: var(--nb-accent); color: white; border-bottom-right-radius: 4px; }
 
     .input-bar {
@@ -76,11 +79,6 @@
       padding: var(--nb-space-md); background: rgba(255,255,255,0.8); border-radius: 12px;
       border: 1px solid var(--nb-border); text-align: left;
     }
-    .voice-transcript .v-msg { padding: 6px 0; border-bottom: 1px solid var(--nb-border); font-size: 0.85rem; }
-    .voice-transcript .v-msg:last-child { border-bottom: none; }
-    .voice-transcript .v-msg.user { color: #22c55e; }
-    .voice-transcript .v-msg.assistant { color: var(--nb-accent); }
-
     .hidden { display: none !important; }
 
     @media (max-width: 768px) {
@@ -88,6 +86,9 @@
       body.voice-active .voice-area { height: 100vh; }
     }
   </style>
+  <script type="module" crossorigin src="/assets/alma-CzVhnP_H.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
 </head>
 <body>
 
@@ -133,17 +134,29 @@
   </div>
 
   <script>
-    const ALMA_API = 'https://nowkq8lqy5.execute-api.eu-west-1.amazonaws.com';
+    const ALMA_CHAT = '/chat';
     const ALMA_WS = 'wss://aibank-alb.demoaws.com/voice';
 
-    // ── TEXT CHAT ──
     const messagesEl = document.getElementById('messages');
     let chatSessionId = null;
+
+    // Markdown renderer: bold, italic, links, bullet/numbered lists
+    function md(t) {
+      return t
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g,'<em>$1</em>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+        .replace(/^(\d+)\.\s+(.*)$/gm,'<li>$2</li>')
+        .replace(/^[-•]\s+(.*)$/gm,'<li>$1</li>')
+        .replace(/((?:<li>.*<\/li>\n?)+)/g,'<ul style="margin:6px 0 6px 18px;padding:0">$1</ul>')
+        .replace(/\n/g,'<br>');
+    }
 
     function addMessage(role, text) {
       const div = document.createElement('div');
       div.className = `msg ${role}`;
-      div.textContent = text;
+      if (role === 'bot') { div.innerHTML = md(text); } else { div.textContent = text; }
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
@@ -165,159 +178,47 @@
       try {
         const payload = { message: msg };
         if (chatSessionId) payload.session_id = chatSessionId;
-        const resp = await fetch(`${ALMA_API}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const data = await resp.json();
-        if (data.session_id) chatSessionId = data.session_id;
-        const answer = (data.answer || '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
-        let i = 0;
-        const type = () => { if (i < answer.length) { botDiv.textContent = answer.slice(0, ++i); messagesEl.scrollTop = messagesEl.scrollHeight; requestAnimationFrame(type); } };
-        type();
+        const bodyStr = JSON.stringify(payload);
+        // CloudFront OAC requires SHA-256 of POST body
+        const bodyBytes = new TextEncoder().encode(bodyStr);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', bodyBytes);
+        const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const resp = await fetch(ALMA_CHAT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-amz-content-sha256': hashHex },
+          body: bodyStr
+        });
+
+        // True progressive SSE streaming
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+        let sseBuffer = '';
+        botDiv.innerHTML = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            try {
+              const evt = JSON.parse(line.slice(6));
+              if (evt.token) {
+                fullText += evt.token;
+                botDiv.innerHTML = md(fullText);
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+              }
+              if (evt.session_id) chatSessionId = evt.session_id;
+            } catch(e) {}
+          }
+        }
+        if (!fullText) botDiv.textContent = "I couldn't get a response. Please try again.";
       } catch (e) { botDiv.textContent = "I'm having trouble connecting right now. Please try again."; }
       isSending = false;
     }
-  </script>
-  <script type="module">
-    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/loaders/GLTFLoader.js';
-
-    const ASSET_BASE = '/assets/3d';
-    const WS_URL = 'wss://aibank-alb.demoaws.com/voice';
-    const renderFn = [];
-    let host, scene, camera, clock, renderer;
-    let ws, audioCtx, mediaStream, isRecording = false;
-    let playbackCtx, nextPlayTime = 0;
-    const pendingBuffers = [];
-    let isAssistantSpeaking = false;
-    let analyser, analyserData;
-
-    const visemeMap = ['sil','a','o','e','i','u','f','k','s','T','t','S','r','p','E','O','@'];
-    let visemeFrame;
-    const prevWeights = {}; visemeMap.forEach(v => prevWeights[v] = 0);
-    const speakingGestures = ['generic_a','generic_b','generic_c','big','one','many','self','you','in','movement'];
-    let gestureTimer = null;
-
-    let avatarLoaded = false;
-    window.switchMode = async function(mode) {
-      document.body.classList.toggle('voice-active', mode === 'voice');
-      document.getElementById('textMode').classList.toggle('hidden', mode !== 'text');
-      document.getElementById('voiceMode').classList.toggle('hidden', mode !== 'voice');
-      document.getElementById('textModeBtn').classList.toggle('active', mode === 'text');
-      document.getElementById('voiceModeBtn').classList.toggle('active', mode === 'voice');
-      if (mode === 'voice' && !avatarLoaded) {
-        avatarLoaded = true;
-        await init3D();
-      }
-    };
-
-    async function init3D() {
-      const container = document.getElementById('voiceMode');
-      scene = new THREE.Scene(); clock = new THREE.Clock();
-      scene.background = new THREE.Color(0x0A1628);
-      scene.fog = new THREE.Fog(0x0A1628, 0, 12);
-      renderer = new THREE.WebGLRenderer({ antialias: true, canvas: document.getElementById('renderCanvas') });
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.outputEncoding = THREE.sRGBEncoding;
-      renderer.shadowMap.enabled = true;
-      const pmremGen = new THREE.PMREMGenerator(renderer);
-      pmremGen.compileEquirectangularShader();
-      camera = new THREE.PerspectiveCamera(THREE.MathUtils.radToDeg(0.8), container.clientWidth/container.clientHeight, 0.1, 1000);
-      const controls = new OrbitControls(camera, renderer.domElement);
-      camera.position.set(0, 1.4, 3.1);
-      controls.target = new THREE.Vector3(0, 0.8, 0);
-      controls.screenSpacePanning = true; controls.update();
-      window.addEventListener('resize', () => { camera.aspect = container.clientWidth/container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); });
-      const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 0.6); hemi.position.set(0,1,0); scene.add(hemi);
-      const dir = new THREE.DirectionalLight(0xffffff); dir.position.set(0,5,5); dir.castShadow = true; dir.shadow.mapSize.set(1024,1024); scene.add(dir);
-      const dirTarget = new THREE.Object3D(); dir.add(dirTarget); dirTarget.position.set(0,-0.5,-1.0); dir.target = dirTarget;
-      const ground = new THREE.Mesh(new THREE.PlaneBufferGeometry(100,100), new THREE.MeshStandardMaterial({color:0x0A1628,depthWrite:false,metalness:0}));
-      ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
-
-      const gltfLoader = new GLTFLoader();
-      const animPath = `${ASSET_BASE}/animations/adult_female`;
-      const animFiles = ['stand_idle.glb','lipsync.glb','gesture.glb','emote.glb','face_idle.glb','blink.glb','poi.glb'];
-      const loadText = document.getElementById('loadText');
-      let loaded = 0; const total = 1 + animFiles.length + 2;
-      function track() { loaded++; if(loadText) loadText.textContent = `Loading... ${Math.round(loaded/total*100)}%`; }
-      function loadAsset(path) { return new Promise(resolve => gltfLoader.load(path, r => { track(); resolve(r); })); }
-
-      const [charGltf, ...animResults] = await Promise.all([
-        loadAsset(`${ASSET_BASE}/characters/adult_female/cristine/cristine.gltf`),
-        ...animFiles.map(f => loadAsset(`${animPath}/${f}`))
-      ]);
-      const [gestureConfig, poiConfig] = await Promise.all([
-        fetch(`${animPath}/gesture.json`).then(r=>r.json()).then(r=>{track();return r}),
-        fetch(`${animPath}/poi.json`).then(r=>r.json()).then(r=>{track();return r})
-      ]);
-
-      const character = charGltf.scene; scene.add(character);
-      const [bindPoseOffset] = charGltf.animations;
-      if(bindPoseOffset) THREE.AnimationUtils.makeClipAdditive(bindPoseOffset);
-      character.traverse(o => { if(o.isMesh) o.castShadow = true; });
-      const clips = animResults.map(g => g.animations);
-      const audioAttachJoint = character.getObjectByName('chardef_c_neckB');
-      const lookJoint = character.getObjectByName('charjx_c_look');
-      const [idleClips,lipsyncClips,gestureClips,emoteClips,faceClips,blinkClips,poiClips] = clips;
-      host = createHost(character,audioAttachJoint,idleClips[0],faceClips[0],lipsyncClips,gestureClips,gestureConfig,emoteClips,blinkClips,poiClips,poiConfig,lookJoint,bindPoseOffset);
-
-      (function render(){requestAnimationFrame(render);controls.update();renderFn.forEach(fn=>fn());renderer.render(scene,camera)})();
-      document.getElementById('loadScreen').style.display = 'none';
-      new THREE.TextureLoader().setPath(`${ASSET_BASE}/`).load('images/machine_shop.jpg', tex => { const c=pmremGen.fromEquirectangular(tex);tex.dispose();pmremGen.dispose();scene.environment=c.texture; });
-    }
-
-    function createHost(character,audioAttachJoint,idleClip,faceIdleClip,lipsyncClips,gestureClips,gestureConfig,emoteClips,blinkClips,poiClips,poiConfig,lookJoint,bindPoseOffset){
-      const h=new HOST.HostObject({owner:character,clock});renderFn.push(()=>h.update());h.addFeature(HOST.anim.AnimationFeature);
-      h.AnimationFeature.addLayer('Base');h.AnimationFeature.addAnimation('Base',idleClip.name,HOST.anim.AnimationTypes.single,{clip:idleClip});h.AnimationFeature.playAnimation('Base',idleClip.name);
-      h.AnimationFeature.addLayer('Face',{blendMode:HOST.anim.LayerBlendModes.Additive});THREE.AnimationUtils.makeClipAdditive(faceIdleClip);h.AnimationFeature.addAnimation('Face',faceIdleClip.name,HOST.anim.AnimationTypes.single,{clip:THREE.AnimationUtils.subclip(faceIdleClip,faceIdleClip.name,1,faceIdleClip.duration*30,30)});h.AnimationFeature.playAnimation('Face',faceIdleClip.name);
-      h.AnimationFeature.addLayer('Blink',{blendMode:HOST.anim.LayerBlendModes.Additive,transitionTime:0.075});blinkClips.forEach(c=>THREE.AnimationUtils.makeClipAdditive(c));h.AnimationFeature.addAnimation('Blink','blink',HOST.anim.AnimationTypes.randomAnimation,{playInterval:3,subStateOptions:blinkClips.map(c=>({name:c.name,loopCount:1,clip:c}))});h.AnimationFeature.playAnimation('Blink','blink');
-      h.AnimationFeature.addLayer('Talk',{transitionTime:0.75,blendMode:HOST.anim.LayerBlendModes.Additive});h.AnimationFeature.setLayerWeight('Talk',0);const talkClip=lipsyncClips.find(c=>c.name==='stand_talk');lipsyncClips.splice(lipsyncClips.indexOf(talkClip),1);h.AnimationFeature.addAnimation('Talk',talkClip.name,HOST.anim.AnimationTypes.single,{clip:THREE.AnimationUtils.makeClipAdditive(talkClip)});h.AnimationFeature.playAnimation('Talk',talkClip.name);
-      h.AnimationFeature.addLayer('Viseme',{transitionTime:0.12,blendMode:HOST.anim.LayerBlendModes.Additive});h.AnimationFeature.setLayerWeight('Viseme',0);const bso=lipsyncClips.map(c=>{THREE.AnimationUtils.makeClipAdditive(c);return{name:c.name,clip:THREE.AnimationUtils.subclip(c,c.name,1,2,30),weight:0}});h.AnimationFeature.addAnimation('Viseme','visemes',HOST.anim.AnimationTypes.freeBlend,{blendStateOptions:bso});h.AnimationFeature.playAnimation('Viseme','visemes');
-      h.AnimationFeature.addLayer('Gesture',{transitionTime:0.5,blendMode:HOST.anim.LayerBlendModes.Additive});gestureClips.forEach(clip=>{const cfg=gestureConfig[clip.name];THREE.AnimationUtils.makeClipAdditive(clip);if(cfg){cfg.queueOptions.forEach(opt=>{opt.clip=THREE.AnimationUtils.subclip(clip,`${clip.name}_${opt.name}`,opt.from,opt.to,30)});h.AnimationFeature.addAnimation('Gesture',clip.name,HOST.anim.AnimationTypes.queue,cfg)}else{h.AnimationFeature.addAnimation('Gesture',clip.name,HOST.anim.AnimationTypes.single,{clip})}});
-      poiConfig.forEach(cfg=>{h.AnimationFeature.addLayer(cfg.name,{blendMode:HOST.anim.LayerBlendModes.Additive});cfg.blendStateOptions.forEach(cc=>{const clip=poiClips.find(c=>c.name===cc.clip);THREE.AnimationUtils.makeClipAdditive(clip);cc.clip=THREE.AnimationUtils.subclip(clip,clip.name,1,2,30)});h.AnimationFeature.addAnimation(cfg.name,cfg.animation,HOST.anim.AnimationTypes.blend2d,{...cfg});h.AnimationFeature.playAnimation(cfg.name,cfg.animation);cfg.reference=character.getObjectByName(cfg.reference.replace(':',''))});
-      if(bindPoseOffset){h.AnimationFeature.addLayer('BindPoseOffset',{blendMode:HOST.anim.LayerBlendModes.Additive});h.AnimationFeature.addAnimation('BindPoseOffset',bindPoseOffset.name,HOST.anim.AnimationTypes.single,{clip:THREE.AnimationUtils.subclip(bindPoseOffset,bindPoseOffset.name,1,2,30)});h.AnimationFeature.playAnimation('BindPoseOffset',bindPoseOffset.name)}
-      h.addFeature(HOST.PointOfInterestFeature,false,{target:camera,lookTracker:lookJoint,scene},{layers:poiConfig},{layers:[{name:'Blink'}]});
-      h.AnimationFeature.addLayer('Emote',{transitionTime:0.5});emoteClips.forEach(clip=>{h.AnimationFeature.addAnimation('Emote',clip.name,HOST.anim.AnimationTypes.single,{clip,loopCount:1})});
-      h.addFeature(HOST.GestureFeature,false,{layers:{Gesture:{minimumInterval:3},Emote:{blendTime:0.5,easingFn:HOST.anim.Easing.Quadratic.InOut}}});
-      return h;
-    }
-
-    // Viseme animation
-    function triggerGesture(){if(!host||!isAssistantSpeaking)return;try{host.GestureFeature.playGesture('Gesture',speakingGestures[Math.floor(Math.random()*speakingGestures.length)])}catch(e){}gestureTimer=setTimeout(triggerGesture,3000+Math.random()*4000)}
-    function startViseme(){if(!host||!analyser)return;host.AnimationFeature.setLayerWeight('Viseme',1);host.AnimationFeature.setLayerWeight('Talk',1);if(!gestureTimer)gestureTimer=setTimeout(triggerGesture,1000+Math.random()*1000);animateVisemes()}
-    function stopViseme(){if(visemeFrame){cancelAnimationFrame(visemeFrame);visemeFrame=null}if(gestureTimer){clearTimeout(gestureTimer);gestureTimer=null}if(host){try{visemeMap.forEach(v=>{prevWeights[v]=0;host.AnimationFeature.setAnimationBlendWeight('Viseme','visemes',v,0,0.1)})}catch(e){}host.AnimationFeature.setLayerWeight('Viseme',0);host.AnimationFeature.setLayerWeight('Talk',0)}}
-    function animateVisemes(){if(!analyser||!isAssistantSpeaking){stopViseme();return}analyser.getByteTimeDomainData(analyserData);let rms=0;for(let i=0;i<analyserData.length;i++){const v=(analyserData[i]-128)/128;rms+=v*v}rms=Math.sqrt(rms/analyserData.length);const amp=Math.min(rms*5,1);const fd=new Uint8Array(analyser.frequencyBinCount);analyser.getByteFrequencyData(fd);const lo=Math.min((fd[2]+fd[3]+fd[4])/360,1),mi=Math.min((fd[6]+fd[8]+fd[10])/420,1),hi=Math.min((fd[14]+fd[18]+fd[22])/480,1);const tgt={};visemeMap.forEach(v=>tgt[v]=0);const t=performance.now()/150,c1=Math.sin(t)*.5+.5,c2=Math.cos(t*1.3)*.5+.5,c3=Math.sin(t*.7+1)*.5+.5;if(amp>.02){const a=amp*2;tgt.a=a*(.5+c1*.5);tgt.o=a*(.3+c2*.4)*lo;tgt.O=a*.3*(1-c1);tgt.e=a*c2*.6*mi;tgt.E=a*(1-c2)*.5;tgt.i=a*c1*.4*mi;tgt.u=a*(1-c1)*.3;tgt['@']=a*.4*c3;tgt.f=hi*1.2;tgt.s=hi*c1;tgt.S=hi*.6*c3;tgt.T=hi*.8*(1-c1);tgt.k=a*.3*(amp>.3?1:0);tgt.p=amp>.25?c2:0;tgt.r=mi*.8*c1;tgt.t=mi*.6*c3}else{tgt.sil=1}try{visemeMap.forEach(v=>{const w=prevWeights[v]+(tgt[v]-prevWeights[v])*.4;prevWeights[v]=w;host.AnimationFeature.setAnimationBlendWeight('Viseme','visemes',v,w,0)})}catch(e){}visemeFrame=requestAnimationFrame(animateVisemes)}
-
-    // Audio helpers
-    function setupAnalyser(){if(!playbackCtx||analyser)return;analyser=playbackCtx.createAnalyser();analyser.fftSize=128;analyserData=new Uint8Array(analyser.frequencyBinCount)}
-    function ab2b64(buf){const b=new Uint8Array(buf);let s='';for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s)}
-    function b642i16(b64){const s=atob(b64);const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return new Int16Array(b.buffer)}
-    function scheduleAudio(b64){if(!playbackCtx)return;setupAnalyser();const i16=b642i16(b64);const f32=new Float32Array(i16.length);for(let i=0;i<i16.length;i++)f32[i]=i16[i]/32768;const buf=playbackCtx.createBuffer(1,f32.length,16000);buf.copyToChannel(f32,0);const src=playbackCtx.createBufferSource();src.buffer=buf;src.connect(analyser);analyser.connect(playbackCtx.destination);const now=playbackCtx.currentTime;if(nextPlayTime<now)nextPlayTime=now;src.start(nextPlayTime);pendingBuffers.push(src);nextPlayTime+=buf.duration;src.onended=()=>{const idx=pendingBuffers.indexOf(src);if(idx>-1)pendingBuffers.splice(idx,1)}}
-    function clearAudio(){pendingBuffers.forEach(s=>{try{s.stop()}catch(e){}});pendingBuffers.length=0;if(playbackCtx)nextPlayTime=playbackCtx.currentTime}
-
-    // Transcript
-    let curPreview=null;
-    function updateTranscript(role,text,isFinal){const div=document.getElementById('voiceTranscript');if(!isFinal){if(!curPreview||curPreview.dataset.role!==role){curPreview=document.createElement('div');curPreview.style.cssText='padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:0.85rem;opacity:0.6;color:'+(role==='user'?'#4ade80':'#60a5fa');curPreview.dataset.role=role;div.appendChild(curPreview)}curPreview.textContent=(role==='user'?'👤 ':'🤖 ')+text+'...'}else{if(curPreview&&curPreview.dataset.role===role){curPreview.style.opacity='1';curPreview.textContent=(role==='user'?'👤 ':'🤖 ')+text;curPreview=null}else{const p=document.createElement('div');p.style.cssText='padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:0.85rem;color:'+(role==='user'?'#4ade80':'#60a5fa');p.textContent=(role==='user'?'👤 ':'🤖 ')+text;div.appendChild(p)}}div.scrollTop=div.scrollHeight}
-    function addSystemMessage(text){const div=document.getElementById('voiceTranscript');const p=document.createElement('div');p.style.cssText='padding:3px 0;font-size:0.8rem;color:#fbbf24;opacity:0.8;text-align:center';p.textContent=text;div.appendChild(p);div.scrollTop=div.scrollHeight}
-
-    // Voice WebSocket
-    function setStatus(s){document.getElementById('voiceStatus').textContent=s}
-    function updateMic(){const b=document.getElementById('micBtn');b.classList.toggle('recording',isRecording);b.textContent=isRecording?'🎙️':'🎤'}
-
-    async function startVoice(){
-      setStatus('Connecting...');
-      try{
-        mediaStream=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-        await new Promise((res,rej)=>{ws=new WebSocket(WS_URL);ws.onopen=res;ws.onerror=()=>rej(new Error('Connection failed'))});
-        audioCtx=new AudioContext();playbackCtx=new AudioContext({sampleRate:16000});if(audioCtx.state==='suspended')await audioCtx.resume();if(playbackCtx.state==='suspended')await playbackCtx.resume();nextPlayTime=playbackCtx.currentTime;analyser=null;
-        const source=audioCtx.createMediaStreamSource(mediaStream);const proc=audioCtx.createScriptProcessor(2048,1,1);
-        proc.onaudioprocess=e=>{if(ws?.readyState===WebSocket.OPEN){const pcm=e.inputBuffer.getChannelData(0);const srcRate=audioCtx.sampleRate;const tgtRate=16000;const ratio=srcRate/tgtRate;const outLen=Math.floor(pcm.length/ratio);const i16=new Int16Array(outLen);for(let i=0;i<outLen;i++){const idx=i*ratio;const lo=Math.floor(idx);const hi=Math.min(lo+1,pcm.length-1);const frac=idx-lo;const s=pcm[lo]+(pcm[hi]-pcm[lo])*frac;i16[i]=Math.max(-32768,Math.min(32767,s*32768))}ws.send(JSON.stringify({type:'audio',data:ab2b64(i16.buffer)}))}};
-        source.connect(proc);proc.connect(audioCtx.destination);isRecording=true;updateMic();setStatus('🎙️ Listening... speak anytime');
-        ws.onmessage=e=>{const msg=JSON.parse(e.data);if(msg.type==='audio'){scheduleAudio(msg.data);if(!isAssistantSpeaking){isAssistantSpeaking=true;updateMic();startViseme();setStatus('🔊 Alma is speaking... (interrupt anytime)')}}else if(msg.type==='transcript'){updateTranscript(msg.role,msg.text,msg.is_final)}else if(msg.type==='interruption'){clearAudio();isAssistantSpeaking=false;updateMic();stopViseme();setStatus('🎙️ Listening...');addSystemMessage('⚡ Interrupted')}else if(msg.type==='response_end'){isAssistantSpeaking=false;updateMic();stopViseme();setStatus('🎙️ Listening... speak anytime')}else if(msg.type==='error'){setStatus('❌ '+msg.message)}};
-        ws.onclose=()=>{stopVoice();setStatus('Disconnected — click to reconnect')};ws.onerror=()=>{stopVoice();setStatus('Connection error')};
-      }catch(err){setStatus('Error: '+err.message)}
-    }
-    function stopVoice(){if(ws?.readyState===WebSocket.OPEN){ws.send(JSON.stringify({type:'stop'}));ws.close()}if(mediaStream)mediaStream.getTracks().forEach(t=>t.stop());if(audioCtx)audioCtx.close().catch(()=>{});if(playbackCtx)playbackCtx.close().catch(()=>{});clearAudio();stopViseme();isRecording=false;isAssistantSpeaking=false;analyser=null;updateMic();setStatus('Click the microphone to start talking')}
-    window.toggleVoice=function(){isRecording?stopVoice():startVoice()};
   </script>
 </body>
 </html>
