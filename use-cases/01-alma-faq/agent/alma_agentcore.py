@@ -1,7 +1,6 @@
 import os
 import boto3
 import json
-import re
 import uuid
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 from strands import Agent, tool
@@ -17,8 +16,11 @@ RULES:
 1. ALWAYS use search_bank_info tool FIRST for any bank-related question
 2. Answer ONLY based on search results — never make up products, rates, or policies
 3. If no results found, say "I don't have that specific information. Would you like me to connect you with our team?"
-4. Keep responses concise: 2-4 sentences
+4. Keep responses concise: 2-4 sentences max
 5. Be warm and professional like a premium bank concierge
+6. NEVER narrate your own actions (do NOT say "I'll search for that", "Let me look that up", "I'll start the onboarding process", etc.)
+7. When the start_onboarding tool returns a result starting with [RELAY_VERBATIM], output ONLY the text after [RELAY_VERBATIM] — no additions, no intro, no wrap-up, no changes whatsoever
+8. Format responses using markdown: **bold** for key values (rates, amounts, fees), bullet lists for multiple items
 
 ACCOUNT OPENING:
 - When a customer wants to OPEN or CREATE a new bank account, use the start_onboarding tool
@@ -29,14 +31,17 @@ GENERAL KNOWLEDGE:
 - You may answer general greetings without the search tool
 - For anything about AI Bank — ALWAYS search first"""
 
+# --- Singleton clients (reused across invocations for performance) ---
+_kb_client = boto3.client("bedrock-agent-runtime", region_name=REGION)
+_agentcore_client = boto3.client("bedrock-agentcore", region_name=REGION)
+
 @tool
 def search_bank_info(query: str) -> str:
     """Search the bank's knowledge base for product and service information."""
-    client = boto3.client("bedrock-agent-runtime", region_name=REGION)
-    response = client.retrieve(
+    response = _kb_client.retrieve(
         knowledgeBaseId=KB_ID,
         retrievalQuery={"text": query},
-        retrievalConfiguration={"vectorSearchConfiguration": {"numberOfResults": 5}}
+        retrievalConfiguration={"vectorSearchConfiguration": {"numberOfResults": 3}}
     )
     results = []
     for r in response.get("retrievalResults", []):
@@ -54,8 +59,7 @@ def start_onboarding(customer_message: str) -> str:
     import logging
     logger = logging.getLogger(__name__)
     try:
-        client = boto3.client("bedrock-agentcore", region_name=REGION)
-        # A2A JSON-RPC payload
+        onboarding_session_id = str(uuid.uuid4())
         payload = json.dumps({
             "jsonrpc": "2.0",
             "id": uuid.uuid4().hex,
@@ -68,24 +72,22 @@ def start_onboarding(customer_message: str) -> str:
                 }
             }
         })
-        logger.info(f"Calling onboarding A2A: {ONBOARDING_ARN}")
-        response = client.invoke_agent_runtime(
+        response = _agentcore_client.invoke_agent_runtime(
             agentRuntimeArn=ONBOARDING_ARN,
-            runtimeSessionId=str(uuid.uuid4()),
+            runtimeSessionId=onboarding_session_id,
             payload=payload,
             qualifier="DEFAULT"
         )
         stream = response.get("response") or response.get("body")
         raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
-        logger.info(f"A2A response: {raw[:500]}")
         try:
             parsed = json.loads(raw)
-            result = parsed.get("result", {})
-            artifacts = result.get("artifacts", [])
-            for artifact in artifacts:
+            for artifact in parsed.get("result", {}).get("artifacts", []):
                 for part in artifact.get("parts", []):
                     if part.get("kind") == "text":
-                        return part["text"]
+                        # Emit session ID as a non-visible prefix Lambda strips before streaming.
+                        # \x00SID:<uuid>\x00 — null bytes prevent model from reproducing it.
+                        return f"\x00SID:{onboarding_session_id}\x00[RELAY_VERBATIM]{part['text']}"
             return raw
         except json.JSONDecodeError:
             return raw
@@ -93,16 +95,38 @@ def start_onboarding(customer_message: str) -> str:
         logger.error(f"start_onboarding error: {e}", exc_info=True)
         return f"Error connecting to onboarding service: {str(e)}"
 
+# --- Singleton model + per-session agents for conversation memory ---
+# Nova 2 Lite: fast, high quality, supports prompt caching (cache_prompt)
+_model = BedrockModel(
+    model_id="eu.amazon.nova-2-lite-v1:0",
+    region_name=REGION,
+    temperature=0.3,
+    max_tokens=512,
+    cache_prompt="default",   # Cache system prompt prefix — reduces latency on repeated calls
+)
+_sessions = {}       # session_id -> Agent (Strands native conversation memory)
+_MAX_SESSIONS = 200  # LRU eviction to prevent unbounded memory growth
+
 app = BedrockAgentCoreApp()
 
 @app.entrypoint
-def invoke(payload):
+async def invoke(payload):
     user_message = payload.get("prompt", "Hello")
-    model = BedrockModel(model_id="eu.amazon.nova-lite-v1:0", region_name=REGION)
-    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[search_bank_info, start_onboarding])
-    result = agent(user_message)
-    answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
-    return {"answer": answer}
+    session_id = payload.get("session_id", "default")
+
+    # Reuse agent per session — Strands keeps conversation history in agent.messages
+    if session_id not in _sessions:
+        if len(_sessions) >= _MAX_SESSIONS:
+            oldest = next(iter(_sessions))
+            del _sessions[oldest]
+        _sessions[session_id] = Agent(model=_model, system_prompt=SYSTEM_PROMPT, tools=[search_bank_info, start_onboarding])
+
+    agent = _sessions[session_id]
+
+    stream = agent.stream_async(user_message)
+    async for event in stream:
+        if "data" in event:
+            yield {"data": event["data"]}
 
 if __name__ == "__main__":
     app.run()
