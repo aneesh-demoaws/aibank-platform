@@ -70,15 +70,78 @@
     .txn-amount.debit { color: var(--nb-danger); }
     .txn-amount.credit { color: var(--nb-success); }
 
-    .alma-cta {
-      background: linear-gradient(135deg, var(--nb-primary) 0%, #0f2a1e 100%);
-      border-radius: var(--nb-radius); padding: var(--nb-space-xl); color: white; text-align: center;
+    /* Alma FAB */
+    .alma-fab {
+      position: fixed; bottom: 28px; right: 28px; z-index: 200;
+      width: 60px; height: 60px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--nb-accent) 0%, #00b894 100%);
+      color: var(--nb-primary); border: none; cursor: pointer; font-size: 1.5rem;
+      box-shadow: 0 4px 20px var(--nb-accent-glow), 0 2px 8px rgba(0,0,0,0.2);
+      transition: all 0.25s; display: flex; align-items: center; justify-content: center;
+      animation: pulse-glow 3s infinite;
     }
-    .alma-cta .alma-avatar { font-size: 2.5rem; margin-bottom: var(--nb-space-md); }
-    .alma-cta h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
-    .alma-cta p { font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-bottom: var(--nb-space-lg); line-height: 1.6; }
-    .alma-cta a { display: block; padding: 12px; background: var(--nb-accent); color: var(--nb-primary); border-radius: var(--nb-radius-sm); font-weight: 700; font-size: 0.85rem; text-decoration: none; }
-    .alma-cta a:hover { background: var(--nb-accent-hover); }
+    .alma-fab:hover { transform: scale(1.1); box-shadow: 0 6px 28px var(--nb-accent-glow); }
+    .alma-fab.open { animation: none; background: var(--nb-primary); color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+
+    /* Alma slide-in panel */
+    .alma-panel {
+      position: fixed; top: 0; right: -420px; width: 400px; height: 100vh; z-index: 199;
+      background: white; box-shadow: -4px 0 32px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .alma-panel.open { right: 0; }
+    .alma-panel-header {
+      background: linear-gradient(135deg, var(--nb-primary) 0%, #0f2a1e 100%);
+      padding: 16px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    }
+    .alma-panel-header .alma-dot {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--nb-accent);
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .alma-panel-header .alma-info h3 { color: white; font-size: 0.95rem; font-weight: 700; margin: 0; }
+    .alma-panel-header .alma-info span { color: rgba(255,255,255,0.55); font-size: 0.75rem; }
+    .alma-panel-header .alma-status { width: 8px; height: 8px; border-radius: 50%; background: var(--nb-accent); margin-left: auto; box-shadow: 0 0 6px var(--nb-accent); }
+
+    .alma-panel-msgs {
+      flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      background: var(--nb-bg);
+    }
+    .ap-msg { max-width: 88%; padding: 10px 14px; border-radius: 14px; font-size: 0.85rem; line-height: 1.6; word-wrap: break-word; }
+    .ap-msg.bot { align-self: flex-start; background: white; border: 1px solid var(--nb-border); border-bottom-left-radius: 4px; }
+    .ap-msg.bot strong { color: #1a365d; }
+    .ap-msg.bot a { color: var(--nb-accent); text-decoration: underline; }
+    .ap-msg.user { align-self: flex-end; background: var(--nb-primary); color: white; border-bottom-right-radius: 4px; }
+
+    .alma-panel-suggestions { display: flex; gap: 6px; padding: 8px 16px 0; flex-wrap: wrap; flex-shrink: 0; background: var(--nb-bg); }
+    .ap-suggestion {
+      padding: 5px 12px; background: white; border: 1px solid var(--nb-border); border-radius: 16px;
+      font-size: 0.75rem; cursor: pointer; color: var(--nb-text-secondary); transition: all 0.15s; white-space: nowrap;
+    }
+    .ap-suggestion:hover { border-color: var(--nb-accent); color: var(--nb-accent); }
+
+    .alma-panel-input {
+      padding: 12px 16px; border-top: 1px solid var(--nb-border); background: white;
+      display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+    }
+    .alma-panel-input input {
+      flex: 1; padding: 10px 14px; border: 1px solid var(--nb-border); border-radius: 20px;
+      font-size: 0.85rem; outline: none; font-family: inherit;
+    }
+    .alma-panel-input input:focus { border-color: var(--nb-accent); }
+    .ap-send {
+      width: 38px; height: 38px; border-radius: 50%; background: var(--nb-accent); color: var(--nb-primary);
+      border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ap-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Backdrop on mobile */
+    .alma-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 198; }
+    .alma-backdrop.open { display: block; }
+
+    @media (max-width: 480px) {
+      .alma-panel { width: 100vw; right: -100vw; }
+      .alma-panel.open { right: 0; }
+    }
 
     .card-visual {
       background: linear-gradient(135deg, #1a2d4a 0%, #0a1628 100%);
@@ -147,7 +210,7 @@
 
     <div class="nb-content">
 
-      <!-- Hero Banner (Nova Canvas AI-generated background) -->
+      <!-- Hero Banner (Nova Canvas generated) -->
       <div class="dash-hero">
         <div class="dash-hero-content">
           <h2 id="heroGreeting">Welcome back</h2>
@@ -220,12 +283,21 @@
             </div>
           </div>
 
-          <!-- Alma CTA -->
-          <div class="alma-cta">
-            <div class="alma-avatar">🤖</div>
-            <h3>Ask Alma</h3>
-            <p>Your AI banking assistant is ready to help with balances, spending insights, and more.</p>
-            <a href="/banking/alma-chat.html">Start Conversation →</a>
+          <!-- Alma panel trigger card -->
+          <div class="nb-card" style="padding:var(--nb-space-lg);background:linear-gradient(135deg,var(--nb-primary) 0%,#0f2a1e 100%);border:none;cursor:pointer" onclick="toggleAlma()">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:44px;height:44px;border-radius:50%;background:var(--nb-accent);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0">🤖</div>
+              <div>
+                <div style="color:white;font-weight:700;font-size:0.95rem">Ask Alma</div>
+                <div style="color:rgba(255,255,255,0.55);font-size:0.75rem;margin-top:2px">Your AI banking assistant</div>
+              </div>
+              <div style="margin-left:auto;color:var(--nb-accent);font-size:1.2rem">→</div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+              <span style="padding:4px 10px;background:rgba(255,255,255,0.08);border-radius:12px;font-size:0.72rem;color:rgba(255,255,255,0.6)">Balance?</span>
+              <span style="padding:4px 10px;background:rgba(255,255,255,0.08);border-radius:12px;font-size:0.72rem;color:rgba(255,255,255,0.6)">Spending?</span>
+              <span style="padding:4px 10px;background:rgba(255,255,255,0.08);border-radius:12px;font-size:0.72rem;color:rgba(255,255,255,0.6)">Loans?</span>
+            </div>
           </div>
         </div>
       </div>
@@ -233,6 +305,38 @@
     </div><!-- /nb-content -->
   </main>
 </div>
+
+<!-- Alma backdrop -->
+<div class="alma-backdrop" id="almaBackdrop" onclick="toggleAlma()"></div>
+
+<!-- Alma slide-in panel -->
+<div class="alma-panel" id="almaPanel">
+  <div class="alma-panel-header">
+    <div class="alma-dot">🤖</div>
+    <div class="alma-info">
+      <h3>Alma</h3>
+      <span>AI Banking Assistant · Online</span>
+    </div>
+    <div class="alma-status"></div>
+    <button onclick="toggleAlma()" style="margin-left:12px;background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:1.2rem;padding:4px">✕</button>
+  </div>
+  <div class="alma-panel-msgs" id="almaMsgs">
+    <div class="ap-msg bot" id="almaWelcome">Hi! I'm Alma 👋 I can help you with your account balance, recent transactions, spending insights, and more. What would you like to know?</div>
+  </div>
+  <div class="alma-panel-suggestions" id="almaSuggestions">
+    <button class="ap-suggestion" onclick="apSend('What is my account balance?')">My balance</button>
+    <button class="ap-suggestion" onclick="apSend('Show my recent transactions')">Transactions</button>
+    <button class="ap-suggestion" onclick="apSend('How much did I spend this month?')">Spending</button>
+    <button class="ap-suggestion" onclick="apSend('Do I have any active loans?')">Loans</button>
+  </div>
+  <div class="alma-panel-input">
+    <input type="text" id="apInput" placeholder="Ask Alma anything..." onkeydown="if(event.key==='Enter')apSend()">
+    <button class="ap-send" id="apSendBtn" onclick="apSend()">➤</button>
+  </div>
+</div>
+
+<!-- Floating Action Button -->
+<button class="alma-fab" id="almaFab" onclick="toggleAlma()" title="Ask Alma">🤖</button>
 
 <script type="module">
   import { auth, config } from '/assets/auth-DpGNMwuK.js';
@@ -261,13 +365,15 @@
       const data = await r.json();
       const acct = data.accounts?.[0];
       if (acct) {
-        document.getElementById('heroBalance').textContent = config.formatCurrency(acct.balance ?? 0);
+        const bal = config.formatCurrency(acct.balance ?? 0);
+        document.getElementById('heroBalance').textContent = bal;
         document.getElementById('heroAccountNo').textContent = `${acct.account_type || 'Savings'} · ${acct.account_id || ''}`;
         document.getElementById('cardNumber').textContent = `•••• •••• •••• ${(acct.account_id || '0000').slice(-4)}`;
+        // Stats
         const spend = acct.monthly_spend ?? 0;
         const savings = acct.savings_rate ?? 0;
         document.getElementById('statSpend').textContent = config.formatCurrency(spend);
-        document.getElementById('statSpendChange').textContent = spend > 0 ? 'This month' : 'No data';
+        document.getElementById('statSpendChange').textContent = spend > 0 ? `This month` : 'No data';
         document.getElementById('statSavings').textContent = `${savings}%`;
         document.getElementById('statSavingsChange').textContent = 'Of monthly income';
         document.getElementById('statLoans').textContent = data.loans?.length ?? '0';
@@ -275,6 +381,7 @@
       }
     }
   } catch(e) {
+    // Graceful fallback — show demo data
     document.getElementById('heroBalance').textContent = config.formatCurrency(4250.00);
     document.getElementById('heroAccountNo').textContent = `Savings · ${profile?.account_id || 'ACCSAV00000001'}`;
     document.getElementById('statSpend').textContent = config.formatCurrency(820.50);
@@ -300,9 +407,10 @@
     const list = document.getElementById('txnList');
     list.innerHTML = txns.map(t => {
       const isCredit = t.amount > 0;
+      const icon = isCredit ? '↓' : '↑';
       const cls = isCredit ? 'credit' : 'debit';
       return `<li class="txn-item">
-        <div class="txn-icon ${cls}">${isCredit ? '↓' : '↑'}</div>
+        <div class="txn-icon ${cls}">${icon}</div>
         <div class="txn-info"><div class="txn-name">${t.description || t.merchant || 'Transaction'}</div><div class="txn-date">${t.date || ''}</div></div>
         <div class="txn-amount ${cls}">${isCredit ? '+' : '-'}${config.formatCurrency(Math.abs(t.amount))}</div>
       </li>`;
@@ -310,17 +418,103 @@
   }
 
   function renderDemoTxns() {
-    renderTxns([
-      { description: 'Salary Credit', date: 'Today', amount: 1200 },
-      { description: 'Lulu Hypermarket', date: 'Yesterday', amount: -85.50 },
-      { description: 'BNET Internet', date: '1 Mar', amount: -18.00 },
-      { description: 'Careem Ride', date: '28 Feb', amount: -4.20 },
-      { description: 'ATM Withdrawal', date: '27 Feb', amount: -100.00 },
-      { description: 'Transfer Received', date: '25 Feb', amount: 250.00 },
-    ]);
+    const txns = [
+      { description: 'Salary Credit', date: 'Today', amount: 1200, type: 'credit' },
+      { description: 'Lulu Hypermarket', date: 'Yesterday', amount: -85.50, type: 'debit' },
+      { description: 'BNET Internet', date: '1 Mar', amount: -18.00, type: 'debit' },
+      { description: 'Careem Ride', date: '28 Feb', amount: -4.20, type: 'debit' },
+      { description: 'ATM Withdrawal', date: '27 Feb', amount: -100.00, type: 'debit' },
+      { description: 'Transfer Received', date: '25 Feb', amount: 250.00, type: 'credit' },
+    ];
+    renderTxns(txns);
   }
 
-  window.logout = () => auth.logout();
+  async function logout() { await auth.logout(); }
+  window.logout = logout;
+
+  // ── Alma FAB + slide-in panel ─────────────────────────────────
+  const ALMA_CHAT = '/chat';
+  let almaOpen = false, apSessionId = null, apSending = false;
+
+  window.toggleAlma = function() {
+    almaOpen = !almaOpen;
+    document.getElementById('almaPanel').classList.toggle('open', almaOpen);
+    document.getElementById('almaBackdrop').classList.toggle('open', almaOpen);
+    document.getElementById('almaFab').classList.toggle('open', almaOpen);
+    document.getElementById('almaFab').textContent = almaOpen ? '✕' : '🤖';
+    if (almaOpen) document.getElementById('apInput').focus();
+  };
+
+  function md(t) {
+    return t
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/^[-•]\s+(.*)$/gm,'<li>$1</li>')
+      .replace(/((?:<li>.*<\/li>\n?)+)/g,'<ul style="margin:4px 0 4px 16px;padding:0">$1</ul>')
+      .replace(/\n/g,'<br>');
+  }
+
+  window.apSend = async function(text) {
+    const input = document.getElementById('apInput');
+    const msg = text || input.value.trim();
+    if (!msg || apSending) return;
+    input.value = '';
+    document.getElementById('almaSuggestions').style.display = 'none';
+
+    const msgs = document.getElementById('almaMsgs');
+    const uDiv = document.createElement('div');
+    uDiv.className = 'ap-msg user'; uDiv.textContent = msg;
+    msgs.appendChild(uDiv);
+
+    const bDiv = document.createElement('div');
+    bDiv.className = 'ap-msg bot'; bDiv.textContent = '...';
+    msgs.appendChild(bDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    apSending = true;
+    document.getElementById('apSendBtn').disabled = true;
+
+    try {
+      const payload = { message: msg };
+      if (apSessionId) payload.session_id = apSessionId;
+      const bodyStr = JSON.stringify(payload);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(bodyStr));
+      const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+      const resp = await fetch(ALMA_CHAT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-amz-content-sha256': hashHex },
+        body: bodyStr
+      });
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '', sseBuffer = '';
+      bDiv.innerHTML = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.token) { fullText += evt.token; bDiv.innerHTML = md(fullText); msgs.scrollTop = msgs.scrollHeight; }
+            if (evt.session_id) apSessionId = evt.session_id;
+          } catch(e) {}
+        }
+      }
+      if (!fullText) bDiv.textContent = "I couldn't get a response. Please try again.";
+    } catch(e) { bDiv.textContent = "Connection issue. Please try again."; }
+
+    apSending = false;
+    document.getElementById('apSendBtn').disabled = false;
+  };
 </script>
 </body>
 </html>
