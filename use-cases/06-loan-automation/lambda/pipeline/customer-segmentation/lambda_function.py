@@ -206,8 +206,8 @@ def extract_customer_profile_from_input_data(input_data):
         customer_profile['bank_name'] = bank_name
         
         # Determine if this is a salary account based on bank name ONLY
-        # Only NEOBANK customers should be considered salary account customers
-        if bank_name and ('NEOBANK' in bank_name.upper() or 'NEO-BANK' in bank_name.upper()):
+        # Only AIBANK customers should be considered salary account customers
+        if bank_name and ('AIBANK' in bank_name.upper() or 'AI BANK' in bank_name.upper()):
             customer_profile['has_salary_account'] = True
         else:
             # All other banks (including MyBank) are NonSalaryAccount
@@ -239,7 +239,7 @@ def get_customer_nationality_from_database(customer_id):
         
         # Try to get from customer profile table first
         try:
-            customer_table = dynamodb.Table('neobank-customer-profile')
+            customer_table = dynamodb.Table('aibank-personal-loan')
             response = customer_table.get_item(Key={'customer_id': customer_id})
             
             if 'Item' in response:
@@ -262,7 +262,7 @@ def get_customer_nationality_from_database(customer_id):
         
         # Try to get from KYC table as fallback (CORRECT TABLE NAME)
         try:
-            kyc_table = dynamodb.Table('neo-bank-customer-kyc')
+            kyc_table = boto3.resource('dynamodb',region_name='me-south-1').Table('aibank-customer-kyc')
             response = kyc_table.get_item(Key={'customer_id': customer_id})
             
             if 'Item' in response:
@@ -280,7 +280,7 @@ def get_customer_nationality_from_database(customer_id):
         
         # Try personal loan table as last resort
         try:
-            loan_table = dynamodb.Table('neobank-personal-loan')
+            loan_table = dynamodb.Table('aibank-personal-loan')
             response = loan_table.get_item(Key={'customer_id': customer_id})
             
             if 'Item' in response:
@@ -401,9 +401,9 @@ def classify_banking_relationship(has_salary_account, bank_name):
             return 'SalaryAccount'
         
         # Double-check with bank name indicators - ONLY NEOBANK is salary account
-        neobank_indicators = ['NEOBANK', 'NEO-BANK', 'NEO BANK']
+        bank_indicators = ['AIBANK', 'AI BANK', 'AI-BANK']
         
-        if bank_name and any(indicator in bank_name.upper() for indicator in neobank_indicators):
+        if bank_name and any(indicator in bank_name.upper() for indicator in bank_indicators):
             return 'SalaryAccount'
         
         # All other banks (including MyBank) are NonSalaryAccount
@@ -491,7 +491,7 @@ def generate_segmentation_reasoning(nationality, is_bahraini, bank_name, has_sal
         # Banking relationship reasoning
         if has_salary_account:
             reasoning_parts.append("Salary account relationship confirmed")
-        elif bank_name and any(indicator in bank_name.upper() for indicator in ['NEOBANK', 'NEO-BANK', 'NEO BANK', 'MYBANK']):
+        elif bank_name and any(indicator in bank_name.upper() for indicator in ['AIBANK', 'AI BANK', 'AI-BANK', 'MYBANK']):
             reasoning_parts.append(f"Salary account relationship inferred from bank name: {bank_name}")
         else:
             reasoning_parts.append("Non-salary account relationship - no clear salary transfer indicators")

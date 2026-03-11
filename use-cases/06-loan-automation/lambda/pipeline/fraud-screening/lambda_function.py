@@ -22,7 +22,7 @@ logger.setLevel(logging.INFO)
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
 fraud_table = dynamodb.Table('neobank_fraud_list')
-loan_table = dynamodb.Table('neobank-personal-loan')
+loan_table = dynamodb.Table('aibank-personal-loan')
 
 @xray_recorder.capture('lambda_handler')
 def lambda_handler(event, context):

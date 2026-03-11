@@ -248,7 +248,7 @@ def store_employer_analysis(customer_id: str, application_id: str, company_data:
         }
         
         response = dynamodb.update_item(
-            TableName='neobank-personal-loan',
+            TableName='aibank-personal-loan',
             Key={
                 'customer_id': {'S': customer_id},
                 'application_id': {'S': application_id}

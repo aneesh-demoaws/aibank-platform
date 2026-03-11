@@ -21,9 +21,9 @@ def lambda_handler(event, context):
     """
     Simplified Customer Profile Retrieval Lambda Function
     Retrieves only essential customer data needed for segmentation from real production tables:
-    - Customer nationality from neo-bank-customer-kyc table (for Local vs Expat classification)
+    - Customer nationality from aibank-customer-kyc table (for Local vs Expat classification)
     - KYC verification status
-    - Salary account relationship from neobank-personal-loan table
+    - Salary account relationship from aibank-personal-loan table
     """
     
     try:
@@ -95,7 +95,7 @@ def lambda_handler(event, context):
                 'timestamp': datetime.utcnow().isoformat(),
                 'status': 'COMPLETED',
                 'customer_profile': customer_profile,
-                'data_sources': ['neo-bank-customer-kyc', 'neobank-personal-loan'],
+                'data_sources': ['aibank-customer-kyc', 'aibank-personal-loan'],
                 'processing_notes': 'Simplified profile retrieval using real production data'
             }
             
@@ -131,7 +131,7 @@ def lambda_handler(event, context):
 
 @xray_recorder.capture('get_customer_kyc_data')
 def get_customer_kyc_data(customer_id):
-    """Retrieve customer KYC data from real production neo-bank-customer-kyc table"""
+    """Retrieve customer KYC data from real production aibank-customer-kyc table"""
     
     try:
         table = ddb_me_south.Table('aibank-customer-kyc')
@@ -163,7 +163,7 @@ def get_customer_kyc_data(customer_id):
 
 @xray_recorder.capture('get_loan_application_data')
 def get_loan_application_data(customer_id, application_id):
-    """Retrieve loan application data from real production neobank-personal-loan table"""
+    """Retrieve loan application data from real production aibank-personal-loan table"""
     
     try:
         table = dynamodb.Table('aibank-personal-loan')
@@ -190,7 +190,7 @@ def get_loan_application_data(customer_id, application_id):
 
 @xray_recorder.capture('store_customer_profile_in_loan_table')
 def store_customer_profile_in_loan_table(customer_id, application_id, customer_profile):
-    """Store customer profile as an attribute in the neobank-personal-loan table"""
+    """Store customer profile as an attribute in the aibank-personal-loan table"""
     
     try:
         table = dynamodb.Table('aibank-personal-loan')
@@ -219,8 +219,8 @@ def store_customer_profile_in_loan_table(customer_id, application_id, customer_p
 
 def determine_salary_account_relationship(loan_data, input_data):
     """
-    Determine if customer has salary account relationship with NeoBank
-    IMPORTANT: Only customers with salary paid to NeoBank should be SalaryAccount
+    Determine if customer has salary account relationship with AI Bank
+    IMPORTANT: Only customers with salary paid to AI Bank should be SalaryAccount
     Customers with salary paid to MyBank or other banks should be NonSalaryAccount
     """
     
@@ -228,22 +228,22 @@ def determine_salary_account_relationship(loan_data, input_data):
         # Get bank name from loan data or input data
         bank_name = (loan_data.get('bank_name') or input_data.get('bank_name', '')).upper()
         
-        # Check if bank name indicates NeoBank relationship
-        neobank_indicators = ['NEOBANK', 'NEO-BANK', 'NEO BANK']
+        # Check if bank name indicates AI Bank relationship
+        bank_indicators = ['AIBANK', 'AI BANK', 'AI-BANK']
         
-        # First check: Is the bank_name a NeoBank?
-        if bank_name and any(indicator in bank_name for indicator in neobank_indicators):
-            logger.info(f"Salary account relationship detected - bank_name is NeoBank: {bank_name}")
+        # First check: Is the bank_name a AI Bank?
+        if bank_name and any(indicator in bank_name for indicator in bank_indicators):
+            logger.info(f"Salary account relationship detected - bank_name is AI Bank: {bank_name}")
             return True
         
-        # Check loan_statement_document for NeoBank indicators
+        # Check loan_statement_document for AI Bank indicators
         statement_doc = loan_data.get('loan_statement_document', {}) or input_data.get('loan_statement_document', {})
         if isinstance(statement_doc, dict):
             statement_bank_name = statement_doc.get('bank_name', '').upper()
             
-            # Only consider it a salary account if the statement bank is NeoBank
-            if statement_bank_name and any(indicator in statement_bank_name for indicator in neobank_indicators):
-                logger.info(f"Salary account relationship detected - statement bank_name is NeoBank: {statement_bank_name}")
+            # Only consider it a salary account if the statement bank is AI Bank
+            if statement_bank_name and any(indicator in statement_bank_name for indicator in bank_indicators):
+                logger.info(f"Salary account relationship detected - statement bank_name is AI Bank: {statement_bank_name}")
                 return True
         
         # If we reach here, the salary is paid to a different bank (like MyBank)
@@ -251,7 +251,7 @@ def determine_salary_account_relationship(loan_data, input_data):
         if bank_name:
             logger.info(f"Non-salary account relationship - salary paid to different bank: {bank_name}")
         else:
-            logger.info("Non-salary account relationship - no clear NeoBank indicators")
+            logger.info("Non-salary account relationship - no clear AI Bank indicators")
         
         return False
         
@@ -306,10 +306,10 @@ def determine_customer_segment(is_bahraini, has_salary_account):
     Determine customer segment based on nationality and salary account relationship
     
     Customer Segments:
-    - SalaryAccount_Local: Existing Customer, Salary paid to neobank, Bahrain National
-    - SalaryAccount_Expat: Existing Customer, Salary paid to neobank, Non-Bahrain National  
-    - NonSalaryAccount_Local: Existing Customer, Non-Salary paid to neobank, Bahrain National
-    - NonSalaryAccount_Expat: Existing Customer, Non-Salary paid to neobank, Non-Bahrain National
+    - SalaryAccount_Local: Existing Customer, Salary paid to aibank, Bahrain National
+    - SalaryAccount_Expat: Existing Customer, Salary paid to aibank, Non-Bahrain National  
+    - NonSalaryAccount_Local: Existing Customer, Non-Salary paid to aibank, Bahrain National
+    - NonSalaryAccount_Expat: Existing Customer, Non-Salary paid to aibank, Non-Bahrain National
     """
     
     try:

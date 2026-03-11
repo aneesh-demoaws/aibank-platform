@@ -17,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('neobank-personal-loan')
+table = dynamodb.Table('aibank-personal-loan')
 
 def lambda_handler(event, context):
     """

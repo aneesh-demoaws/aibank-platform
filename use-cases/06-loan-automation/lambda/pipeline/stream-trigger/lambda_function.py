@@ -19,8 +19,8 @@ stepfunctions_client = boto3.client('stepfunctions')
 dynamodb = boto3.resource('dynamodb')
 
 # Environment variables
-STATE_MACHINE_ARN = os.environ.get('STATE_MACHINE_ARN', 'arn:aws:states:us-west-2:519124228967:stateMachine:five-cs-personal-loan-processing-workflow')
-DYNAMODB_TABLE = os.environ.get('DYNAMODB_TABLE', 'neobank-personal-loan')
+STATE_MACHINE_ARN = os.environ.get('STATE_MACHINE_ARN', 'arn:aws:states:eu-west-1:519124228967:stateMachine:aibank-five-cs-loan-processing-workflow')
+DYNAMODB_TABLE = os.environ.get('DYNAMODB_TABLE', 'aibank-personal-loan')
 
 def lambda_handler(event, context):
     """Main Lambda handler for DynamoDB stream events"""

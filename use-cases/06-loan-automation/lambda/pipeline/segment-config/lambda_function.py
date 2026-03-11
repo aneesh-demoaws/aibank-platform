@@ -520,7 +520,7 @@ def store_customer_profile_in_loan_table(customer_id, application_id, enriched_c
         dynamodb = boto3.resource('dynamodb')
         
         # Update the loan table with enriched customer profile
-        loan_table = dynamodb.Table('neobank-personal-loan')
+        loan_table = dynamodb.Table('aibank-personal-loan')
         
         # Prepare update data
         update_data = {
