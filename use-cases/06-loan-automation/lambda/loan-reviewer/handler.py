@@ -31,6 +31,7 @@ def lambda_handler(event, context):
     if path == "/review"        and method == "GET":   return handle_review(event)
     if path == "/decisions"     and method == "POST":  return handle_decision(event)
     if path == "/loans/pending" and method == "GET":   return handle_pending_loans(event)
+    if path == "/loans/all"     and method == "GET":   return handle_all_loans(event)
     if path == "/application"   and method == "GET":   return handle_application_detail(event)
     return _cors(404, json.dumps({"error": "Not found"}))
 
@@ -145,6 +146,36 @@ def handle_pending_loans(event):
         return _cors(200, json.dumps({"applications": apps}))
     except Exception as e:
         logger.exception("Pending loans error")
+        return _cors(500, json.dumps({"error": str(e)}))
+
+
+# ── All loans (for officer visibility) ─────────────────────────────────────────
+
+def handle_all_loans(event):
+    if not _is_authenticated(event):
+        return _cors(401, json.dumps({"message": "Unauthorised"}))
+    try:
+        table = ddb.Table(LOAN_TABLE)
+        result = table.scan()
+        apps = []
+        for item in result.get("Items", []):
+            apps.append({
+                "application_id": item.get("application_id"),
+                "customer_id":    item.get("customer_id"),
+                "loan_type":      item.get("loan_type"),
+                "amount":         str(item.get("amount_bhd") or item.get("amount", "")),
+                "tenure_months":  str(item.get("tenure_months") or item.get("duration", "")),
+                "status":         item.get("status"),
+                "submitted_at":   item.get("submitted_at"),
+                "employer_name":  item.get("employer_name", ""),
+                "basic_salary":   str(item.get("basic_salary", "")),
+                "auto_decided":   item.get("auto_decided", False),
+                "decision_reason": item.get("decision_reason", ""),
+            })
+        apps.sort(key=lambda x: x.get("submitted_at") or "", reverse=True)
+        return _cors(200, json.dumps({"applications": apps}, default=str))
+    except Exception as e:
+        logger.exception("All loans error")
         return _cors(500, json.dumps({"error": str(e)}))
 
 
