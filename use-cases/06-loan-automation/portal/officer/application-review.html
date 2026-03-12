@@ -190,8 +190,12 @@ function render(d) {
   set('f-kyc-name',   ac.full_name  || kyc.full_name  || '—');
   set('f-kyc-nat',    ac.nationality || kyc.nationality || '—');
   set('f-kyc-dob',    ac.date_of_birth || kyc.date_of_birth || '—');
-  set('f-kyc-id',     kyc.identity_verified === true || kyc.identity_verified === 'true' ? '✅ Yes' : (kyc.identity_verified === false ? '❌ No' : '—'));
-  set('f-kyc-addr',   kyc.address_verified  === true || kyc.address_verified  === 'true' ? '✅ Yes' : (kyc.address_verified  === false ? '❌ No' : '—'));
+  const idOk  = kyc.identity_verified === true || kyc.identity_verified === 'true' || parseInt(kyc.total_id_verified_no) > 0;
+  const adOk  = kyc.address_verified  === true || kyc.address_verified  === 'true' || parseInt(kyc.total_address_verified_no) > 0;
+  const vd    = kyc.verification_details || {};
+  const idOk2 = vd.overall_status === 'VERIFIED' || (vd.identity_verification && vd.identity_verification.status === 'PASSED');
+  set('f-kyc-id',   idOk || idOk2 ? '✅ Yes' : '—');
+  set('f-kyc-addr', adOk || idOk2 ? '✅ Yes' : '—');
 
   setText('f-social',           strip(d.social_analysis || d.social_media_analysis || 'No social analysis available.'));
   setText('f-dti',              strip(d.debt_to_income_analysis_summary || 'No DTI analysis available.'));
@@ -249,13 +253,23 @@ function strip(text) {
   if (!text) return text;
   return text.replace(/<thinking>[\s\S]*?<\/thinking>\s*/g, '').replace(/<\/?result>\s*/g, '').trim();
 }
+function md(text) {
+  if (!text) return '—';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/^#### (.+)$/gm, '<h4 style="margin:12px 0 4px;font-size:.92rem;color:#1a3a5c">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h3 style="margin:14px 0 6px;font-size:.95rem;color:#34495e">$1</h3>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- (.+)$/gm, '• $1')
+    .replace(/\n/g, '<br>');
+}
 function set(id, html) {
   const el = document.getElementById(id);
   if (el) el.innerHTML = html || '—';
 }
 function setText(id, text) {
   const el = document.getElementById(id);
-  if (el) el.textContent = text || '—';
+  if (el) el.innerHTML = md(text);
 }
 function fmt(ts) {
   if (!ts) return '—';
