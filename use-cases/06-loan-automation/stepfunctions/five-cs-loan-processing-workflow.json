@@ -31,7 +31,8 @@
           "amount.$": "$.applicationData.amount",
           "duration.$": "$.applicationData.duration",
           "purpose": "personal_loan",
-          "status.$": "$.applicationData.status"
+          "status.$": "$.applicationData.status",
+          "loan_type.$": "$.applicationData.loan_type"
         },
         "financial_data": {
           "basic_salary.$": "$.applicationData.basic_salary",
@@ -417,8 +418,7 @@
         "processingResults.$": "$"
       },
       "End": true
-    }
-    ,
+    },
     "Stage3_Loan_Underwriting": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
@@ -453,11 +453,19 @@
     },
     "Check_Manual_Processing_Flag": {
       "Type": "Choice",
-      "Comment": "Check if manual processing is enabled (default: true)",
+      "Comment": "Route instant_money to auto-decision, personal to manual review",
       "Choices": [
         {
-          "Variable": "$.manual_processing_enabled",
-          "BooleanEquals": false,
+          "And": [
+            {
+              "Variable": "$.loan_data.loan_type",
+              "StringEquals": "instant_money"
+            },
+            {
+              "Variable": "$.loan_data.amount",
+              "NumericLessThanEquals": 500
+            }
+          ],
           "Next": "Check_Automated_Decision"
         }
       ],
@@ -591,18 +599,16 @@
       "End": true
     },
     "Processing_Complete_Automated": {
-      "Type": "Pass",
-      "Comment": "Processing completed successfully - automated decision made",
-      "Parameters": {
-        "status": "COMPLETED_AUTOMATED",
-        "completedAt.$": "$$.State.EnteredTime",
-        "customer_id.$": "$.processingContext.customer_id",
-        "application_id.$": "$.processingContext.application_id",
-        "final_decision.$": "$.loanUnderwriting.Payload.underwriting_decision.decision",
-        "decision_reason.$": "$.loanUnderwriting.Payload.underwriting_decision.reason",
-        "processingResults.$": "$"
-      },
-      "End": true
+      "Type": "Choice",
+      "Comment": "Route auto-decision based on underwriting result",
+      "Choices": [
+        {
+          "Variable": "$.loanUnderwriting.Payload.underwriting_decision.decision",
+          "StringEquals": "APPROVE",
+          "Next": "Auto_Approve"
+        }
+      ],
+      "Default": "Auto_Reject"
     },
     "PostDecisionRouter": {
       "Type": "Choice",
@@ -879,6 +885,54 @@
         }
       ],
       "End": true
+    },
+    "Auto_Approve": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-pl-automation-auto-decision",
+        "Payload": {
+          "decision": "APPROVED",
+          "reason": "Auto-approved: Instant Money \u2014 all 5Cs criteria met",
+          "processingContext.$": "$.processingContext",
+          "loan_data.$": "$.loan_data",
+          "loanUnderwriting.$": "$.loanUnderwriting"
+        }
+      },
+      "ResultPath": "$.autoDecisionResult",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "MaxAttempts": 1
+        }
+      ]
+    },
+    "Auto_Reject": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-pl-automation-auto-decision",
+        "Payload": {
+          "decision": "REJECTED",
+          "reason.$": "States.Format('Auto-rejected: {}', $.loanUnderwriting.Payload.underwriting_decision.reason)",
+          "processingContext.$": "$.processingContext",
+          "loan_data.$": "$.loan_data",
+          "loanUnderwriting.$": "$.loanUnderwriting"
+        }
+      },
+      "ResultPath": "$.autoDecisionResult",
+      "End": true,
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed"
+          ],
+          "MaxAttempts": 1
+        }
+      ]
     }
   }
 }

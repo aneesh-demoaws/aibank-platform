@@ -112,6 +112,7 @@ def extract_application_data(record: Dict[str, Any]) -> Dict[str, Any]:
             'application_id': application_id,
             'amount': float(new_image.get('amount', {}).get('N', '0')),
             'duration': int(new_image.get('duration', {}).get('N', '0')),
+            'loan_type': new_image.get('loan_type', {}).get('S', 'personal'),
             'basic_salary': float(new_image.get('basic_salary', {}).get('N', '0')),
             'employer_name': new_image.get('employer_name', {}).get('S', ''),
             'bank_name': new_image.get('bank_name', {}).get('S', ''),

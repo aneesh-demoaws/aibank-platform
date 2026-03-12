@@ -349,9 +349,32 @@ Provide your complete 5 Cs of Credit underwriting assessment following the requi
         
         # Check manual processing flag
         manual_processing_enabled = event.get('manual_processing_enabled', True)
+        loan_type = event.get('loan_data', {}).get('loan_type', 'personal')
         
         # Enhanced underwriting decision logic
-        if manual_processing_enabled:
+        if loan_type == 'instant_money':
+            # Parse AI decision from underwriting text
+            text_upper = underwriting_text.upper()
+            if '**FINAL DECISION**: APPROVE' in text_upper or 'FINAL DECISION**: APPROVE' in text_upper:
+                if 'CONDITIONAL' not in text_upper.split('FINAL DECISION')[1][:30]:
+                    underwriting_decision = {
+                        "decision": "APPROVE",
+                        "manual_review_required": False,
+                        "reason": "Instant Money — AI underwriting approved, all criteria met"
+                    }
+                else:
+                    underwriting_decision = {
+                        "decision": "CONDITIONAL_APPROVE",
+                        "manual_review_required": False,
+                        "reason": "Instant Money — conditional approval, auto-rejected per policy"
+                    }
+            else:
+                underwriting_decision = {
+                    "decision": "REJECT",
+                    "manual_review_required": False,
+                    "reason": "Instant Money — AI underwriting did not approve"
+                }
+        elif manual_processing_enabled:
             underwriting_decision = {
                 "decision": "MANUAL_REVIEW_REQUIRED",
                 "manual_review_required": True,
