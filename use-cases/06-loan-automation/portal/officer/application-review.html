@@ -148,11 +148,31 @@
 
 <script>
 const API = '/loan-review';
+
+function doSearch() {
+  const id = (document.getElementById('searchId')?.value || '').trim();
+  if (!id) { const e = document.getElementById('searchError'); e.textContent = 'Please enter an application ID'; e.style.display = 'block'; return; }
+  location.href = `/employee/credit/application-review.html?id=${encodeURIComponent(id)}`;
+}
 const params = new URLSearchParams(location.search);
 const appId  = params.get('id');
 
 if (!appId) {
-  document.getElementById('loading').textContent = 'No application ID specified.';
+  document.getElementById('loading').innerHTML = `
+    <div style="background:rgba(255,255,255,.97);border-radius:10px;padding:28px;max-width:500px;margin:40px auto;text-align:center">
+      <div style="font-size:36px;margin-bottom:12px">🔍</div>
+      <h2 style="color:#1a3a5c;font-size:1.2rem;margin:0 0 6px">Application Lookup</h2>
+      <p style="color:#666;font-size:.85rem;margin:0 0 20px">Enter an application ID to view the full 5Cs credit report</p>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <input id="searchId" type="text" placeholder="e.g. AIB-20260312-W76UE3"
+          style="padding:10px 14px;border:1px solid #ccc;border-radius:6px;font-size:.9rem;width:260px"
+          onkeydown="if(event.key==='Enter')doSearch()">
+        <button onclick="doSearch()"
+          style="background:#1a3a5c;color:#fff;border:none;padding:10px 20px;border-radius:6px;font-size:.9rem;font-weight:600;cursor:pointer">
+          Search</button>
+      </div>
+      <div id="searchError" style="color:#e74c3c;font-size:.85rem;margin-top:12px;display:none"></div>
+    </div>`;
 } else {
   loadApplication();
 }
