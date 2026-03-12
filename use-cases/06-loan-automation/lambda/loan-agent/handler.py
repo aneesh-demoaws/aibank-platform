@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import uuid
+from decimal import Decimal
 import datetime
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -134,7 +135,7 @@ def handle_apply(event):
         customer_id = _resolve_customer_id(event)
         app_id      = body.get("applicationId") or f"AIB-{datetime.date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         loan_type   = body.get("loanType", "personal")
-        amount      = float(body.get("amount", 0))
+        amount      = Decimal(str(body.get("amount", 0)))
         months      = int(body.get("tenureMonths", 12))
         purpose     = body.get("purpose", "")
         documents   = body.get("documents", {})
@@ -143,9 +144,9 @@ def handle_apply(event):
         table.update_item(
             Key={"customer_id": customer_id, "application_id": app_id},
             UpdateExpression="SET loan_type=:lt, amount_bhd=:ab, amount=:a, tenure_months=:tm, "
-                             "duration=:d, purpose=:p, documents=:doc, "
+                             "#dur=:d, purpose=:p, documents=:doc, "
                              "#s=:st, submitted_at=:sa, channel=:ch",
-            ExpressionAttributeNames={"#s": "status"},
+            ExpressionAttributeNames={"#s": "status", "#dur": "duration"},
             ExpressionAttributeValues={
                 ":lt": loan_type, ":ab": str(amount), ":a": amount,
                 ":tm": months, ":d": months, ":p": purpose, ":doc": documents,
