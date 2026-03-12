@@ -6,8 +6,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
-  <script type="module" crossorigin src="/assets/index-DDbmTGC7.js"></script>
-  <style>
+    <style>
     :root { --nb-font-mono:"JetBrains Mono","Fira Code",monospace; }
     .nb-nav-item .icon { display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:2px;vertical-align:middle; }
     .nb-nav-item .icon svg { width:18px;height:18px; }
@@ -106,7 +105,8 @@
           <div class="product-card" onclick="selectProduct('instant_money',this)">
             <div class="product-icon">⚡</div>
             <div class="product-name">Instant Money</div>
-            <div class="product-range">BHD 100 – 2,000</div>
+            <div style="font-size:0.7rem;color:#27ae60;font-weight:600;margin-top:2px">⚡ Auto-approved in minutes</div>
+            <div class="product-range">BHD 100 – 500</div>
             <div class="product-rate">From 5.5% p.a.</div>
           </div>
           <div class="product-card" onclick="selectProduct('personal',this)">
@@ -149,7 +149,7 @@
 
         <div class="apply-card">
           <h3>Submit Application</h3>
-          <p>Your identity is pre-verified. Upload your documents and we'll process your application within 2 business days.</p>
+          <p><span id="submitNote">Your identity is pre-verified. Upload your documents and we'll process your application within 2 business days.</span></p>
           <div class="error-msg" id="applyError"></div>
           <div class="field" style="margin-bottom:14px">
             <label>Salary Certificate (PDF) <span style="color:var(--nb-accent)">*</span></label>
@@ -205,7 +205,7 @@ loadLoans();
 <script>
 const LOAN_API = window.LOAN_AGENT_API || '/loan-agent/chat';
 const PRODUCTS = {
-  instant_money: { name:'Instant Money', min:100,   max:2000,   rate:5.5, tenures:[3,6,12,18,24] },
+  instant_money: { name:'Instant Money', min:100,   max:500,    rate:5.5, tenures:[3,6,12,18,24], auto:true },
   personal:      { name:'Personal Finance', min:500, max:20000,  rate:4.5, tenures:[12,24,36,48,60] },
   housing:       { name:'Housing Finance', min:10000,max:200000, rate:3.5, tenures:[60,84,120,180,240,300] },
   vehicle:       { name:'Vehicle Finance', min:1000, max:40000,  rate:3.8, tenures:[12,24,36,48,60,72,84] },
@@ -219,6 +219,10 @@ function selectProduct(key, el) {
   el.classList.add('selected');
   const p = PRODUCTS[key];
   document.getElementById('selectedProductLabel').textContent = p.name;
+  const note = document.getElementById('submitNote');
+  if (note) note.textContent = p.auto
+    ? 'Instant Money applications are auto-processed. You\'ll receive a decision within minutes.'
+    : 'Your identity is pre-verified. Upload your documents and we\'ll process your application within 2 business days.';
   const sel = document.getElementById('calcTenure');
   sel.innerHTML = '<option value="">Select months</option>' + p.tenures.map(t=>`<option value="${t}">${t} months</option>`).join('');
   document.getElementById('calcAmount').value = '';
@@ -327,7 +331,7 @@ async function submitApplication() {
     document.getElementById('stepApply').style.display = 'none';
     document.getElementById('stepSuccess').style.display = 'block';
   } catch (e) {
-    showErr('Submission failed. Please try again or contact support.');
+    console.error('Loan submission error:', e); showErr('Submission failed: ' + e.message);
     btn.disabled = false; btn.textContent = 'Apply Now →';
   }
 }
