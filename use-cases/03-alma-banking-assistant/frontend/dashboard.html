@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — AI Bank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
+  <script type="module" crossorigin src="/assets/index-DDbmTGC7.js"></script>
+  <style>
+    .dash-hero {
+      background: linear-gradient(135deg, var(--nb-primary) 0%, #0f2040 60%, #0a2a1e 100%);
+      background-image: url('/images/hero-dashboard.png'), linear-gradient(135deg, var(--nb-primary) 0%, #0f2040 100%);
+      background-size: cover; background-position: center;
+      border-radius: var(--nb-radius); padding: var(--nb-space-lg) var(--nb-space-xl);
+      color: white; position: relative; overflow: hidden; margin-bottom: var(--nb-space-lg);
+    }
+    .dash-hero::before {
+      content: ''; position: absolute; inset: 0; z-index: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(0,212,170,0.07) 60%, transparent 80%);
+      background-size: 200% 100%;
+      animation: hero-shimmer 6s ease-in-out infinite;
+    }
+    @keyframes hero-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .dash-hero::after {
+      content: ''; position: absolute; inset: 0; z-index: 0;
+      background: linear-gradient(135deg, rgba(10,22,40,0.72) 0%, rgba(0,212,170,0.06) 100%);
+    }
+    .dash-hero-content { position: relative; z-index: 1; }
+    .dash-hero h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
+    .dash-hero p { color: rgba(255,255,255,0.55); font-size: 0.95rem; margin: 0; }
+    .dash-hero .balance-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--nb-accent); margin-top: 10px; margin-bottom: 2px; }
+    .dash-hero .balance-value { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; font-family: var(--nb-font-mono); line-height: 1.1; }
+    .dash-hero .balance-sub { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+    .dash-hero .hero-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .dash-hero .hero-actions a {
+      padding: 8px 16px; border-radius: var(--nb-radius-sm); font-size: 0.8rem; font-weight: 600;
+      text-decoration: none; transition: all 0.2s; cursor: pointer; border: none;
+    }
+    .btn-accent { background: var(--nb-accent); color: var(--nb-primary); }
+    .btn-accent:hover { background: var(--nb-accent-hover); transform: translateY(-1px); }
+    .btn-ghost-white { background: rgba(255,255,255,0.12); color: white; border: 1px solid rgba(255,255,255,0.2); }
+    .btn-ghost-white:hover { background: rgba(255,255,255,0.2); }
+
+    .nb-content { max-width: 1200px; }
+
+    .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--nb-space-md); margin-bottom: var(--nb-space-lg); }
+    .qa-card {
+      border: 1px solid var(--nb-border); border-radius: var(--nb-radius);
+      text-align: center; cursor: pointer; text-decoration: none;
+      transition: all 0.2s; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      gap: 0; overflow: hidden; position: relative; min-height: 120px;
+      background: var(--nb-primary) center/cover no-repeat;
+    }
+    .qa-card::after { content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.3) 60%, transparent 100%); }
+    .qa-card:hover { border-color: var(--nb-accent); transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,212,170,0.25); }
+    .qa-card .qa-icon { display: none; }
+    .qa-card .qa-label { font-size: 1.15rem; font-weight: 900; font-family: var(--nb-font-mono); color: var(--nb-accent); text-shadow: 0 1px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,212,170,0.4); position: relative; z-index: 1; padding: 12px 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--nb-space-lg); margin-bottom: var(--nb-space-lg); }
+    .stat-card {
+      background: var(--nb-card); border: 1px solid var(--nb-border); border-radius: var(--nb-radius);
+      padding: var(--nb-space-lg); border-left: 3px solid var(--nb-accent);
+      transition: box-shadow 0.2s;
+    }
+    .stat-card:hover { box-shadow: var(--nb-shadow-lg); }
+    .stat-card .stat-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--nb-space-md); }
+    .stat-card .stat-title { font-size: 0.78rem; font-weight: 600; color: var(--nb-text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-card .stat-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--nb-accent-light); display: flex; align-items: center; justify-content: center; }
+    .stat-card .stat-icon svg { width: 16px; height: 16px; stroke: var(--nb-accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nb-nav-item .icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-right: 2px; vertical-align: middle; }
+    .nb-nav-item .icon svg { width: 18px; height: 18px; }
+    .stat-card .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--nb-primary); font-family: var(--nb-font-mono); }
+    .stat-card.spend .stat-icon { background: rgba(229,62,62,0.1); }
+    .stat-card.spend .stat-icon svg { stroke: var(--nb-danger); }
+    .stat-card.savings .stat-icon { background: rgba(56,161,105,0.1); }
+    .stat-card.savings .stat-icon svg { stroke: var(--nb-success); }
+    .stat-card .stat-change { font-size: 0.75rem; margin-top: 4px; }
+    .stat-card .stat-change.up { color: var(--nb-success); }
+    .stat-card .stat-change.down { color: var(--nb-danger); }
+
+    .bottom-grid { display: grid; grid-template-columns: 1fr 340px; gap: var(--nb-space-lg); }
+    .txn-list { list-style: none; }
+    .txn-item { display: flex; align-items: center; gap: var(--nb-space-md); padding: 12px 0; border-bottom: 1px solid var(--nb-border); }
+    .txn-item:last-child { border-bottom: none; }
+    .txn-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .txn-icon.debit { background: #e53e3e1a; }
+    .txn-icon.credit { background: #38a1691a; }
+    .txn-info { flex: 1; }
+    .txn-name { font-size: 0.9rem; font-weight: 500; }
+    .txn-date { font-size: 0.75rem; color: var(--nb-text-muted); }
+    .txn-amount { font-size: 0.9rem; font-weight: 600; }
+    .txn-amount.debit { color: var(--nb-danger); }
+    .txn-amount.credit { color: var(--nb-success); }
+
+    /* Alma FAB */
+    .alma-fab {
+      position: fixed; bottom: 28px; right: 28px; z-index: 200;
+      height: 52px; border-radius: 26px;
+      background: linear-gradient(135deg, var(--nb-accent) 0%, #00b894 100%);
+      color: var(--nb-primary); border: none; cursor: pointer;
+      box-shadow: 0 4px 20px var(--nb-accent-glow), 0 2px 8px rgba(0,0,0,0.2);
+      transition: all 0.25s; display: flex; align-items: center; gap: 8px;
+      padding: 0 18px 0 6px;
+      animation: pulse-glow 3s infinite;
+    }
+    .alma-fab img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    .alma-fab span { font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+    .alma-fab:hover { transform: translateY(-2px); box-shadow: 0 6px 28px var(--nb-accent-glow); }
+    .alma-fab.open { animation: none; background: var(--nb-primary); color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+    .alma-fab.open img { opacity: 0.7; }
+
+    /* Alma slide-in panel */
+    .alma-panel {
+      position: fixed; top: 0; right: -420px; width: 400px; height: 100vh; z-index: 199;
+      background: white; box-shadow: -4px 0 32px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column; transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .alma-panel.open { right: 0; }
+    .alma-panel.fullscreen { right: 0; width: 100vw; top: 0; height: 100vh; }
+    .alma-panel-header {
+      background: linear-gradient(135deg, var(--nb-primary) 0%, #0f2a1e 100%);
+      padding: 16px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    }
+    .alma-panel-header .alma-dot {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--nb-accent);
+      display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+    }
+    .alma-panel-header .alma-info h3 { color: white; font-size: 0.95rem; font-weight: 700; margin: 0; }
+    .alma-panel-header .alma-info span { color: rgba(255,255,255,0.55); font-size: 0.75rem; }
+    .alma-panel-header .alma-status { width: 8px; height: 8px; border-radius: 50%; background: var(--nb-accent); margin-left: auto; box-shadow: 0 0 6px var(--nb-accent); }
+
+    .alma-panel-msgs {
+      flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+      background: var(--nb-bg);
+    }
+    .ap-msg { max-width: 88%; padding: 10px 14px; border-radius: 14px; font-size: 0.85rem; line-height: 1.6; word-wrap: break-word; }
+    .ap-msg.bot { align-self: flex-start; background: white; border: 1px solid var(--nb-border); border-bottom-left-radius: 4px; }
+    .ap-msg.bot strong { color: #1a365d; }
+    .ap-msg.bot a { color: var(--nb-accent); text-decoration: underline; }
+    .ap-msg.user { align-self: flex-end; background: var(--nb-primary); color: white; border-bottom-right-radius: 4px; }
+
+    .alma-panel-suggestions { display: flex; gap: 6px; padding: 8px 16px 0; flex-wrap: wrap; flex-shrink: 0; background: var(--nb-bg); }
+    .ap-suggestion {
+      padding: 5px 12px; background: white; border: 1px solid var(--nb-border); border-radius: 16px;
+      font-size: 0.75rem; cursor: pointer; color: var(--nb-text-secondary); transition: all 0.15s; white-space: nowrap;
+    }
+    .ap-suggestion:hover { border-color: var(--nb-accent); color: var(--nb-accent); }
+
+    .alma-panel-input {
+      padding: 12px 16px; border-top: 1px solid var(--nb-border); background: white;
+      display: flex; gap: 8px; align-items: center; flex-shrink: 0;
+    }
+    .alma-panel-input input {
+      flex: 1; padding: 10px 14px; border: 1px solid var(--nb-border); border-radius: 20px;
+      font-size: 0.85rem; outline: none; font-family: inherit;
+    }
+    .alma-panel-input input:focus { border-color: var(--nb-accent); }
+    .ap-send {
+      width: 38px; height: 38px; border-radius: 50%; background: var(--nb-accent); color: var(--nb-primary);
+      border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .ap-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Backdrop on mobile */
+    .alma-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 198; }
+    .alma-backdrop.open { display: block; }
+
+    @media (max-width: 480px) {
+      .alma-panel { width: 100vw; right: -100vw; }
+      .alma-panel.open { right: 0; }
+    }
+
+    .card-visual {
+      background: linear-gradient(135deg, #1a3a5c 0%, #0a1628 60%, #0d2a1a 100%);
+      border-radius: 16px; padding: 24px; color: white; position: relative; overflow: hidden; margin-bottom: var(--nb-space-md);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .card-visual::before { content: ''; position: absolute; top: -40px; right: -40px; width: 150px; height: 150px; border-radius: 50%; background: rgba(0,212,170,0.12); }
+    .card-visual::after { content: ''; position: absolute; bottom: -30px; right: 30px; width: 100px; height: 100px; border-radius: 50%; background: rgba(0,212,170,0.07); }
+    .card-visual .card-chip { margin-bottom: 20px; position: relative; z-index: 1; }
+    .card-visual .card-chip svg { width: 32px; height: 24px; }
+    .card-visual .card-number { font-size: 0.9rem; letter-spacing: 0.2em; color: rgba(255,255,255,0.75); margin-bottom: 20px; font-family: var(--nb-font-mono); position: relative; z-index: 1; }
+    .card-visual .card-name { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; position: relative; z-index: 1; }
+    .card-visual .card-expiry { font-size: 0.72rem; color: rgba(255,255,255,0.5); margin-top: 4px; position: relative; z-index: 1; }
+    .card-visual .card-network { position: absolute; bottom: 20px; right: 20px; z-index: 1; opacity: 0.85; }
+    .card-visual .card-network svg { width: 40px; height: 24px; }
+
+    @media (max-width: 900px) {
+      .quick-actions { grid-template-columns: repeat(2, 1fr); }
+      .stat-row { grid-template-columns: 1fr 1fr; }
+      .bottom-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .stat-row { grid-template-columns: 1fr; }
+      .quick-actions { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<div class="nb-app">
+  <!-- Sidebar -->
+  <nav class="nb-sidebar" id="sidebar">
+    <div class="nb-sidebar-user" style="border-top:none;border-bottom:1px solid rgba(255,255,255,.1)">
+      <div class="avatar" id="avatarInitials" style="width:36px;height:36px;border-radius:50%;background:var(--nb-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:var(--nb-primary)">?</div>
+      <div>
+        <div class="name" id="sidebarName" style="font-size:.85rem;font-weight:600">Loading...</div>
+        <div class="role" style="font-size:.7rem;color:var(--nb-text-muted)">Customer</div>
+      </div>
+      <button class="logout-btn" onclick="logout()" title="Sign out" style="margin-left:auto;background:none;border:none;color:var(--nb-text-muted);cursor:pointer;font-size:1.1rem;padding:4px">⏻</button>
+    </div>
+    <div class="nb-sidebar-nav">
+      <div class="nb-nav-section">
+        <div class="nb-nav-section-title">Menu</div>
+        <a class="nb-nav-item active" href="/banking/dashboard.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Dashboard</a>
+        <a class="nb-nav-item" href="/banking/accounts.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span> Accounts</a>
+        <a class="nb-nav-item" href="/banking/transfers.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span> Transfers</a>
+        <a class="nb-nav-item" href="/banking/loans.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> Loans</a>
+        <a class="nb-nav-item" href="/banking/cards.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Cards</a>
+        <a class="nb-nav-item" href="/banking/for-you.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> For You</a>
+        <a class="nb-nav-item" href="/banking/support.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Support</a>
+      </div>
+    </div>
+    <div class="nb-sidebar-logo" style="border-bottom:none;border-top:1px solid rgba(255,255,255,.1)">
+      <div>
+        <h1><span class="bank-name">AI</span> Bank</h1>
+        <small>Online Banking</small>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="nb-main">
+    <header class="nb-header" style="border-bottom:1px solid var(--nb-border)">
+      <div class="nb-header-title">Dashboard</div>
+      <div class="nb-header-actions" style="display:flex;align-items:center;gap:var(--nb-space-lg)">
+        <span id="headerGreeting" style="font-size:0.85rem;color:var(--nb-text-secondary)"></span>
+        <span id="headerDate" style="font-size:0.8rem;color:var(--nb-text-muted)"></span>
+        <button onclick="toggleAlma()" title="Ask Alma" style="background:var(--nb-accent);border:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:20px;font-size:0.85rem;font-weight:700;color:var(--nb-primary);transition:all 0.2s;box-shadow:0 0 14px rgba(0,212,170,0.35)" onmouseenter="this.style.background='var(--nb-accent-hover)';this.style.boxShadow='0 0 20px rgba(0,212,170,0.55)'" onmouseleave="this.style.background='var(--nb-accent)';this.style.boxShadow='0 0 14px rgba(0,212,170,0.35)'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Ask Alma
+        </button>
+      </div>
+    </header>
+
+    <div class="nb-content">
+
+      <!-- Hero Banner (Nova Canvas generated) -->
+      <div class="dash-hero">
+        <div class="dash-hero-content">
+          <h2 id="heroGreeting">Welcome back</h2>
+          <p id="heroSub">Your financial overview</p>
+          <div class="balance-label">Total Balance</div>
+          <div class="balance-value" id="heroBalance">BHD —</div>
+          <div class="balance-sub" style="display:flex;align-items:center;gap:6px">
+            <span id="heroAccountNo">Loading account...</span>
+            <button id="heroAccToggle" onclick="(function(){const el=document.getElementById('heroAccountNo');const btn=document.getElementById('heroAccToggle');const full=btn.dataset.full;const masked=btn.dataset.masked;if(!full)return;const showing=btn.dataset.showing==='1';el.textContent=showing?masked:full;btn.dataset.showing=showing?'0':'1';btn.innerHTML=showing?'<svg width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\'/><circle cx=\'12\' cy=\'12\' r=\'3\'/></svg>':'<svg width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24\'/><line x1=\'1\' y1=\'1\' x2=\'23\' y2=\'23\'/></svg>';})()" data-showing="0" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);padding:0;display:none;align-items:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="hero-actions">
+            <a class="btn-accent" href="/banking/transfers.html">↑ Send Money</a>
+            <a class="btn-ghost-white" href="/banking/accounts.html">View Accounts</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ask Alma — full-width prominent card -->
+      <div onclick="toggleAlma()" style="
+        background: linear-gradient(135deg, #0A1628 0%, #0d2235 50%, #0a2a1e 100%);
+        border-radius: var(--nb-radius); padding: 20px 24px; cursor: pointer; margin-bottom: var(--nb-space-lg);
+        border: 1px solid rgba(0,212,170,0.3);
+        box-shadow: 0 4px 24px rgba(0,212,170,0.14), 0 1px 4px rgba(0,0,0,0.2);
+        transition: all 0.2s; position: relative; overflow: hidden; display: flex; align-items: center; gap: 20px;
+      " onmouseenter="this.style.borderColor='rgba(0,212,170,0.6)';this.style.boxShadow='0 6px 32px rgba(0,212,170,0.24)'"
+         onmouseleave="this.style.borderColor='rgba(0,212,170,0.3)';this.style.boxShadow='0 4px 24px rgba(0,212,170,0.14), 0 1px 4px rgba(0,0,0,0.2)'">
+        <div style="position:absolute;top:-30px;right:-30px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,170,0.15) 0%,transparent 70%);pointer-events:none"></div>
+        <div style="position:relative;flex-shrink:0">
+          <img src="/assets/alma-avatar.png" alt="Alma" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid var(--nb-accent)">
+          <span style="position:absolute;bottom:2px;right:2px;width:12px;height:12px;border-radius:50%;background:#00D4AA;border:2px solid #0A1628;display:block"></span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="color:white;font-weight:700;font-size:1rem">Ask Alma — Your AI Banking Assistant</div>
+          <div style="color:rgba(255,255,255,0.5);font-size:0.78rem;margin-top:3px">Get instant answers about your balance, spending, loans, and more</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+            <span style="padding:4px 12px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.25);border-radius:20px;font-size:0.72rem;color:rgba(255,255,255,0.75);display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> My balance</span>
+            <span style="padding:4px 12px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.25);border-radius:20px;font-size:0.72rem;color:rgba(255,255,255,0.75);display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Spending</span>
+            <span style="padding:4px 12px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.25);border-radius:20px;font-size:0.72rem;color:rgba(255,255,255,0.75);display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Loans</span>
+          </div>
+        </div>
+        <div style="flex-shrink:0;background:var(--nb-accent);color:var(--nb-primary);font-weight:700;font-size:0.82rem;padding:10px 18px;border-radius:var(--nb-radius-sm)">Chat now →</div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <a class="qa-card" href="/banking/transfers.html" style="background-image:url('/images/qa-transfer.png')">
+          <div class="qa-icon"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 5 5 12"/></svg></div>
+          <div class="qa-label">Transfer</div>
+        </a>
+        <a class="qa-card" href="/banking/cards.html" style="background-image:url('/images/qa-cards.png')">
+          <div class="qa-icon"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+          <div class="qa-label">My Cards</div>
+        </a>
+        <a class="qa-card" href="/banking/loans.html" style="background-image:url('/images/qa-loans.png')">
+          <div class="qa-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+          <div class="qa-label">Loans</div>
+        </a>
+        <a class="qa-card" href="/banking/for-you.html" style="background-image:url('/images/qa-for-you.png')">
+          <div class="qa-icon"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div>
+          <div class="qa-label">For You</div>
+        </a>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stat-row">
+        <div class="stat-card spend">
+          <div class="stat-top">
+            <div class="stat-title">Monthly Spending</div>
+            <div class="stat-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+          </div>
+          <div class="stat-value" id="statSpend">BHD —</div>
+          <div class="stat-change down" id="statSpendChange">Loading...</div>
+        </div>
+        <div class="stat-card savings">
+          <div class="stat-top">
+            <div class="stat-title">Savings Rate</div>
+            <div class="stat-icon"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+          </div>
+          <div class="stat-value" id="statSavings">—%</div>
+          <div class="stat-change up" id="statSavingsChange">Loading...</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-top">
+            <div class="stat-title">Active Loans</div>
+            <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          </div>
+          <div class="stat-value" id="statLoans">—</div>
+          <div class="stat-change" id="statLoansChange" style="color:var(--nb-text-muted)">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="bottom-grid">
+        <!-- Recent Transactions -->
+        <div class="nb-card">
+          <div class="nb-card-header">
+            <div class="nb-card-title">Recent Transactions</div>
+            <a href="/banking/accounts.html" style="font-size:0.8rem;color:var(--nb-accent);text-decoration:none">View all →</a>
+          </div>
+          <ul class="txn-list" id="txnList">
+            <li style="color:var(--nb-text-muted);font-size:0.85rem;padding:16px 0">Loading transactions...</li>
+          </ul>
+        </div>
+
+        <!-- Right column -->
+        <div style="display:flex;flex-direction:column;gap:var(--nb-space-lg)">
+          <!-- Card Visual -->
+          <div class="nb-card" style="padding:var(--nb-space-lg)">
+            <div class="nb-card-header"><div class="nb-card-title">My Card</div><a href="/banking/cards.html" style="font-size:0.8rem;color:var(--nb-accent);text-decoration:none">Manage →</a></div>
+            <div class="card-visual">
+              <div class="card-chip"><svg viewBox="0 0 32 24" fill="none"><rect x="1" y="1" width="30" height="22" rx="3" fill="#c8a84b" opacity="0.9"/><rect x="1" y="8" width="30" height="8" fill="#b8943b" opacity="0.5"/><rect x="8" y="1" width="1.5" height="22" fill="#b8943b" opacity="0.4"/><rect x="22.5" y="1" width="1.5" height="22" fill="#b8943b" opacity="0.4"/></svg></div>
+              <div class="card-number" id="cardNumber">•••• •••• •••• ••••</div>
+              <div class="card-name" id="cardName">—</div>
+              <div class="card-expiry">Valid Thru 12/28</div>
+              <div class="card-network"><svg viewBox="0 0 40 24" fill="none"><circle cx="15" cy="12" r="10" fill="#eb001b" opacity="0.85"/><circle cx="25" cy="12" r="10" fill="#f79e1b" opacity="0.85"/><path d="M20 4.8a10 10 0 0 1 0 14.4A10 10 0 0 1 20 4.8z" fill="#ff5f00" opacity="0.9"/></svg></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--nb-text-secondary)">
+              <span>Status</span><span class="nb-badge nb-badge-success">Active</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /nb-content -->
+  </main>
+</div>
+
+<!-- Alma backdrop -->
+<div class="alma-backdrop" id="almaBackdrop" onclick="toggleAlma()"></div>
+
+<!-- Alma slide-in panel -->
+<div class="alma-panel" id="almaPanel">
+  <div class="alma-panel-header">
+    <div class="alma-dot"><img src="/assets/alma-avatar.png" alt="Alma" style="width:100%;height:100%;border-radius:50%;object-fit:cover"></div>
+    <div class="alma-info">
+      <h3>Alma</h3>
+      <span>AI Banking Assistant · Online</span>
+    </div>
+    <div class="alma-status"></div>
+    <!-- mode toggle -->
+    <div style="display:flex;gap:3px;background:rgba(255,255,255,0.1);border-radius:8px;padding:3px;margin-left:auto">
+      <button onclick="apSetMode('text')" id="apModeText" style="padding:5px 10px;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;background:var(--nb-accent);color:var(--nb-primary);font-family:inherit">💬 Text</button>
+      <button onclick="apSetMode('voice')" id="apModeVoice" style="padding:5px 10px;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;background:transparent;color:rgba(255,255,255,0.7);font-family:inherit">🎤 Voice</button>
+    </div>
+    <!-- expand / close -->
+    <button onclick="apToggleFullscreen()" id="apExpandBtn" title="Expand" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:1rem;padding:4px;margin-left:6px">⛶</button>
+    <button onclick="toggleAlma()" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:1.2rem;padding:4px">✕</button>
+  </div>
+  <div class="alma-panel-msgs" id="almaMsgs">
+    <div class="ap-msg bot" id="almaWelcome">Hi! I'm Alma 👋 I can help you with your account balance, recent transactions, spending insights, and more. What would you like to know?</div>
+  </div>
+  <div class="alma-panel-suggestions" id="almaSuggestions">
+    <button class="ap-suggestion" onclick="apSend('What is my account balance?')">My balance</button>
+    <button class="ap-suggestion" onclick="apSend('Show my recent transactions')">Transactions</button>
+    <button class="ap-suggestion" onclick="apSend('How much did I spend this month?')">Spending</button>
+    <button class="ap-suggestion" onclick="apSend('Do I have any active loans?')">Loans</button>
+  </div>
+  <div class="alma-panel-input" id="alma-panel-input-wrap">
+    <input type="text" id="apInput" placeholder="Ask Alma anything..." onkeydown="if(event.key==='Enter')apSend()">
+    <button class="ap-send" id="apSendBtn" onclick="apSend()">➤</button>
+  </div>
+  <!-- Voice iframe (hidden until voice mode selected) -->
+  <iframe id="apVoiceFrame" src="" style="display:none;flex:1;border:none;width:100%;height:100%"></iframe>
+  <button id="apVoiceBack" onclick="apSetMode('text');toggleAlma();" style="display:none;position:absolute;top:10px;left:10px;z-index:300;background:rgba(10,22,40,0.75);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:0.8rem;cursor:pointer;backdrop-filter:blur(4px)">← Dashboard</button>
+</div>
+
+<!-- Floating Action Button -->
+<button class="alma-fab" id="almaFab" onclick="toggleAlma()" title="Ask Alma">
+  <img src="/assets/alma-avatar.png" alt="Alma">
+  <span id="almaFabLabel">Ask Alma</span>
+</button>
+
+<script type="module">
+  import { a as auth, C as config } from '/assets/auth-DpGNMwuK.js';
+
+  // Require customer login
+  await auth.requireCustomer();
+  const profile = auth.session.profile;
+
+  // Populate name/greeting
+  const name = profile?.name || 'there';
+  const firstName = name.split(' ')[0];
+  const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  document.getElementById('avatarInitials').textContent = initials;
+  document.getElementById('sidebarName').textContent = name;
+  document.getElementById('heroGreeting').textContent = `Welcome back, ${firstName}`;
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('headerGreeting').textContent = `${greet}, ${firstName}`;
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-BH', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('cardName').textContent = name.toUpperCase();
+  document.getElementById('almaWelcome').textContent = `Hi ${firstName}! I'm Alma 👋 I can help you with your account balance, recent transactions, spending insights, and more. What would you like to know?`;
+
+  // Load account data from Aurora via session API
+  const acctResp = await fetch('/sessions/me/accounts', { credentials: 'include' });
+  if (acctResp.ok) {
+    const data = await acctResp.json();
+    const acct = data.accounts?.[0];
+    if (acct) {
+      document.getElementById('heroBalance').textContent = config.formatCurrency(acct.balance ?? 0);
+      const masked = `${acct.account_type} · ···· ${acct.account_number.slice(-4)}`;
+      const full = `${acct.account_type} · ${acct.account_number}`;
+      document.getElementById('heroAccountNo').textContent = masked;
+      const btn = document.getElementById('heroAccToggle');
+      btn.dataset.masked = masked; btn.dataset.full = full; btn.style.display = 'inline-flex';
+      document.getElementById('cardNumber').textContent = `•••• •••• •••• ${acct.account_number.slice(-4)}`;
+      const spend = acct.monthly_spend ?? 0;
+      document.getElementById('statSpend').textContent = config.formatCurrency(spend);
+      document.getElementById('statSpendChange').textContent = 'This month';
+      document.getElementById('statSavings').textContent = `${acct.savings_rate ?? 0}%`;
+      document.getElementById('statSavingsChange').textContent = 'Of monthly income';
+      document.getElementById('statLoans').textContent = data.loans?.length ?? '0';
+      document.getElementById('statLoansChange').textContent = data.loans?.length ? 'Active loan(s)' : 'No active loans';
+    }
+  }
+
+  // Load recent transactions from Aurora via session API
+  const txnResp = await fetch('/sessions/me/transactions?limit=6', { credentials: 'include' });
+  if (txnResp.ok) {
+    const data = await txnResp.json();
+    const list = document.getElementById('txnList');
+    const txns = data.transactions || [];
+    if (txns.length) {
+      list.innerHTML = txns.map(t => {
+        const isCredit = t.amount > 0;
+        return `<li class="txn-item">
+          <div class="txn-icon ${isCredit ? 'credit' : 'debit'}">${isCredit ? '↓' : '↑'}</div>
+          <div class="txn-info"><div class="txn-name">${t.description}</div><div class="txn-date">${t.date}</div></div>
+          <div class="txn-amount ${isCredit ? 'credit' : 'debit'}">${isCredit ? '+' : '-'}${config.formatCurrency(Math.abs(t.amount))}</div>
+        </li>`;
+      }).join('');
+    } else {
+      list.innerHTML = '<li style="padding:16px;color:var(--nb-text-secondary);text-align:center">No transactions found</li>';
+    }
+  }
+
+  async function logout() { await auth.logout(); }
+  window.logout = logout;
+
+  // ── Alma FAB + slide-in panel ─────────────────────────────────
+  const ALMA_CHAT = '/banking/chat';
+  let almaOpen = false, apSessionId = null, apSending = false;
+
+  window.toggleAlma = function() {
+    almaOpen = !almaOpen;
+    document.getElementById('almaPanel').classList.toggle('open', almaOpen);
+    document.getElementById('almaBackdrop').classList.toggle('open', almaOpen);
+    const fab = document.getElementById('almaFab');
+    fab.classList.toggle('open', almaOpen);
+    document.getElementById('almaFabLabel').textContent = almaOpen ? '✕ Close' : 'Ask Alma';
+    if (almaOpen) document.getElementById('apInput').focus();
+  };
+
+  window.apSetMode = function(mode) {
+    const isVoice = mode === 'voice';
+    // toggle button styles
+    document.getElementById('apModeText').style.background = isVoice ? 'transparent' : 'var(--nb-accent)';
+    document.getElementById('apModeText').style.color = isVoice ? 'rgba(255,255,255,0.7)' : 'var(--nb-primary)';
+    document.getElementById('apModeVoice').style.background = isVoice ? 'var(--nb-accent)' : 'transparent';
+    document.getElementById('apModeVoice').style.color = isVoice ? 'var(--nb-primary)' : 'rgba(255,255,255,0.7)';
+    // show/hide text vs voice UI
+    document.getElementById('almaMsgs').style.display = isVoice ? 'none' : '';
+    document.getElementById('almaSuggestions').style.display = isVoice ? 'none' : '';
+    document.getElementById('alma-panel-input-wrap').style.display = isVoice ? 'none' : '';
+    document.querySelector('.alma-panel-header').style.display = isVoice ? 'none' : '';
+    document.getElementById('apVoiceBack').style.display = isVoice ? 'block' : 'none';
+    const frame = document.getElementById('apVoiceFrame');
+    frame.style.display = isVoice ? 'block' : 'none';
+    const VOICE_URL = '/banking/alma-chat.html';
+
+    function injectVoiceCSS(f) {
+      try {
+        const doc = f.contentDocument;
+        if (!doc) return;
+        if (!doc.getElementById('ap-voice-inject')) {
+          const s = doc.createElement('style');
+          s.id = 'ap-voice-inject';
+          s.textContent = '.alma-header{display:none!important}#chatArea{display:none!important}#voiceMode{flex:1!important;display:flex!important;flex-direction:column!important}';
+          doc.head.appendChild(s);
+        }
+        // Force canvas to fill full voiceMode height — Three.js sets inline style so we override via JS
+        const vm = doc.getElementById('voiceMode');
+        const canvas = doc.getElementById('renderCanvas');
+        if (vm && canvas) {
+          const w = f.contentWindow.innerWidth;
+          const h = f.contentWindow.innerHeight;
+          canvas.style.cssText = 'position:absolute;top:0;left:0;width:' + w + 'px;height:' + h + 'px;z-index:0';
+          // Trigger Three.js resize so it re-renders at new size
+          f.contentWindow.dispatchEvent(new Event('resize'));
+        }
+        try { f.contentWindow.switchMode('voice'); } catch(e) {}
+      } catch(e) {}
+    }
+
+    if (isVoice && !frame.src.includes('alma-chat')) {
+      frame.src = VOICE_URL;
+      frame.onload = () => { injectVoiceCSS(frame); setTimeout(() => injectVoiceCSS(frame), 2500); };
+    } else if (isVoice) {
+      injectVoiceCSS(frame); setTimeout(() => injectVoiceCSS(frame), 2500);
+    }
+    // auto-expand for voice, restore for text
+    if (isVoice && !apFullscreen) apToggleFullscreen();
+    if (!isVoice && apFullscreen) apToggleFullscreen();
+  };
+
+  let apFullscreen = false;
+  window.apToggleFullscreen = function() {
+    apFullscreen = !apFullscreen;
+    document.getElementById('almaPanel').classList.toggle('fullscreen', apFullscreen);
+    document.getElementById('apExpandBtn').textContent = apFullscreen ? '⊡' : '⛶';
+    document.getElementById('apExpandBtn').title = apFullscreen ? 'Restore' : 'Expand';
+  };
+
+  function md(t) {
+    return t
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/^[-•]\s+(.*)$/gm,'<li>$1</li>')
+      .replace(/((?:<li>.*<\/li>\n?)+)/g,'<ul style="margin:4px 0 4px 16px;padding:0">$1</ul>')
+      .replace(/\n/g,'<br>');
+  }
+
+  window.apSend = async function(text) {
+    const input = document.getElementById('apInput');
+    const msg = text || input.value.trim();
+    if (!msg || apSending) return;
+    input.value = '';
+    document.getElementById('almaSuggestions').style.display = 'none';
+
+    const msgs = document.getElementById('almaMsgs');
+    const uDiv = document.createElement('div');
+    uDiv.className = 'ap-msg user'; uDiv.textContent = msg;
+    msgs.appendChild(uDiv);
+
+    const bDiv = document.createElement('div');
+    bDiv.className = 'ap-msg bot'; bDiv.textContent = '...';
+    msgs.appendChild(bDiv);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    apSending = true;
+    document.getElementById('apSendBtn').disabled = true;
+
+    try {
+      const payload = { message: msg };
+      if (apSessionId) payload.session_id = apSessionId;
+
+      const resp = await fetch(ALMA_CHAT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      if (resp.status === 401) { bDiv.innerHTML = '🔒 Session expired. Please <a href="/login.html">log in again</a>.'; return; }
+
+      const data = await resp.json();
+      if (data.session_id) apSessionId = data.session_id;
+      const answer = (data.answer || '').replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
+      bDiv.innerHTML = answer ? md(answer) : "I couldn't get a response. Please try again.";
+      msgs.scrollTop = msgs.scrollHeight;
+
+      // Loan document upload widget
+      if (data.loan_upload && data.loan_upload.length > 0) {
+        const u = data.loan_upload[0];
+        const docLabel = u.document_type === 'salary_certificate' ? 'Salary Certificate' : 'Bank Statement (3 months)';
+        const uploadDiv = document.createElement('div');
+        uploadDiv.className = 'ap-msg bot';
+        uploadDiv.innerHTML = `<div style="background:rgba(56,161,105,0.08);border:1px solid rgba(56,161,105,0.2);border-radius:12px;padding:16px;margin-top:8px">
+          <div style="font-weight:600;margin-bottom:8px">📄 ${docLabel}</div>
+          <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px dashed rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;margin-bottom:8px">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="window._loanUploadFile=this.files[0];this.parentElement.querySelector('span').textContent=this.files[0].name;this.parentElement.nextElementSibling.disabled=false">
+            <span style="color:rgba(255,255,255,0.6)">📎 Click to select file</span>
+          </label>
+          <button disabled onclick="(async()=>{const btn=this;btn.disabled=true;btn.textContent='Uploading...';try{const f=window._loanUploadFile;const ext=f.name.split('.').pop().toLowerCase();const ct=ext==='pdf'?'application/pdf':'image/'+(ext==='jpg'?'jpeg':ext);const r=await fetch('${u.upload_url}',{method:'PUT',headers:{'Content-Type':ct},body:f});if(!r.ok)throw new Error('Upload failed');btn.textContent='✅ Uploaded!';btn.style.background='#38a169';setTimeout(()=>apSend('uploaded ${u.document_type}'),1500)}catch(e){btn.textContent='❌ '+e.message;btn.disabled=false}})()" style="width:100%;padding:10px;border:none;border-radius:8px;background:var(--nb-accent);color:var(--nb-primary);font-weight:600;cursor:pointer">Select a file first</button>
+        </div>`;
+        msgs.appendChild(uploadDiv);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+    } catch(e) { bDiv.textContent = "Connection issue. Please try again."; }
+
+    apSending = false;
+    document.getElementById('apSendBtn').disabled = false;
+  };
+</script>
+</body>
+</html>
