@@ -55,14 +55,14 @@ SYSTEM_PROMPT = """You are the AI Bank Loan Agent. You guide customers through l
 
 ### Step 2: Customer Confirms → Request Salary Certificate
 - When customer confirms (yes, proceed, go ahead, confirm, etc.):
-- Call generate_upload_url with document_type="salary_certificate"
+- Call generate_upload_url with document_type="salary_certificate", application_id="pending", AND include loan_type, amount, tenure_months, purpose from the conversation.
 - The tool returns JSON with "application_id". You MUST include the application_id AND the marker in your response.
 - Say: "Great! Your application ID is {application_id}. Please upload your salary certificate now. [UPLOAD_REQUEST:salary_certificate]"
 - STOP here. Wait for next message.
 
 ### Step 3: Salary Certificate Uploaded → Request Bank Statement
 - When customer says they uploaded or you receive "uploaded salary_certificate":
-- Call generate_upload_url with document_type="bank_statement" using the SAME application_id from Step 2.
+- Call generate_upload_url with document_type="bank_statement" using the SAME application_id from Step 2. No need to pass loan details again.
 - Say: "Salary certificate received! Now please upload your 3-month bank statement for application {application_id}. [UPLOAD_REQUEST:bank_statement]"
 - STOP here. Wait for next message.
 
@@ -161,15 +161,36 @@ def calculate_loan(amount: float, tenure_months: int, loan_type: str) -> str:
 
 
 @tool
-def generate_upload_url(customer_id: str, application_id: str, document_type: str) -> str:
+def generate_upload_url(customer_id: str, application_id: str, document_type: str,
+                        loan_type: str = "", amount: float = 0, tenure_months: int = 0, purpose: str = "") -> str:
     """Generate a presigned S3 upload URL for a loan document.
     Args:
         customer_id: Customer ID (e.g. CUST00000001)
         application_id: Loan application ID (e.g. AIB-20260315-XXXX). Use 'pending' if not yet created.
         document_type: Either 'salary_certificate' or 'bank_statement'
+        loan_type: Either 'instant_money' or 'personal' (required on first call)
+        amount: Loan amount in BHD (required on first call)
+        tenure_months: Tenure in months (required on first call)
+        purpose: Purpose of the loan (required on first call)
     """
     if application_id == "pending":
         application_id = f"AIB-{datetime.date.today().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+
+    # On first call (salary_certificate), create the DynamoDB record with loan details
+    if document_type == "salary_certificate" and loan_type and amount > 0:
+        try:
+            ddb.Table(LOAN_TABLE).update_item(
+                Key={"customer_id": customer_id, "application_id": application_id},
+                UpdateExpression="SET loan_type=:lt, amount_bhd=:ab, amount=:a, tenure_months=:tm, "
+                                 "#dur=:d, purpose=:p, #s=:st, submitted_at=:sa, channel=:ch",
+                ExpressionAttributeNames={"#s": "status", "#dur": "duration"},
+                ExpressionAttributeValues={
+                    ":lt": loan_type, ":ab": str(amount), ":a": Decimal(str(amount)),
+                    ":tm": tenure_months, ":d": tenure_months, ":p": purpose or "General purpose",
+                    ":st": "SUBMITTED", ":sa": datetime.datetime.utcnow().isoformat(), ":ch": "alma_assistant"})
+            log.info(f"Created loan record {application_id} with details before upload")
+        except Exception as e:
+            log.error(f"Pre-create loan record error: {e}")
 
     folder = "salary_certificate" if document_type == "salary_certificate" else "bank_statement"
     filename = "salary-certificate.pdf" if document_type == "salary_certificate" else "bank-statement.pdf"
@@ -178,8 +199,6 @@ def generate_upload_url(customer_id: str, application_id: str, document_type: st
     try:
         url = s3.generate_presigned_url("put_object",
             Params={"Bucket": UPLOAD_BUCKET, "Key": key, "ContentType": "application/pdf"}, ExpiresIn=900)
-        # Return simple confirmation — the URL is too long for LLM to relay.
-        # The actual URL will be extracted by the Lambda from the tool result stored in _pending_uploads.
         _pending_uploads[f"{customer_id}:{document_type}"] = {"url": url, "key": key, "application_id": application_id}
         return json.dumps({"success": True, "document_type": document_type, "application_id": application_id,
                            "message": f"Upload URL ready for {document_type}. Include [UPLOAD_REQUEST:{document_type}] in your response."})
