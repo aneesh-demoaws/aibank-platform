@@ -232,6 +232,22 @@ def handle_decision(event):
             ExpressionAttributeNames={"#s": "status"},
             ExpressionAttributeValues={":s": decision, ":t": now, ":n": notes, ":o": officer}
         )
+        # Sync decision to core banking MySQL
+        try:
+            rds_data = boto3.client("rds-data", region_name="me-south-1")
+            mysql_status = decision.lower()
+            rds_data.execute_statement(
+                resourceArn=os.environ.get("AURORA_CLUSTER_ARN", CLUSTER_ARN),
+                secretArn=os.environ.get("AURORA_SECRET_ARN", SECRET_ARN),
+                database="corebanking",
+                sql="UPDATE loan_applications SET status=:s, reviewed_by=:o, officer_notes=:n, updated_at=NOW() WHERE application_id=:aid",
+                parameters=[
+                    {"name": "s", "value": {"stringValue": mysql_status}},
+                    {"name": "o", "value": {"stringValue": officer}},
+                    {"name": "n", "value": {"stringValue": notes or ""}},
+                    {"name": "aid", "value": {"stringValue": app_id}}])
+        except Exception as e:
+            logger.error(f"Core banking sync error: {e}")
         return _cors(200, json.dumps({"success": True, "application_id": app_id, "decision": decision}))
     except Exception as e:
         logger.exception("Decision error")

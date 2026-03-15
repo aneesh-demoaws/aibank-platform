@@ -39,6 +39,19 @@ def lambda_handler(event, context):
             }
         )
 
+        # Sync decision to core banking MySQL
+        try:
+            mysql_status = decision.lower()  # APPROVED->approved, REJECTED->rejected
+            rds_data.execute_statement(
+                resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database='corebanking',
+                sql='UPDATE loan_applications SET status=:s, decision_reason=:r, updated_at=NOW() WHERE application_id=:aid',
+                parameters=[
+                    {'name': 's', 'value': {'stringValue': mysql_status}},
+                    {'name': 'r', 'value': {'stringValue': reason or ''}},
+                    {'name': 'aid', 'value': {'stringValue': application_id}}])
+        except Exception as e:
+            logger.error(f"Core banking sync error: {e}")
+
         # Get customer email from Aurora
         email = _get_customer_email(customer_id)
         if email:

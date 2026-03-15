@@ -1,0 +1,62 @@
+default_agent: alma_banking_assistant
+agents:
+  alma_banking_assistant:
+    name: alma_banking_assistant
+    language: python
+    node_version: null
+    entrypoint: /tmp/aibank-platform-clone/use-cases/03-alma-banking-assistant/agent/main.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: none
+    source_path: /tmp/aibank-platform-clone/use-cases/03-alma-banking-assistant/agent
+    aws:
+      execution_role: arn:aws:iam::519124228967:role/AmazonBedrockAgentCoreSDKRuntime-eu-west-1-3fc2d0d0a3
+      execution_role_auto_create: false
+      account: '519124228967'
+      region: eu-west-1
+      ecr_repository: 519124228967.dkr.ecr.eu-west-1.amazonaws.com/bedrock-agentcore-alma-banking-assistant
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: alma_banking_assistant-zxGWis2H4O
+      agent_arn: arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/alma_banking_assistant-zxGWis2H4O
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-alma_banking_assistant-builder
+      execution_role: arn:aws:iam::519124228967:role/AmazonBedrockAgentCoreSDKCodeBuild-eu-west-1-10a70c8c41
+      source_bucket: bedrock-agentcore-codebuild-sources-519124228967-eu-west-1
+    memory:
+      mode: STM_ONLY
+      memory_id: alma_banking_assistant_mem-ijns9pFcc6
+      memory_arn: arn:aws:bedrock-agentcore:eu-west-1:519124228967:memory/alma_banking_assistant_mem-ijns9pFcc6
+      memory_name: alma_banking_assistant_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: true
+      was_created_by_toolkit: true
+    identity:
+      credential_providers: []
+      workload: null
+    aws_jwt:
+      enabled: false
+      audiences: []
+      signing_algorithm: ES384
+      issuer_url: null
+      duration_seconds: 300
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+    api_key_env_var_name: null
+    api_key_credential_provider_name: null
+    is_generated_by_agentcore_create: false
