@@ -256,6 +256,8 @@ def check_kyc_status(customer_id: str) -> str:
 
 import uuid as _uuid
 
+_loan_sessions = {}  # customer_id -> loan_session_id
+
 @tool
 def start_loan_application(customer_message: str, customer_id: str) -> str:
     """Hand off to the Loan AI Agent when a customer wants to apply for a loan.
@@ -264,7 +266,10 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
         customer_id: The authenticated customer's ID (e.g. CUST00000001)
     """
     try:
-        loan_session_id = str(_uuid.uuid4())
+        # Reuse existing loan session for multi-turn, or create new
+        loan_session_id = _loan_sessions.get(customer_id) or str(_uuid.uuid4())
+        _loan_sessions[customer_id] = loan_session_id
+
         payload = json.dumps({
             "jsonrpc": "2.0",
             "id": _uuid.uuid4().hex,
@@ -290,12 +295,17 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
             for artifact in parsed.get("result", {}).get("artifacts", []):
                 for part in artifact.get("parts", []):
                     if part.get("kind") == "text":
-                        return f"\x00SID:{loan_session_id}\x00[RELAY_VERBATIM]{part['text']}"
+                        text = part["text"]
+                        # Clear loan session when flow completes
+                        if any(s in text.lower() for s in ["submitted successfully", "application id"]):
+                            _loan_sessions.pop(customer_id, None)
+                        return f"\x00SID:{loan_session_id}\x00[RELAY_VERBATIM]{text}"
             return raw
         except json.JSONDecodeError:
             return raw
     except Exception as e:
         logger.error(f"start_loan_application error: {e}", exc_info=True)
+        _loan_sessions.pop(customer_id, None)
         return f"I'm sorry, the loan service is temporarily unavailable. Please try again or visit our loans page at aibank.demoaws.com/banking/loans.html"
 
 
