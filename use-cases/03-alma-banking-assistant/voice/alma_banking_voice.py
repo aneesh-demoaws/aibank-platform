@@ -36,7 +36,7 @@ LOAN_AGENT_ARN = os.environ.get("LOAN_AGENT_ARN", "CHANGE_ME")
 
 rds = boto3.client("rds-data", region_name=DB_REGION)
 dynamodb = boto3.resource("dynamodb", region_name=DB_REGION)
-_agentcore_client = boto3.client("bedrock-agentcore", region_name=REGION)
+_agentcore_client = boto3.client("bedrock-agentcore", region_name=MEMORY_REGION)
 
 SYSTEM_PROMPT = """You are Alma, the AI Banking voice assistant for AI Bank Bahrain.
 
