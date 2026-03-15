@@ -1,9 +1,11 @@
 """Alma Banking Assistant — Lambda proxy with session auth + multi-turn loan A2A routing."""
 import json, uuid, time, re, boto3, os
+from botocore.config import Config as BotoConfig
 
 BANKING_ARN = os.environ.get("BANKING_AGENT_ARN", "arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/alma_banking_assistant-zxGWis2H4O")
 LOAN_AGENT_ARN = os.environ.get("LOAN_AGENT_ARN", "CHANGE_ME")
 SESSION_TABLE = os.environ.get("SESSION_TABLE", "aibank-session-routing")
+UPLOAD_BUCKET = os.environ.get("UPLOAD_BUCKET", "aibank-loan-uploads-519124228967")
 CLUSTER_ARN = "arn:aws:rds:me-south-1:519124228967:cluster:aibank-core-banking"
 SECRET_ARN = "arn:aws:secretsmanager:me-south-1:519124228967:secret:aibank-core-banking-credentials-DEdCPJ"
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "https://aibank.demoaws.com")
@@ -12,6 +14,7 @@ ddb = boto3.resource("dynamodb", region_name="eu-west-1")
 session_table = ddb.Table(SESSION_TABLE)
 agentcore = boto3.client("bedrock-agentcore", region_name="eu-west-1")
 rds = boto3.client("rds-data", region_name="me-south-1")
+s3 = boto3.client("s3", region_name="eu-west-1", config=BotoConfig(signature_version="s3v4"))
 
 _customer_cache = {}
 
@@ -105,13 +108,34 @@ def clear_loan_session(chat_session):
     session_table.delete_item(Key={"session_id": f"loan:{chat_session}"})
 
 
-def extract_actions(answer):
-    """Extract [ACTION:LOAN_UPLOAD:type:url] markers and return structured data."""
+def extract_actions(answer, customer_id, chat_session):
+    """Extract [UPLOAD_REQUEST:doc_type] markers and generate presigned upload URLs."""
     actions = []
-    for m in re.finditer(r'\[ACTION:LOAN_UPLOAD:(\w+):(https?://[^\]]+)\]', answer):
-        actions.append({"document_type": m.group(1), "upload_url": m.group(2)})
-    # Clean markers from display text
-    clean = re.sub(r'\[ACTION:LOAN_UPLOAD:\w+:https?://[^\]]+\]', '', answer).strip()
+    # Get or create application_id for this loan session
+    app_id_match = re.search(r'(AIB-\d{8}-[A-Z0-9]{6})', answer)
+    loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
+    app_id = app_id_match.group(1) if app_id_match else loan_meta.get("application_id", f"AIB-{time.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}")
+
+    # Store app_id in loan session for future turns
+    if app_id and get_loan_session(chat_session):
+        session_table.update_item(
+            Key={"session_id": f"loan:{chat_session}"},
+            UpdateExpression="SET application_id = :a",
+            ExpressionAttributeValues={":a": app_id})
+
+    for m in re.finditer(r'\[UPLOAD_REQUEST:(\w+)\]', answer):
+        doc_type = m.group(1)
+        folder = doc_type
+        filename = doc_type.replace("_", "-") + ".pdf"
+        key = f"documents/input/{customer_id}/{app_id}/{folder}/{filename}"
+        try:
+            url = s3.generate_presigned_url("put_object",
+                Params={"Bucket": UPLOAD_BUCKET, "Key": key, "ContentType": "application/pdf"}, ExpiresIn=900)
+            actions.append({"document_type": doc_type, "upload_url": url, "key": key, "application_id": app_id})
+        except Exception as e:
+            actions.append({"document_type": doc_type, "error": str(e)})
+
+    clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', answer).strip()
     return clean, actions
 
 
@@ -168,7 +192,7 @@ def handler(event, context):
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", answer).strip()
 
     # Extract upload actions
-    answer, upload_actions = extract_actions(answer)
+    answer, upload_actions = extract_actions(answer, customer_id, chat_session)
 
     result = {"answer": answer, "session_id": chat_session, "customer_id": customer_id}
     if upload_actions:

@@ -29,6 +29,8 @@ ddb = boto3.resource("dynamodb", region_name=REGION)
 ddb_mesouth = boto3.resource("dynamodb", region_name=DB_REGION)
 s3 = boto3.client("s3", region_name=REGION, config=BotoConfig(signature_version="s3v4"))
 
+_pending_uploads = {}  # "customer_id:doc_type" -> {"url": ..., "key": ..., "application_id": ...}
+
 PRODUCTS = {
     "instant_money": {"min": 100, "max": 500, "min_tenure": 3, "max_tenure": 12, "rate": 7.5, "salary_mult": 20, "auto": True},
     "personal": {"min": 500, "max": 20000, "min_tenure": 6, "max_tenure": 60, "rate": 4.5, "salary_mult": 40, "auto": False},
@@ -54,15 +56,15 @@ SYSTEM_PROMPT = """You are the AI Bank Loan Agent. You guide customers through l
 ### Step 2: Customer Confirms → Request Salary Certificate
 - When customer confirms (yes, proceed, go ahead, confirm, etc.):
 - Call generate_upload_url with document_type="salary_certificate"
-- Say: "Please upload your salary certificate now."
-- Include [ACTION:LOAN_UPLOAD:salary_certificate:{url}] in your response.
+- The tool returns JSON with "upload_id". Include EXACTLY this marker in your response: [UPLOAD_REQUEST:salary_certificate]
+- Say: "Great! Please upload your salary certificate now. I've prepared the upload for you."
 - STOP here. Wait for next message.
 
 ### Step 3: Salary Certificate Uploaded → Request Bank Statement
 - When customer says they uploaded or you receive "uploaded salary_certificate":
 - Call generate_upload_url with document_type="bank_statement"
+- Include EXACTLY this marker: [UPLOAD_REQUEST:bank_statement]
 - Say: "Salary certificate received! Now please upload your 3-month bank statement."
-- Include [ACTION:LOAN_UPLOAD:bank_statement:{url}] in your response.
 - STOP here. Wait for next message.
 
 ### Step 4: Bank Statement Uploaded → Submit Application
@@ -177,8 +179,11 @@ def generate_upload_url(customer_id: str, application_id: str, document_type: st
     try:
         url = s3.generate_presigned_url("put_object",
             Params={"Bucket": UPLOAD_BUCKET, "Key": key, "ContentType": "application/pdf"}, ExpiresIn=900)
-        return json.dumps({"url": url, "key": key, "document_type": document_type,
-                           "application_id": application_id, "expires_in": 900})
+        # Return simple confirmation — the URL is too long for LLM to relay.
+        # The actual URL will be extracted by the Lambda from the tool result stored in _pending_uploads.
+        _pending_uploads[f"{customer_id}:{document_type}"] = {"url": url, "key": key, "application_id": application_id}
+        return json.dumps({"success": True, "document_type": document_type, "application_id": application_id,
+                           "message": f"Upload URL ready for {document_type}. Include [UPLOAD_REQUEST:{document_type}] in your response."})
     except Exception as e:
         log.error(f"Presigned URL error: {e}")
         return json.dumps({"error": str(e)})
