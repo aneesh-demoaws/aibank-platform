@@ -212,6 +212,29 @@ def submit_loan_application(customer_id: str, application_id: str, loan_type: st
                 ":doc": {"salary_certificate": "uploaded", "bank_statement": "uploaded"},
                 ":st": "SUBMITTED", ":sa": datetime.datetime.utcnow().isoformat(), ":ch": "alma_assistant"})
         p = PRODUCTS.get(loan_type, {})
+        # Sync to core banking MySQL
+        emi = 0
+        r = p["rate"] / 100 / 12
+        if r > 0:
+            emi = amount * r * (1 + r) ** tenure_months / ((1 + r) ** tenure_months - 1)
+        try:
+            rds.execute_statement(
+                resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database=DB_NAME,
+                sql="INSERT INTO loan_applications (application_id, customer_id, loan_type, amount, status, "
+                    "monthly_payment, duration, interest, purpose, channel, application_source) "
+                    "VALUES (:aid, :cid, :lt, :amt, 'submitted', :emi, :dur, :rate, :purp, 'alma_assistant', 'chat') "
+                    "ON DUPLICATE KEY UPDATE status='submitted', updated_at=NOW()",
+                parameters=[
+                    {"name": "aid", "value": {"stringValue": application_id}},
+                    {"name": "cid", "value": {"stringValue": customer_id}},
+                    {"name": "lt", "value": {"stringValue": loan_type}},
+                    {"name": "amt", "value": {"doubleValue": amount}},
+                    {"name": "emi", "value": {"doubleValue": round(emi, 2)}},
+                    {"name": "dur", "value": {"longValue": tenure_months}},
+                    {"name": "rate", "value": {"doubleValue": p["rate"]}},
+                    {"name": "purp", "value": {"stringValue": purpose}}])
+        except Exception as e:
+            log.error(f"Core banking sync error: {e}")
         return json.dumps({"success": True, "application_id": application_id, "status": "SUBMITTED",
                             "auto_decision": p.get("auto", False)})
     except Exception as e:
