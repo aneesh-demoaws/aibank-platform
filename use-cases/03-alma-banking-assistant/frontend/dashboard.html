@@ -616,16 +616,41 @@
       // Loan document upload widget
       if (data.loan_upload && data.loan_upload.length > 0) {
         const u = data.loan_upload[0];
-        const docLabel = u.document_type === 'salary_certificate' ? 'Salary Certificate' : 'Bank Statement (3 months)';
+        const isSalary = u.document_type === 'salary_certificate';
+        const docLabel = isSalary ? 'Salary Certificate' : 'Bank Statement (3 months)';
+        const docIcon = isSalary ? '📋' : '🏦';
+        const docHint = isSalary ? 'Upload your latest salary certificate' : 'Upload your last 3 months bank statement';
         const uploadDiv = document.createElement('div');
         uploadDiv.className = 'ap-msg bot';
-        uploadDiv.innerHTML = `<div style="background:rgba(56,161,105,0.08);border:1px solid rgba(56,161,105,0.2);border-radius:12px;padding:16px;margin-top:8px">
-          <div style="font-weight:600;margin-bottom:8px">📄 ${docLabel}</div>
-          <label style="display:flex;align-items:center;gap:8px;padding:12px;border:2px dashed rgba(255,255,255,0.15);border-radius:8px;cursor:pointer;margin-bottom:8px">
-            <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="window._loanUploadFile=this.files[0];this.parentElement.querySelector('span').textContent=this.files[0].name;this.parentElement.nextElementSibling.disabled=false">
-            <span style="color:rgba(255,255,255,0.6)">📎 Click to select file</span>
+        uploadDiv.innerHTML = `<div style="background:rgba(56,161,105,0.06);border:1px solid rgba(56,161,105,0.18);border-radius:14px;padding:18px;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+            <span style="font-size:1.5rem">${docIcon}</span>
+            <div>
+              <div style="font-weight:600;font-size:0.95rem">${docLabel}</div>
+              <div style="font-size:0.75rem;color:rgba(255,255,255,0.45)">${docHint} · PDF, JPG or PNG</div>
+            </div>
+          </div>
+          <label style="display:flex;align-items:center;justify-content:center;gap:8px;padding:28px 12px;border:2px dashed rgba(255,255,255,0.12);border-radius:10px;cursor:pointer;margin:12px 0 0;transition:all 0.2s;background:rgba(255,255,255,0.02)" onmouseover="this.style.borderColor='rgba(0,212,170,0.4)';this.style.background='rgba(0,212,170,0.04)'" onmouseout="if(!this.dataset.selected){this.style.borderColor='rgba(255,255,255,0.12)';this.style.background='rgba(255,255,255,0.02)'}">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="
+              window._loanUploadFile=this.files[0];
+              const lbl=this.parentElement;
+              const sp=lbl.querySelector('span');
+              lbl.dataset.selected='1';
+              lbl.style.borderColor='rgba(0,212,170,0.5)';
+              lbl.style.background='rgba(0,212,170,0.06)';
+              lbl.style.padding='14px 12px';
+              sp.innerHTML='<span style=\&quot;font-size:1.1rem\&quot;>📄</span> <span style=\&quot;font-weight:500\&quot;>'+this.files[0].name+'</span> <span style=\&quot;font-size:0.7rem;opacity:0.5\&quot;>('+Math.round(this.files[0].size/1024)+'KB)</span>';
+              const btn=lbl.nextElementSibling;
+              btn.disabled=false;
+              btn.textContent='Upload '+('${isSalary}'==='true'?'Salary Certificate':'Bank Statement');
+              btn.style.opacity='1';
+            ">
+            <span style="color:rgba(255,255,255,0.5);font-size:0.85rem;text-align:center;line-height:1.5">
+              <span style="font-size:1.3rem;display:block;margin-bottom:4px">📎</span>
+              Tap to choose file
+            </span>
           </label>
-          <button disabled onclick="(async()=>{const btn=this;btn.disabled=true;btn.textContent='Uploading...';try{const f=window._loanUploadFile;const ext=f.name.split('.').pop().toLowerCase();const ct=ext==='pdf'?'application/pdf':'image/'+(ext==='jpg'?'jpeg':ext);const r=await fetch('${u.upload_url}',{method:'PUT',headers:{'Content-Type':ct},body:f});if(!r.ok)throw new Error('Upload failed');btn.textContent='✅ Uploaded!';btn.style.background='#38a169';setTimeout(()=>apSend('uploaded ${u.document_type}'),1500)}catch(e){btn.textContent='❌ '+e.message;btn.disabled=false}})()" style="width:100%;padding:10px;border:none;border-radius:8px;background:var(--nb-accent);color:var(--nb-primary);font-weight:600;cursor:pointer">Select a file first</button>
+          <button disabled onclick="(async()=>{const btn=this;btn.disabled=true;btn.textContent='Uploading…';btn.style.opacity='0.7';try{const f=window._loanUploadFile;const ext=f.name.split('.').pop().toLowerCase();const ct=ext==='pdf'?'application/pdf':'image/'+(ext==='jpg'?'jpeg':ext);const r=await fetch('${u.upload_url}',{method:'PUT',headers:{'Content-Type':ct},body:f});if(!r.ok)throw new Error('Upload failed');btn.textContent='✅ Uploaded successfully!';btn.style.background='#38a169';btn.style.opacity='1';const lbl=btn.previousElementSibling;lbl.style.borderStyle='solid';lbl.style.borderColor='rgba(56,161,105,0.4)';lbl.style.pointerEvents='none';setTimeout(()=>apSend('uploaded ${u.document_type}'),1200)}catch(e){btn.textContent='❌ Failed — tap to retry';btn.style.background='#e53e3e';btn.style.opacity='1';btn.disabled=false}})()" style="width:100%;padding:12px;border:none;border-radius:10px;background:var(--nb-accent);color:var(--nb-primary);font-weight:600;cursor:pointer;font-size:0.85rem;margin-top:10px;opacity:0.4;transition:all 0.2s">Choose a file to upload</button>
         </div>`;
         msgs.appendChild(uploadDiv);
         msgs.scrollTop = msgs.scrollHeight;
