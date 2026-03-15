@@ -104,7 +104,7 @@ def _enforce_row_level_security(sql: str, customer_id: str) -> str:
         return "SELECT 'INVALID_CUSTOMER_ID' as error"
 
     scoped = sql
-    for orig, repl in [('customer_goals', 'scoped_goals'), ('merchant_categories', 'merchant_categories'), ('transactions', 'scoped_transactions'), ('accounts', 'scoped_accounts'), ('customers', 'scoped_customers')]:
+    for orig, repl in [('customer_goals', 'scoped_goals'), ('merchant_categories', 'merchant_categories'), ('transactions', 'scoped_transactions'), ('accounts', 'scoped_accounts'), ('customers', 'scoped_customers'), ('loan_applications', 'scoped_loans')]:
         scoped = re.sub(rf'\b{orig}\b', repl, scoped)
 
     cid = customer_id
@@ -123,6 +123,10 @@ scoped_transactions AS (
 scoped_goals AS (
   SELECT goal_id, customer_id, CAST(goal_type AS CHAR) as goal_type, goal_title, target_amount, current_amount, target_date, CAST(status AS CHAR) as status
   FROM customer_goals WHERE customer_id = '{cid}'
+),
+scoped_loans AS (
+  SELECT application_id, customer_id, CAST(loan_type AS CHAR) as loan_type, amount, CAST(status AS CHAR) as status, monthly_payment, duration, interest, purpose, channel, reviewed_by, officer_notes, decision_reason, created_at, updated_at
+  FROM loan_applications WHERE customer_id = '{cid}'
 )
 {scoped}"""
 

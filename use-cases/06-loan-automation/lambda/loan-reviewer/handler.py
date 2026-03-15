@@ -236,9 +236,10 @@ def handle_decision(event):
         try:
             rds_data = boto3.client("rds-data", region_name="me-south-1")
             mysql_status = decision.lower()
+            cb_secret = "arn:aws:secretsmanager:me-south-1:519124228967:secret:aibank-core-banking-credentials-DEdCPJ"
             rds_data.execute_statement(
                 resourceArn=os.environ.get("AURORA_CLUSTER_ARN", CLUSTER_ARN),
-                secretArn=os.environ.get("AURORA_SECRET_ARN", SECRET_ARN),
+                secretArn=cb_secret,
                 database="corebanking",
                 sql="UPDATE loan_applications SET status=:s, reviewed_by=:o, officer_notes=:n, updated_at=NOW() WHERE application_id=:aid",
                 parameters=[
