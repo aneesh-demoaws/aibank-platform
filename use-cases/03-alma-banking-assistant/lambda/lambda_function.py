@@ -111,4 +111,12 @@ def handler(event, context):
 
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", answer).strip()
 
-    return resp(200, {"answer": answer, "session_id": chat_session, "customer_id": customer_id})
+    # Extract loan upload action markers for frontend
+    loan_uploads = re.findall(r'\[ACTION:LOAN_UPLOAD:([\w-]+)\]', answer)
+    answer = re.sub(r'\[ACTION:LOAN_UPLOAD:[\w-]+\]', '', answer).strip()
+
+    result = {"answer": answer, "session_id": chat_session, "customer_id": customer_id}
+    if loan_uploads:
+        result["loan_upload"] = {"applicationId": loan_uploads[0]}
+
+    return resp(200, result)

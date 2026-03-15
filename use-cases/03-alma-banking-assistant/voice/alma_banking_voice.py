@@ -32,9 +32,11 @@ CLUSTER_ARN = os.environ.get("CLUSTER_ARN", "arn:aws:rds:me-south-1:519124228967
 SECRET_ARN = os.environ.get("SECRET_ARN", "arn:aws:secretsmanager:me-south-1:519124228967:secret:aibank-core-banking-credentials-DEdCPJ")
 DB_NAME = os.environ.get("DB_NAME", "corebanking")
 KYC_TABLE = os.environ.get("KYC_TABLE", "aibank-customer-kyc")
+LOAN_AGENT_ARN = os.environ.get("LOAN_AGENT_ARN", "CHANGE_ME")
 
 rds = boto3.client("rds-data", region_name=DB_REGION)
 dynamodb = boto3.resource("dynamodb", region_name=DB_REGION)
+_agentcore_client = boto3.client("bedrock-agentcore", region_name=REGION)
 
 SYSTEM_PROMPT = """You are Alma, the AI Banking voice assistant for AI Bank Bahrain.
 
@@ -162,7 +164,15 @@ When a customer asks about identity verification, KYC, or document upload:
    - For identity docs (passport, CPR, license): [ACTION:KYC_UPLOAD:identity]
    - For address docs (license, utility bill): [ACTION:KYC_UPLOAD:address]
 4. Requirements: 2 identity documents + 1 address document
-5. IMPORTANT: The [ACTION:...] markers trigger the upload widget on the customer's screen. Include them naturally in your spoken response — the frontend will strip them before audio playback."""
+5. IMPORTANT: The [ACTION:...] markers trigger the upload widget on the customer's screen. Include them naturally in your spoken response — the frontend will strip them before audio playback.
+
+## LOAN APPLICATIONS (Voice)
+When a customer wants to apply for a loan, borrow money, or mentions Instant Money or Personal Finance:
+1. Use start_loan_application tool — it handles eligibility, calculation, and submission
+2. When the tool returns upload URLs, say "I've submitted your application. Please upload your salary certificate and bank statement on your screen now."
+3. Include [ACTION:LOAN_UPLOAD:{application_id}] so the frontend shows the upload widget
+4. Products: Instant Money (BHD 100-500, auto-approved), Personal Finance (BHD 500-20,000, officer review)
+5. When the tool returns [RELAY_VERBATIM], speak ONLY the text after it"""
 
 # Customer context stored per WebSocket connection
 _ws_customer = {}
@@ -281,6 +291,42 @@ def check_kyc_status(customer_id: str) -> str:
         return f"Error checking KYC status: {str(e)}"
 
 
+import uuid as _uuid
+
+@tool
+def start_loan_application(customer_message: str, customer_id: str) -> str:
+    """Hand off to the Loan AI Agent when a customer wants to apply for a loan.
+    Args:
+        customer_message: The customer's message about the loan, including any details
+        customer_id: The authenticated customer's ID (e.g. CUST00000001)
+    """
+    try:
+        loan_session_id = str(_uuid.uuid4())
+        payload = json.dumps({
+            "jsonrpc": "2.0", "id": _uuid.uuid4().hex, "method": "message/send",
+            "params": {"message": {"role": "user",
+                "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}] {customer_message}"}],
+                "messageId": _uuid.uuid4().hex}}
+        })
+        response = _agentcore_client.invoke_agent_runtime(
+            agentRuntimeArn=LOAN_AGENT_ARN, runtimeSessionId=loan_session_id,
+            payload=payload, qualifier="DEFAULT")
+        stream = response.get("response") or response.get("body")
+        raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
+        try:
+            parsed = json.loads(raw)
+            for artifact in parsed.get("result", {}).get("artifacts", []):
+                for part in artifact.get("parts", []):
+                    if part.get("kind") == "text":
+                        return f"\x00SID:{loan_session_id}\x00[RELAY_VERBATIM]{part['text']}"
+            return raw
+        except json.JSONDecodeError:
+            return raw
+    except Exception as e:
+        logger.error(f"start_loan_application error: {e}", exc_info=True)
+        return "I'm sorry, the loan service is temporarily unavailable. Please try again later."
+
+
 def get_customer_id(email: str) -> tuple[str, str]:
     """Look up customer_id and first_name from email."""
     resp = rds.execute_statement(
@@ -346,7 +392,7 @@ async def banking_voice_chat(websocket: WebSocket):
     )
     session_manager = AgentCoreMemorySessionManager(memory_config, region_name=MEMORY_REGION)
 
-    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status], system_prompt=personal_prompt, session_manager=session_manager)
+    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status, start_loan_application], system_prompt=personal_prompt, session_manager=session_manager)
     input_queue = asyncio.Queue()
     stop_event = asyncio.Event()
 
@@ -372,8 +418,12 @@ async def banking_voice_chat(websocket: WebSocket):
                 kyc_actions = re.findall(r'\[ACTION:KYC_UPLOAD:(\w+)\]', text)
                 for doc_type in kyc_actions:
                     await websocket.send_json({"type": "kyc_upload", "documentType": doc_type})
-                # Strip markers from spoken text
-                clean_text = re.sub(r'\[ACTION:KYC_UPLOAD:\w+\]', '', text).strip()
+                # Extract Loan action markers
+                loan_actions = re.findall(r'\[ACTION:LOAN_UPLOAD:([\w-]+)\]', text)
+                for app_id in loan_actions:
+                    await websocket.send_json({"type": "loan_upload", "applicationId": app_id})
+                # Strip all action markers from spoken text
+                clean_text = re.sub(r'\[ACTION:(?:KYC_UPLOAD:\w+|LOAN_UPLOAD:[\w-]+)\]', '', text).strip()
                 await websocket.send_json({
                     "type": "transcript", "role": event.get("role", ""),
                     "text": clean_text, "is_final": event.get("is_final", False),

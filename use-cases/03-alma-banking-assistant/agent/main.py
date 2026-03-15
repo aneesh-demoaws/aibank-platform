@@ -20,10 +20,12 @@ REGION = os.environ.get("AWS_REGION", "eu-west-1")
 MODEL_ID = os.environ.get("MODEL_ID", "eu.anthropic.claude-sonnet-4-20250514-v1:0")
 KYC_TABLE = os.environ.get("KYC_TABLE", "aibank-customer-kyc")
 KYC_PRESIGNED_URL_LAMBDA = os.environ.get("KYC_PRESIGNED_URL_LAMBDA", "aibank-kyc-presigned-url")
+LOAN_AGENT_ARN = os.environ.get("LOAN_AGENT_ARN", "CHANGE_ME")
 
 rds = boto3.client("rds-data", region_name=DB_REGION)
 dynamodb = boto3.resource("dynamodb", region_name=DB_REGION)
 lambda_client = boto3.client("lambda", region_name=REGION)
+_agentcore_client = boto3.client("bedrock-agentcore", region_name=REGION)
 
 SYSTEM_PROMPT = """You are Alma Banking Assistant for AI Bank. You help authenticated customers query their banking data and manage KYC verification.
 
@@ -73,6 +75,13 @@ Document types:
 - "address": driving license (has address), utility bill
 
 When providing upload URLs, tell the customer to upload the file using the URL within 1 hour. The system will automatically extract and verify their information.
+
+## LOAN APPLICATIONS
+When a customer wants to APPLY for a loan, get a loan, borrow money, or mentions Instant Money or Personal Finance:
+- Use the start_loan_application tool to hand off to the Loan Agent
+- This includes: "I want a loan", "I need 300 dinars", "apply for instant money", "personal finance", "borrow"
+- Do NOT use start_loan_application for questions ABOUT loans (rates, eligibility info) — use search for those
+- When the tool returns a result with [RELAY_VERBATIM], output ONLY the text after it — no additions
 
 ## RESPONSE STYLE
 - Friendly, professional, concise
@@ -245,6 +254,51 @@ def check_kyc_status(customer_id: str) -> str:
         return f"Error checking KYC status: {str(e)}"
 
 
+import uuid as _uuid
+
+@tool
+def start_loan_application(customer_message: str, customer_id: str) -> str:
+    """Hand off to the Loan AI Agent when a customer wants to apply for a loan.
+    Args:
+        customer_message: The customer's message about the loan, including any details (amount, type, tenure)
+        customer_id: The authenticated customer's ID (e.g. CUST00000001)
+    """
+    try:
+        loan_session_id = str(_uuid.uuid4())
+        payload = json.dumps({
+            "jsonrpc": "2.0",
+            "id": _uuid.uuid4().hex,
+            "method": "message/send",
+            "params": {
+                "message": {
+                    "role": "user",
+                    "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}] {customer_message}"}],
+                    "messageId": _uuid.uuid4().hex,
+                }
+            }
+        })
+        response = _agentcore_client.invoke_agent_runtime(
+            agentRuntimeArn=LOAN_AGENT_ARN,
+            runtimeSessionId=loan_session_id,
+            payload=payload,
+            qualifier="DEFAULT"
+        )
+        stream = response.get("response") or response.get("body")
+        raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
+        try:
+            parsed = json.loads(raw)
+            for artifact in parsed.get("result", {}).get("artifacts", []):
+                for part in artifact.get("parts", []):
+                    if part.get("kind") == "text":
+                        return f"\x00SID:{loan_session_id}\x00[RELAY_VERBATIM]{part['text']}"
+            return raw
+        except json.JSONDecodeError:
+            return raw
+    except Exception as e:
+        logger.error(f"start_loan_application error: {e}", exc_info=True)
+        return f"I'm sorry, the loan service is temporarily unavailable. Please try again or visit our loans page at aibank.demoaws.com/banking/loans.html"
+
+
 # ── AgentCore App ──
 app = BedrockAgentCoreApp()
 
@@ -260,7 +314,7 @@ def invoke(payload):
     name_ctx = f", name: {customer_first_name}" if customer_first_name else ""
     prompt = f"[Customer ID: {customer_id}{name_ctx}] {user_message}"
     model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
-    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status])
+    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application])
     result = agent(prompt)
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
     return {"answer": answer, "customer_id": customer_id}
