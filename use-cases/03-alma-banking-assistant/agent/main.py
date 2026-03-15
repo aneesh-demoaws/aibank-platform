@@ -327,7 +327,14 @@ def invoke(payload):
     agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application])
     result = agent(prompt)
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
-    return {"answer": answer, "customer_id": customer_id}
+    answer = re.sub(r'\x00SID:[a-f0-9-]+\x00', '', answer)
+    answer = answer.replace("[RELAY_VERBATIM]", "")
+
+    resp = {"answer": answer, "customer_id": customer_id}
+    # If a loan session was started, pass the session ID to Lambda for routing
+    if customer_id in _loan_sessions:
+        resp["loan_session_id"] = _loan_sessions[customer_id]
+    return resp
 
 if __name__ == "__main__":
     app.run()

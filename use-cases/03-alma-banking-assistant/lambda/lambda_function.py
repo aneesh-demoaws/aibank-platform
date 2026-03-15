@@ -63,7 +63,7 @@ def call_banking(prompt, chat_session, customer_id, customer_first_name):
     stream = r.get("response") or r.get("body")
     raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
     parsed = json.loads(raw)
-    return parsed.get("answer", raw)
+    return parsed.get("answer", raw), parsed.get("loan_session_id")
 
 
 def call_loan_agent(prompt, loan_session_id, customer_id):
@@ -156,16 +156,11 @@ def handler(event, context):
                 clear_loan_session(chat_session)
         else:
             # Route through Alma Banking
-            answer = call_banking(prompt, chat_session, customer_id, customer_first_name)
+            answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
 
-            # Detect loan handoff via SID marker
-            sid_match = re.search(r'\x00SID:([a-f0-9-]+)\x00', answer)
-            if sid_match:
-                loan_sid = sid_match.group(1)
-                set_loan_session(chat_session, loan_sid)
-                answer = re.sub(r'\x00SID:[a-f0-9-]+\x00', '', answer)
-
-            answer = answer.replace("[RELAY_VERBATIM]", "")
+            # Alma returns loan_session_id when start_loan_application tool was called
+            if loan_session_id:
+                set_loan_session(chat_session, loan_session_id)
 
     except Exception as e:
         answer = f"I'm sorry, something went wrong. Please try again. ({str(e)[:100]})"
