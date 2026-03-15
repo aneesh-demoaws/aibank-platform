@@ -316,7 +316,7 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
         })
         response = _agentcore_client.invoke_agent_runtime(
             agentRuntimeArn=LOAN_AGENT_ARN, runtimeSessionId=loan_session_id,
-            payload=payload, qualifier="DEFAULT", accountId="519124228967")
+            payload=payload, qualifier="DEFAULT")
         stream = response.get("response") or response.get("body")
         raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
         try:

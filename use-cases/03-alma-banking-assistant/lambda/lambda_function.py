@@ -74,7 +74,7 @@ def call_loan_agent(prompt, loan_session_id, customer_id):
             "messageId": uuid.uuid4().hex}}})
     r = agentcore.invoke_agent_runtime(
         agentRuntimeArn=LOAN_AGENT_ARN, runtimeSessionId=loan_session_id,
-        payload=payload, qualifier="DEFAULT", accountId="519124228967")
+        payload=payload, qualifier="DEFAULT")
     stream = r.get("response") or r.get("body")
     raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
     try:
