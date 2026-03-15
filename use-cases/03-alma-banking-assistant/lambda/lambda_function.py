@@ -109,22 +109,36 @@ def clear_loan_session(chat_session):
 
 
 def extract_actions(answer, customer_id, chat_session):
-    """Extract [UPLOAD_REQUEST:doc_type] markers and generate presigned upload URLs."""
+    """Detect upload requests from Loan Agent response and generate presigned URLs."""
     actions = []
-    # Get or create application_id for this loan session
+
+    # Get application_id from response text or loan session
     app_id_match = re.search(r'(AIB-\d{8}-[A-Z0-9]{6})', answer)
     loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
-    app_id = app_id_match.group(1) if app_id_match else loan_meta.get("application_id", f"AIB-{time.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}")
+    app_id = app_id_match.group(1) if app_id_match else loan_meta.get("application_id",
+        f"AIB-{time.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}")
 
-    # Store app_id in loan session for future turns
-    if app_id and get_loan_session(chat_session):
-        session_table.update_item(
-            Key={"session_id": f"loan:{chat_session}"},
-            UpdateExpression="SET application_id = :a",
-            ExpressionAttributeValues={":a": app_id})
+    # Store app_id in loan session
+    if get_loan_session(chat_session):
+        try:
+            session_table.update_item(
+                Key={"session_id": f"loan:{chat_session}"},
+                UpdateExpression="SET application_id = :a",
+                ExpressionAttributeValues={":a": app_id})
+        except Exception:
+            pass
 
-    for m in re.finditer(r'\[UPLOAD_REQUEST:(\w+)\]', answer):
-        doc_type = m.group(1)
+    # Detect upload requests by keywords OR markers
+    answer_lower = answer.lower()
+    doc_type = None
+    if '[UPLOAD_REQUEST:salary_certificate]' in answer or \
+       ('upload' in answer_lower and 'salary' in answer_lower and 'bank statement' not in answer_lower):
+        doc_type = 'salary_certificate'
+    elif '[UPLOAD_REQUEST:bank_statement]' in answer or \
+         ('upload' in answer_lower and 'bank statement' in answer_lower and 'salary' not in answer_lower):
+        doc_type = 'bank_statement'
+
+    if doc_type:
         folder = doc_type
         filename = doc_type.replace("_", "-") + ".pdf"
         key = f"documents/input/{customer_id}/{app_id}/{folder}/{filename}"
@@ -133,8 +147,9 @@ def extract_actions(answer, customer_id, chat_session):
                 Params={"Bucket": UPLOAD_BUCKET, "Key": key, "ContentType": "application/pdf"}, ExpiresIn=900)
             actions.append({"document_type": doc_type, "upload_url": url, "key": key, "application_id": app_id})
         except Exception as e:
-            actions.append({"document_type": doc_type, "error": str(e)})
+            pass
 
+    # Clean markers from display text
     clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', answer).strip()
     return clean, actions
 
