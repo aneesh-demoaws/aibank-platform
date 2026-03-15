@@ -286,7 +286,8 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
             agentRuntimeArn=LOAN_AGENT_ARN,
             runtimeSessionId=loan_session_id,
             payload=payload,
-            qualifier="DEFAULT"
+            qualifier="DEFAULT",
+            accountId="519124228967"
         )
         stream = response.get("response") or response.get("body")
         raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
