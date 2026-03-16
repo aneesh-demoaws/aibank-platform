@@ -307,6 +307,10 @@ strands_agent = Agent(
     system_prompt=SYSTEM_PROMPT,
     tools=[check_loan_eligibility, calculate_loan, generate_upload_url, submit_loan_application, check_loan_status],
     callback_handler=None,
+    trace_attributes={
+        "agent.name": "loan_agent_a2a",
+        "tags": ["loan", "a2a", "agentcore"],
+    },
 )
 
 a2a_server = A2AServer(agent=strands_agent, http_url=runtime_url, serve_at_root=True)

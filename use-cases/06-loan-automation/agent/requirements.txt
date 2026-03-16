@@ -1,5 +1,6 @@
-strands-agents[a2a]
+strands-agents[a2a,otel]
 bedrock-agentcore
 uvicorn
 fastapi
 boto3
+aws-opentelemetry-distro~=0.12.1

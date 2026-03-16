@@ -362,6 +362,12 @@ def invoke(payload):
             system_prompt=SYSTEM_PROMPT,
             tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application],
             session_manager=session_manager,
+            trace_attributes={
+                "agent.name": "alma_banking_assistant",
+                "customer.id": customer_id,
+                "session.id": session_id,
+                "tags": ["alma", "banking", "agentcore"],
+            },
         )
         result = agent(prompt)
 
