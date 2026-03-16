@@ -5,6 +5,8 @@ Authenticated customer agent with Text-to-SQL, row-level security, and KYC tools
 import os, json, logging, re
 import boto3
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
+from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 from strands import Agent, tool
 from strands.models import BedrockModel
 
@@ -12,6 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ── Config ──
+MEMORY_ID = os.environ.get("BEDROCK_AGENTCORE_MEMORY_ID", "alma_banking_assistant_mem-ijns9pFcc6")
 CLUSTER_ARN = os.environ.get("CLUSTER_ARN", "arn:aws:rds:me-south-1:519124228967:cluster:aibank-core-banking")
 SECRET_ARN = os.environ.get("SECRET_ARN", "arn:aws:secretsmanager:me-south-1:519124228967:secret:aibank-core-banking-credentials-DEdCPJ")
 DB_NAME = os.environ.get("DB_NAME", "corebanking")
@@ -327,6 +330,7 @@ def invoke(payload):
     user_message = payload.get("prompt", "Hello")
     customer_id = payload.get("customer_id", "")
     customer_first_name = payload.get("customer_first_name", "")
+    session_id = payload.get("session_id", "default")
 
     if not customer_id:
         return {"answer": "Authentication required. Please log in to use Alma Banking Assistant."}
@@ -334,8 +338,31 @@ def invoke(payload):
     name_ctx = f", name: {customer_first_name}" if customer_first_name else ""
     prompt = f"[Customer ID: {customer_id}{name_ctx}] {user_message}"
     model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
-    agent = Agent(model=model, system_prompt=SYSTEM_PROMPT, tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application])
-    result = agent(prompt)
+
+    # AgentCore Memory with STM + LTM (preferences, facts, summaries)
+    memory_config = AgentCoreMemoryConfig(
+        memory_id=MEMORY_ID,
+        session_id=session_id,
+        actor_id=customer_id,
+        retrieval_config={
+            f"/users/{customer_id}/preferences/": RetrievalConfig(top_k=5, relevance_score=0.5),
+            f"/users/{customer_id}/facts/": RetrievalConfig(top_k=5, relevance_score=0.3),
+            f"/summaries/{customer_id}/{session_id}/": RetrievalConfig(top_k=3, relevance_score=0.5),
+        }
+    )
+
+    with AgentCoreMemorySessionManager(
+        agentcore_memory_config=memory_config,
+        region_name=REGION
+    ) as session_manager:
+        agent = Agent(
+            model=model,
+            system_prompt=SYSTEM_PROMPT,
+            tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application],
+            session_manager=session_manager,
+        )
+        result = agent(prompt)
+
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
     answer = re.sub(r'\x00SID:[a-f0-9-]+\x00', '', answer)
     answer = answer.replace("[RELAY_VERBATIM]", "")
