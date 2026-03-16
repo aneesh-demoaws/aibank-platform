@@ -345,9 +345,9 @@ def invoke(payload):
         session_id=session_id,
         actor_id=customer_id,
         retrieval_config={
-            f"/users/{customer_id}/preferences/": RetrievalConfig(top_k=5, relevance_score=0.5),
-            f"/users/{customer_id}/facts/": RetrievalConfig(top_k=5, relevance_score=0.3),
-            f"/summaries/{customer_id}/{session_id}/": RetrievalConfig(top_k=3, relevance_score=0.5),
+            "/users/{actorId}/preferences/": RetrievalConfig(top_k=5, relevance_score=0.5),
+            "/users/{actorId}/facts/": RetrievalConfig(top_k=5, relevance_score=0.3),
+            "/summaries/{actorId}/{sessionId}/": RetrievalConfig(top_k=3, relevance_score=0.5),
         }
     )
 
