@@ -126,12 +126,15 @@ def clear_loan_session(chat_session):
 def extract_actions(answer, customer_id, chat_session):
     """Detect upload requests from Loan Agent response and generate presigned URLs."""
     actions = []
+    if not answer or len(answer.strip()) < 10:
+        return answer or "", actions
 
     # Get application_id from response text or loan session
     app_id_match = re.search(r'(AIB-\d{8}-[A-Z0-9]{6})', answer)
     loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
-    app_id = app_id_match.group(1) if app_id_match else loan_meta.get("application_id",
-        f"AIB-{time.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}")
+    app_id = app_id_match.group(1) if app_id_match else loan_meta.get("application_id")
+    if not app_id:
+        return answer, actions
 
     # Store app_id in loan session
     if get_loan_session(chat_session):
