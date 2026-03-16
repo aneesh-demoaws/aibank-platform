@@ -164,7 +164,8 @@ def extract_actions(answer, customer_id, chat_session):
             pass
 
     # Clean markers from display text
-    clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', answer).strip()
+    clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', answer)
+    clean = re.sub(r'\[LOAN_SUBMITTED\]', '', clean).strip()
     return clean, actions
 
 
@@ -210,7 +211,7 @@ def handler(event, context):
                 answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
                 if loan_session_id:
                     set_loan_session(chat_session, loan_session_id)
-            elif answer and ('has been submitted' in answer or 'application submitted' in answer.lower()):
+            elif answer and '[LOAN_SUBMITTED]' in answer:
                 # Loan submitted — clear session so Alma handles follow-ups naturally
                 clear_loan_session(chat_session)
         else:
