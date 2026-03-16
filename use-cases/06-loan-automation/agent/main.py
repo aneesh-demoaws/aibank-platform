@@ -89,7 +89,7 @@ SYSTEM_PROMPT = f"""You are the AI Bank Loan Agent. You guide customers through 
 ### Step 4: Bank Statement Uploaded → Submit Application
 - When customer says they uploaded or you receive "uploaded bank_statement":
 - Call submit_loan_application with all collected details.
-- Say: "All documents received! Your application {{app_id}} has been submitted. [LOAN_SUBMITTED]"
+- Say: "All documents received! Your application {{app_id}} has been submitted."
 - For instant_money: "You'll receive a decision within minutes."
 - For personal: "A loan officer will review within 1-2 business days."
 

@@ -164,9 +164,7 @@ def extract_actions(answer, customer_id, chat_session):
         except Exception as e:
             pass
 
-    # Clean markers from display text
-    clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', answer)
-    clean = re.sub(r'\[LOAN_SUBMITTED\]', '', clean).strip()
+    clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', answer).strip()
     return clean, actions
 
 
