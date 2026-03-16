@@ -12,6 +12,7 @@ FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "https://aibank.demoaws.com"
 
 ddb = boto3.resource("dynamodb", region_name="eu-west-1")
 session_table = ddb.Table(SESSION_TABLE)
+loan_table = ddb.Table("aibank-personal-loan")
 agentcore = boto3.client("bedrock-agentcore", region_name="eu-west-1")
 rds = boto3.client("rds-data", region_name="me-south-1")
 s3 = boto3.client("s3", region_name="eu-west-1", config=BotoConfig(signature_version="s3v4"))
@@ -211,9 +212,17 @@ def handler(event, context):
                 answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
                 if loan_session_id:
                     set_loan_session(chat_session, loan_session_id)
-            elif answer and '[LOAN_SUBMITTED]' in answer:
-                # Loan submitted — clear session so Alma handles follow-ups naturally
-                clear_loan_session(chat_session)
+            else:
+                # Check if application was submitted — release routing to Alma
+                loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
+                app_id = loan_meta.get("application_id")
+                if app_id:
+                    try:
+                        app = loan_table.get_item(Key={"customer_id": customer_id, "application_id": app_id}).get("Item", {})
+                        if app.get("status") in ("SUBMITTED", "processing", "PENDING_REVIEW", "APPROVED", "REJECTED"):
+                            clear_loan_session(chat_session)
+                    except Exception:
+                        pass
         else:
             # Route through Alma Banking
             answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
