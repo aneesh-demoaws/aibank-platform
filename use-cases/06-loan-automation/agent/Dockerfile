@@ -19,4 +19,4 @@ EXPOSE 9000
 
 COPY . .
 
-CMD ["python", "-m", "main"]
+CMD ["opentelemetry-instrument", "python", "-m", "main"]
