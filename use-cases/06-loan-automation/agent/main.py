@@ -31,16 +31,43 @@ s3 = boto3.client("s3", region_name=REGION, config=BotoConfig(signature_version=
 
 _pending_uploads = {}  # "customer_id:doc_type" -> {"url": ..., "key": ..., "application_id": ...}
 
-PRODUCTS = {
-    "instant_money": {"min": 100, "max": 500, "min_tenure": 3, "max_tenure": 12, "rate": 7.5, "salary_mult": 20, "auto": True},
-    "personal": {"min": 500, "max": 20000, "min_tenure": 6, "max_tenure": 60, "rate": 4.5, "salary_mult": 40, "auto": False},
-}
+CONFIG_TABLE = os.environ.get("CONFIG_TABLE", "aibank-loan-config")
 
-SYSTEM_PROMPT = """You are the AI Bank Loan Agent. You guide customers through loan applications step by step.
+def _load_config():
+    """Load product configs and policy from DynamoDB config table."""
+    tbl = ddb_mesouth.Table(CONFIG_TABLE)
+    products = {}
+    policy = {"max_active_loans": 10}
+    try:
+        # Load products
+        resp = tbl.query(KeyConditionExpression=boto3.dynamodb.conditions.Key("config_type").eq("product"))
+        for item in resp.get("Items", []):
+            products[item["config_id"]] = {
+                "min": int(item["min_amount"]), "max": int(item["max_amount"]),
+                "min_tenure": int(item["min_tenure"]), "max_tenure": int(item["max_tenure"]),
+                "rate": float(item["rate"]), "salary_mult": int(item["salary_multiplier"]),
+                "auto": bool(item.get("auto_decision", False))
+            }
+        # Load policy
+        resp2 = tbl.get_item(Key={"config_type": "policy", "config_id": "loan_limits"})
+        if "Item" in resp2:
+            policy["max_active_loans"] = int(resp2["Item"].get("max_active_loans", 10))
+        log.info(f"Loaded config: {len(products)} products, max_active_loans={policy['max_active_loans']}")
+    except Exception as e:
+        log.error(f"Config load failed, using defaults: {e}")
+        products = {
+            "instant_money": {"min": 100, "max": 500, "min_tenure": 3, "max_tenure": 12, "rate": 7.5, "salary_mult": 20, "auto": True},
+            "personal": {"min": 500, "max": 20000, "min_tenure": 6, "max_tenure": 60, "rate": 4.5, "salary_mult": 40, "auto": False},
+        }
+    return products, policy
+
+PRODUCTS, POLICY = _load_config()
+
+SYSTEM_PROMPT = f"""You are the AI Bank Loan Agent. You guide customers through loan applications step by step.
 
 ## PRODUCTS
-- **Instant Money**: BHD 100–500, 3–12 months, 7.5% p.a., auto-approved in minutes
-- **Personal Finance**: BHD 500–20,000, 6–60 months, 4.5% p.a., reviewed by officer (1-2 days)
+- **Instant Money**: BHD {PRODUCTS.get('instant_money',{}).get('min',100)}–{PRODUCTS.get('instant_money',{}).get('max',500)}, {PRODUCTS.get('instant_money',{}).get('min_tenure',3)}–{PRODUCTS.get('instant_money',{}).get('max_tenure',12)} months, {PRODUCTS.get('instant_money',{}).get('rate',7.5)}% p.a., auto-approved in minutes
+- **Personal Finance**: BHD {PRODUCTS.get('personal',{}).get('min',500)}–{PRODUCTS.get('personal',{}).get('max',20000)}, {PRODUCTS.get('personal',{}).get('min_tenure',6)}–{PRODUCTS.get('personal',{}).get('max_tenure',60)} months, {PRODUCTS.get('personal',{}).get('rate',4.5)}% p.a., reviewed by officer (1-2 days)
 
 ## CONVERSATIONAL FLOW — Follow these steps IN ORDER, one per turn:
 
@@ -130,8 +157,8 @@ def check_loan_eligibility(customer_id: str, loan_type: str, amount: float) -> s
         existing = ddb.Table(LOAN_TABLE).query(
             KeyConditionExpression=Key("customer_id").eq(customer_id),
             FilterExpression=Attr("status").is_in(["PENDING_REVIEW", "APPROVED", "processing", "SUBMITTED"]))
-        if existing.get("Items"):
-            return json.dumps({"eligible": False, "reason": f"You have {len(existing['Items'])} active application(s). Please wait for completion."})
+        if len(existing.get("Items", [])) >= POLICY["max_active_loans"]:
+            return json.dumps({"eligible": False, "reason": f"You have {len(existing['Items'])} active application(s). Maximum allowed is {POLICY['max_active_loans']}."})
     except Exception as e:
         log.error(f"Loan check: {e}")
 

@@ -1,7 +1,0 @@
-__pycache__/
-*.pyc
-.bedrock_agentcore/
-.git/
-.gitignore
-test/
-*.md
