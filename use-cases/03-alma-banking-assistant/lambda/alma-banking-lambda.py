@@ -205,11 +205,14 @@ def handler(event, context):
             # In active loan flow — route directly to Loan Agent
             answer = call_loan_agent(prompt, loan_sid, customer_id)
             if answer is None:
-                # Loan Agent session broken — clear it and fall back to Alma
+                # Loan Agent session broken — clear and fall back to Alma
                 clear_loan_session(chat_session)
                 answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
                 if loan_session_id:
                     set_loan_session(chat_session, loan_session_id)
+            elif answer and ('has been submitted' in answer or 'application submitted' in answer.lower()):
+                # Loan submitted — clear session so Alma handles follow-ups naturally
+                clear_loan_session(chat_session)
         else:
             # Route through Alma Banking
             answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
