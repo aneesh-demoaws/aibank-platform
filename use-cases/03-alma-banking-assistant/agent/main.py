@@ -9,6 +9,7 @@ from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemory
 from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
 from strands import Agent, tool
 from strands.models import BedrockModel
+from strands.hooks import BeforeInvocationEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -370,6 +371,23 @@ def invoke(payload):
                 "tags": ["alma", "banking", "agentcore"],
             },
         )
+
+        # Hybrid hook: strip old tool results from STM so model always makes fresh tool calls
+        def trim_stm(event: BeforeInvocationEvent):
+            msgs = event.agent.messages
+            # Keep only last 10 messages, and remove toolResult content from older ones
+            if len(msgs) > 10:
+                trimmed = msgs[-10:]
+                event.agent.messages.clear()
+                event.agent.messages.extend(trimmed)
+            # Remove toolResult content from all but the current turn to force fresh calls
+            for msg in event.agent.messages[:-1]:
+                if msg.get("role") == "user":
+                    msg["content"] = [c for c in msg.get("content", []) if "toolResult" not in c]
+                    if not msg["content"]:
+                        msg["content"] = [{"text": "(previous tool result removed)"}]
+
+        agent.add_hook(trim_stm, BeforeInvocationEvent)
         result = agent(prompt)
 
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
