@@ -34,31 +34,24 @@ _pending_uploads = {}  # "customer_id:doc_type" -> {"url": ..., "key": ..., "app
 CONFIG_TABLE = os.environ.get("CONFIG_TABLE", "aibank-loan-config")
 
 def _load_config():
-    """Load product configs and policy from DynamoDB config table."""
+    """Load product configs and policy from DynamoDB config table. Fails if unavailable."""
     tbl = ddb_mesouth.Table(CONFIG_TABLE)
     products = {}
     policy = {"max_active_loans": 10}
-    try:
-        # Load products
-        resp = tbl.query(KeyConditionExpression=boto3.dynamodb.conditions.Key("config_type").eq("product"))
-        for item in resp.get("Items", []):
-            products[item["config_id"]] = {
-                "min": int(item["min_amount"]), "max": int(item["max_amount"]),
-                "min_tenure": int(item["min_tenure"]), "max_tenure": int(item["max_tenure"]),
-                "rate": float(item["rate"]), "salary_mult": int(item["salary_multiplier"]),
-                "auto": bool(item.get("auto_decision", False))
-            }
-        # Load policy
-        resp2 = tbl.get_item(Key={"config_type": "policy", "config_id": "loan_limits"})
-        if "Item" in resp2:
-            policy["max_active_loans"] = int(resp2["Item"].get("max_active_loans", 10))
-        log.info(f"Loaded config: {len(products)} products, max_active_loans={policy['max_active_loans']}")
-    except Exception as e:
-        log.error(f"Config load failed, using defaults: {e}")
-        products = {
-            "instant_money": {"min": 100, "max": 500, "min_tenure": 3, "max_tenure": 12, "rate": 7.5, "salary_mult": 20, "auto": True},
-            "personal": {"min": 500, "max": 20000, "min_tenure": 6, "max_tenure": 60, "rate": 4.5, "salary_mult": 40, "auto": False},
+    resp = tbl.query(KeyConditionExpression=boto3.dynamodb.conditions.Key("config_type").eq("product"))
+    if not resp.get("Items"):
+        raise RuntimeError("No product config found in aibank-loan-config table")
+    for item in resp["Items"]:
+        products[item["config_id"]] = {
+            "min": int(item["min_amount"]), "max": int(item["max_amount"]),
+            "min_tenure": int(item["min_tenure"]), "max_tenure": int(item["max_tenure"]),
+            "rate": float(item["rate"]), "salary_mult": int(item["salary_multiplier"]),
+            "auto": bool(item.get("auto_decision", False))
         }
+    resp2 = tbl.get_item(Key={"config_type": "policy", "config_id": "loan_limits"})
+    if "Item" in resp2:
+        policy["max_active_loans"] = int(resp2["Item"].get("max_active_loans", 10))
+    log.info(f"Loaded config: {len(products)} products, max_active_loans={policy['max_active_loans']}")
     return products, policy
 
 PRODUCTS, POLICY = _load_config()

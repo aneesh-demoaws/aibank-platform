@@ -193,44 +193,21 @@ def get_customer_segment_and_profile_from_data(processing_chain, stage_results):
 
 @xray_recorder.capture('load_segment_configuration')
 def load_segment_configuration(customer_segment):
-    """Load segment-specific configuration from DynamoDB config table with fallback"""
+    """Load segment-specific configuration from DynamoDB config table. Fails if unavailable."""
     
-    try:
-        # Try DynamoDB config table first
-        try:
-            ddb = boto3.resource('dynamodb', region_name='me-south-1')
-            table = ddb.Table('aibank-loan-config')
-            resp = table.get_item(Key={'config_type': 'segment', 'config_id': customer_segment})
-            if 'Item' in resp:
-                item = resp['Item']
-                # Convert Decimals to floats for JSON serialization
-                config = json.loads(json.dumps(item, default=str))
-                config['source'] = 'dynamodb'
-                config['loaded_at'] = datetime.utcnow().isoformat()
-                config['version'] = '1.0'
-                config['segment'] = customer_segment
-                logger.info(f"Loaded configuration from DynamoDB for segment: {customer_segment}")
-                return config
-        except Exception as e:
-            logger.warning(f"DynamoDB config load failed: {str(e)}")
-
-        # Try SSM Parameter Store as second fallback
-        try:
-            ssm_config = load_config_from_ssm(customer_segment)
-            if ssm_config:
-                logger.info(f"Loaded configuration from SSM for segment: {customer_segment}")
-                return ssm_config
-        except Exception as e:
-            logger.warning(f"Failed to load SSM configuration: {str(e)}")
-        
-        # Fallback to default configuration
-        default_config = get_default_configuration(customer_segment)
-        logger.info(f"Using default configuration for segment: {customer_segment}")
-        return default_config
-        
-    except Exception as e:
-        logger.error(f"Error loading segment configuration: {str(e)}")
-        return get_emergency_fallback_configuration()
+    ddb = boto3.resource('dynamodb', region_name='me-south-1')
+    table = ddb.Table('aibank-loan-config')
+    resp = table.get_item(Key={'config_type': 'segment', 'config_id': customer_segment})
+    if 'Item' not in resp:
+        raise ValueError(f"No segment config found for '{customer_segment}' in aibank-loan-config table")
+    item = resp['Item']
+    config = json.loads(json.dumps(item, default=str))
+    config['source'] = 'dynamodb'
+    config['loaded_at'] = datetime.utcnow().isoformat()
+    config['version'] = '1.0'
+    config['segment'] = customer_segment
+    logger.info(f"Loaded configuration from DynamoDB for segment: {customer_segment}")
+    return config
 
 # S3 configuration loading removed - using SSM only for simpler architecture
 
