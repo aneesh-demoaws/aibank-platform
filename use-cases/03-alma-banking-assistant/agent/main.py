@@ -372,20 +372,27 @@ def invoke(payload):
             },
         )
 
-        # Hybrid hook: strip old tool results from STM so model always makes fresh tool calls
+        # Hybrid hook: trim STM and strip old tool exchanges so model makes fresh calls
         def trim_stm(event: BeforeInvocationEvent):
             msgs = event.agent.messages
-            # Keep only last 10 messages, and remove toolResult content from older ones
-            if len(msgs) > 10:
-                trimmed = msgs[-10:]
-                event.agent.messages.clear()
-                event.agent.messages.extend(trimmed)
-            # Remove toolResult content from all but the current turn to force fresh calls
-            for msg in event.agent.messages[:-1]:
-                if msg.get("role") == "user":
-                    msg["content"] = [c for c in msg.get("content", []) if "toolResult" not in c]
-                    if not msg["content"]:
-                        msg["content"] = [{"text": "(previous tool result removed)"}]
+            if len(msgs) <= 2:
+                return
+            # Keep last message (current user input) intact
+            current = msgs[-1:]
+            history = msgs[:-1]
+            # From history, keep only pure text user/assistant messages (no tool calls/results)
+            clean = []
+            for msg in history:
+                role = msg.get("role", "")
+                content = msg.get("content", [])
+                has_tool = any("toolUse" in c or "toolResult" in c for c in content)
+                if has_tool:
+                    continue
+                clean.append(msg)
+            # Keep last 10 clean messages + current
+            clean = clean[-10:]
+            event.agent.messages.clear()
+            event.agent.messages.extend(clean + current)
 
         agent.add_hook(trim_stm, BeforeInvocationEvent)
         result = agent(prompt)
