@@ -5,11 +5,10 @@ Authenticated customer agent with Text-to-SQL, row-level security, and KYC tools
 import os, json, logging, re
 import boto3
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig, RetrievalConfig
-from bedrock_agentcore.memory.integrations.strands.session_manager import AgentCoreMemorySessionManager
+from bedrock_agentcore.memory import MemoryClient
 from strands import Agent, tool
 from strands.models import BedrockModel
-from strands.hooks import BeforeInvocationEvent
+from strands.hooks import BeforeInvocationEvent, AfterInvocationEvent
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -326,8 +325,130 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
         return f"I'm sorry, the loan service is temporarily unavailable. Please try again or visit our loans page at aibank.demoaws.com/banking/loans.html"
 
 
-# ── AgentCore App ──
+# ── AgentCore App + Module-level Agent ──
 app = BedrockAgentCoreApp()
+memory_client = MemoryClient(region_name=REGION)
+
+model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
+agent = Agent(
+    model=model,
+    system_prompt=SYSTEM_PROMPT,
+    tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application],
+    trace_attributes={
+        "agent.name": "alma_banking_assistant",
+        "tags": ["alma", "banking", "agentcore"],
+    },
+)
+
+# ── Memory Hooks ──
+def load_memory(event: BeforeInvocationEvent):
+    """Before invocation: load last 10 STM turns + LTM context into agent messages."""
+    state = event.invocation_state
+    customer_id = state.get("customer_id", "")
+    session_id = state.get("session_id", "")
+    if not customer_id or not session_id:
+        return
+
+    msgs = event.agent.messages
+
+    # Load STM: last 5 conversation turns (each turn = user + assistant)
+    try:
+        turns = memory_client.get_last_k_turns(
+            memory_id=MEMORY_ID, actor_id=customer_id, session_id=session_id, k=5
+        )
+        stm_messages = []
+        for turn in turns:
+            for evt in turn:
+                payload = evt.get("payload", [])
+                for p in payload:
+                    conv = p.get("conversational", {})
+                    if not conv:
+                        continue
+                    role_str = conv.get("role", "").lower()
+                    text = conv.get("content", {}).get("text", "")
+                    if not text:
+                        continue
+                    try:
+                        msg_data = json.loads(text)
+                        msg = msg_data.get("message", {})
+                        role = msg.get("role", role_str)
+                        content = msg.get("content", [])
+                        # Skip tool-related messages
+                        has_tool = any("toolUse" in c or "toolResult" in c for c in content)
+                        if has_tool:
+                            continue
+                        if role in ("user", "assistant") and content:
+                            stm_messages.append({"role": role, "content": content})
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+        if stm_messages:
+            # Prepend STM before current message
+            current = list(msgs)
+            msgs.clear()
+            msgs.extend(stm_messages[-10:] + current)
+            logger.info(f"STM: loaded {len(stm_messages[-10:])} messages")
+    except Exception as e:
+        logger.warning(f"STM load failed: {e}")
+
+    # Load LTM: preferences + facts as system context
+    try:
+        ltm_parts = []
+        for ns, label in [
+            (f"/users/{customer_id}/preferences/", "User Preferences"),
+            (f"/users/{customer_id}/facts/", "Known Facts"),
+        ]:
+            records = memory_client.retrieve_memories(
+                memory_id=MEMORY_ID, namespace=ns, query="banking customer", top_k=5
+            )
+            if records:
+                items = [r.get("content", {}).get("text", "") for r in records if r.get("content", {}).get("text")]
+                if items:
+                    ltm_parts.append(f"[{label}]: " + " | ".join(items[:5]))
+        if ltm_parts:
+            ltm_text = "\n".join(ltm_parts)
+            # Insert LTM as first user message context
+            if msgs and msgs[0].get("role") == "user":
+                original = msgs[0]["content"][0].get("text", "")
+                msgs[0]["content"] = [{"text": f"[Memory Context]\n{ltm_text}\n\n[Current Request]\n{original}"}]
+            logger.info(f"LTM: injected {len(ltm_parts)} context blocks")
+    except Exception as e:
+        logger.warning(f"LTM retrieval failed: {e}")
+
+
+def save_memory(event: AfterInvocationEvent):
+    """After invocation: save the user message and assistant response to STM."""
+    state = event.invocation_state
+    customer_id = state.get("customer_id", "")
+    session_id = state.get("session_id", "")
+    if not customer_id or not session_id:
+        return
+
+    try:
+        # Collect user and assistant text messages from this turn
+        messages_to_save = []
+        for msg in event.agent.messages[-2:]:  # Last user + assistant
+            role = msg.get("role", "")
+            content = msg.get("content", [])
+            has_tool = any("toolUse" in c or "toolResult" in c for c in content)
+            if has_tool:
+                continue
+            text_parts = [c.get("text", "") for c in content if "text" in c]
+            if role in ("user", "assistant") and text_parts:
+                messages_to_save.append((text_parts[0][:500], role.upper()))
+
+        if messages_to_save:
+            memory_client.save_conversation(
+                memory_id=MEMORY_ID, actor_id=customer_id, session_id=session_id,
+                messages=messages_to_save
+            )
+            logger.info(f"STM: saved {len(messages_to_save)} messages")
+    except Exception as e:
+        logger.warning(f"STM save failed: {e}")
+
+
+agent.add_hook(load_memory, BeforeInvocationEvent)
+agent.add_hook(save_memory, AfterInvocationEvent)
+
 
 @app.entrypoint
 def invoke(payload):
@@ -341,68 +462,15 @@ def invoke(payload):
 
     name_ctx = f", name: {customer_first_name}" if customer_first_name else ""
     prompt = f"[Customer ID: {customer_id}{name_ctx}] {user_message}"
-    model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
 
-    # AgentCore Memory with STM + LTM (preferences, facts, summaries)
-    memory_config = AgentCoreMemoryConfig(
-        memory_id=MEMORY_ID,
-        session_id=session_id,
-        actor_id=customer_id,
-        retrieval_config={
-            "/users/{actorId}/preferences/": RetrievalConfig(top_k=5, relevance_score=0.5),
-            "/users/{actorId}/facts/": RetrievalConfig(top_k=5, relevance_score=0.3),
-            "/summaries/{actorId}/{sessionId}/": RetrievalConfig(top_k=3, relevance_score=0.5),
-        }
-    )
-
-    with AgentCoreMemorySessionManager(
-        agentcore_memory_config=memory_config,
-        region_name=REGION
-    ) as session_manager:
-        agent = Agent(
-            model=model,
-            system_prompt=SYSTEM_PROMPT,
-            tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application],
-            session_manager=session_manager,
-            trace_attributes={
-                "agent.name": "alma_banking_assistant",
-                "customer.id": customer_id,
-                "session.id": session_id,
-                "tags": ["alma", "banking", "agentcore"],
-            },
-        )
-
-        # Hybrid hook: trim STM and strip old tool exchanges so model makes fresh calls
-        def trim_stm(event: BeforeInvocationEvent):
-            msgs = event.agent.messages
-            if len(msgs) <= 2:
-                return
-            # Keep last message (current user input) intact
-            current = msgs[-1:]
-            history = msgs[:-1]
-            # From history, keep only pure text user/assistant messages (no tool calls/results)
-            clean = []
-            for msg in history:
-                role = msg.get("role", "")
-                content = msg.get("content", [])
-                has_tool = any("toolUse" in c or "toolResult" in c for c in content)
-                if has_tool:
-                    continue
-                clean.append(msg)
-            # Keep last 10 clean messages + current
-            clean = clean[-10:]
-            event.agent.messages.clear()
-            event.agent.messages.extend(clean + current)
-
-        agent.add_hook(trim_stm, BeforeInvocationEvent)
-        result = agent(prompt)
+    # Pass context to hooks via invocation state
+    result = agent(prompt, customer_id=customer_id, session_id=session_id)
 
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
     answer = re.sub(r'\x00SID:[a-f0-9-]+\x00', '', answer)
     answer = answer.replace("[RELAY_VERBATIM]", "")
 
     resp = {"answer": answer, "customer_id": customer_id}
-    # If a loan session was started, pass the session ID to Lambda for routing
     if customer_id in _loan_sessions:
         resp["loan_session_id"] = _loan_sessions[customer_id]
     return resp
