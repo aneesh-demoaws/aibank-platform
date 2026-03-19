@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Loans — AI Bank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
+  <script type="module" crossorigin src="/assets/index-DDbmTGC7.js"></script>
+  <style>
+    :root { --nb-font-mono:"JetBrains Mono","Fira Code",monospace; }
+    .nb-nav-item .icon { display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:2px;vertical-align:middle; }
+    .nb-nav-item .icon svg { width:18px;height:18px; }
+
+    /* Product cards */
+    .products-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:28px; }
+    .product-card { background:var(--nb-card);border:1px solid var(--nb-border);border-radius:var(--nb-radius);padding:20px;cursor:pointer;transition:all 0.2s; }
+    .product-card:hover,.product-card.selected { border-color:var(--nb-accent);box-shadow:0 0 0 1px var(--nb-accent),0 4px 20px rgba(0,212,170,0.15); }
+    .product-card.selected { background:rgba(0,212,170,0.05); }
+    .product-icon { font-size:1.6rem;margin-bottom:10px; }
+    .product-name { font-size:0.9rem;font-weight:700;margin-bottom:4px; }
+    .product-range { font-size:0.75rem;color:var(--nb-text-muted); }
+    .product-rate { font-size:0.78rem;color:var(--nb-accent);font-weight:600;margin-top:6px; }
+
+    /* Calculator */
+    .calc-card { background:var(--nb-card);border:1px solid var(--nb-border);border-radius:var(--nb-radius);padding:24px;margin-bottom:20px; }
+    .calc-card h3 { font-size:0.95rem;font-weight:700;margin-bottom:18px; }
+    .calc-row { display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px; }
+    .field label { display:block;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--nb-text-muted);margin-bottom:6px;font-weight:600; }
+    .field input,.field select { width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--nb-border);border-radius:var(--nb-radius-sm);padding:10px 12px;color:var(--nb-text);font-size:0.9rem;outline:none;transition:border-color 0.2s; }
+    .field input:focus,.field select:focus { border-color:var(--nb-accent); }
+    .field select option { background:#0d1f38; }
+    .emi-result { background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.2);border-radius:var(--nb-radius);padding:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px; }
+    .emi-item label { font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--nb-text-muted);display:block;margin-bottom:4px; }
+    .emi-item span { font-size:1rem;font-weight:700;font-family:var(--nb-font-mono);color:var(--nb-accent); }
+
+    /* Apply form */
+    .apply-card { background:var(--nb-card);border:1px solid var(--nb-border);border-radius:var(--nb-radius);padding:24px;margin-bottom:20px; }
+    .apply-card h3 { font-size:0.95rem;font-weight:700;margin-bottom:6px; }
+    .apply-card p { font-size:0.8rem;color:var(--nb-text-muted);margin-bottom:20px; }
+    .field textarea { width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--nb-border);border-radius:var(--nb-radius-sm);padding:10px 12px;color:var(--nb-text);font-size:0.85rem;outline:none;resize:vertical;min-height:70px;font-family:inherit; }
+    .field textarea:focus { border-color:var(--nb-accent); }
+    .apply-btn { background:var(--nb-accent);border:none;border-radius:var(--nb-radius-sm);padding:12px 28px;font-size:0.95rem;font-weight:700;color:var(--nb-primary);cursor:pointer;transition:all 0.2s;box-shadow:0 0 16px rgba(0,212,170,0.25); }
+    .apply-btn:hover { background:var(--nb-accent-hover);box-shadow:0 0 24px rgba(0,212,170,0.4); }
+    .apply-btn:disabled { opacity:0.5;cursor:not-allowed; }
+
+    /* Success state */
+    .success-card { background:rgba(0,212,170,0.06);border:1px solid rgba(0,212,170,0.25);border-radius:var(--nb-radius);padding:28px;text-align:center;margin-bottom:20px; }
+    .success-card .check { font-size:2.5rem;margin-bottom:12px; }
+    .success-card h3 { font-size:1.1rem;font-weight:700;margin-bottom:6px; }
+    .success-card p { font-size:0.82rem;color:var(--nb-text-muted);margin-bottom:16px; }
+    .app-id-display { font-family:var(--nb-font-mono);font-size:1rem;color:var(--nb-accent);font-weight:700;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.2);border-radius:var(--nb-radius-sm);padding:8px 16px;display:inline-block; }
+
+    /* Existing loans */
+    .section-title { font-size:0.85rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--nb-text-muted);margin:28px 0 14px; }
+    .loan-card { background:var(--nb-card);border:1px solid var(--nb-border);border-radius:var(--nb-radius);padding:20px;margin-bottom:12px; }
+    .loan-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:14px; }
+    .loan-type { font-size:0.95rem;font-weight:700; }
+    .loan-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px; }
+    .loan-stat label { font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--nb-text-muted);display:block;margin-bottom:3px; }
+    .loan-stat span { font-size:0.9rem;font-weight:600; }
+    .status-badge { padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600; }
+    .status-approved { background:rgba(56,161,105,0.12);color:#68D391;border:1px solid rgba(56,161,105,0.25); }
+    .status-pending,.status-submitted { background:rgba(246,173,85,0.12);color:#F6AD55;border:1px solid rgba(246,173,85,0.25); }
+    .status-rejected { background:rgba(229,62,62,0.12);color:#fc8181;border:1px solid rgba(229,62,62,0.25); }
+    .status-disbursed { background:rgba(56,161,105,0.2);color:#68D391;border:1px solid rgba(56,161,105,0.3); }
+    .error-msg { background:rgba(229,62,62,0.1);border:1px solid rgba(229,62,62,0.25);border-radius:var(--nb-radius-sm);padding:10px 14px;font-size:0.82rem;color:#fc8181;margin-bottom:14px;display:none; }
+    @media(max-width:600px) { .calc-row,.loan-grid,.emi-result { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="nb-app">
+  <nav class="nb-sidebar" id="sidebar">
+    <div class="nb-sidebar-logo"><div><h1><span class="bank-name">AI</span> Bank</h1><small>Online Banking</small></div></div>
+    <div class="nb-sidebar-nav">
+      <div class="nb-nav-section">
+        <div class="nb-nav-section-title">Menu</div>
+        <a class="nb-nav-item" href="/banking/dashboard.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Dashboard</a>
+        <a class="nb-nav-item" href="/banking/accounts.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span> Accounts</a>
+        <a class="nb-nav-item" href="/banking/transfers.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span> Transfers</a>
+        <a class="nb-nav-item active" href="/banking/loans.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2M12 12v4M10 14h4"/></svg></span> Loans</a>
+        <a class="nb-nav-item" href="/banking/cards.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span> Cards</a>
+        <a class="nb-nav-item" href="/banking/for-you.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> For You</a>
+        <a class="nb-nav-item" href="/banking/support.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg></span> Support</a>
+      </div>
+    </div>
+    <div class="nb-sidebar-user">
+      <div id="avatarInitials" style="width:36px;height:36px;border-radius:50%;background:var(--nb-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:var(--nb-primary)">?</div>
+      <div><div id="sidebarName" style="font-size:.85rem;font-weight:600">Loading...</div><div style="font-size:.7rem;color:var(--nb-text-muted)">Customer</div></div>
+      <button onclick="logout()" title="Sign out" style="margin-left:auto;background:none;border:none;color:var(--nb-text-muted);cursor:pointer;font-size:1.1rem;padding:4px">⏻</button>
+    </div>
+  </nav>
+
+  <main class="nb-main">
+    <header class="nb-header" style="border-bottom:1px solid var(--nb-border)">
+      <div class="nb-header-title">Loans</div>
+      <div class="nb-header-actions"><span id="headerGreeting" style="font-size:0.85rem;color:var(--nb-text-secondary)"></span></div>
+    </header>
+    <div class="nb-content">
+
+      <!-- Step 1: Product selection -->
+      <div id="stepProducts">
+        <div style="font-size:1.1rem;font-weight:700;margin-bottom:4px">Apply for a Loan</div>
+        <div style="font-size:0.82rem;color:var(--nb-text-muted);margin-bottom:20px">Select a product to get started</div>
+        <div class="products-grid">
+          <div class="product-card" onclick="selectProduct('instant_money',this)">
+            <div class="product-icon">⚡</div>
+            <div class="product-name">Instant Money</div>
+            <div class="product-range">BHD 100 – 2,000</div>
+            <div class="product-rate">From 5.5% p.a.</div>
+          </div>
+          <div class="product-card" onclick="selectProduct('personal',this)">
+            <div class="product-icon">👤</div>
+            <div class="product-name">Personal Finance</div>
+            <div class="product-range">BHD 500 – 20,000</div>
+            <div class="product-rate">From 4.5% p.a.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Step 2: Calculator + Apply form -->
+      <div id="stepApply" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+          <button onclick="resetProduct()" style="background:none;border:1px solid var(--nb-border);border-radius:var(--nb-radius-sm);padding:5px 12px;font-size:0.78rem;color:var(--nb-text-muted);cursor:pointer">← Back</button>
+          <span id="selectedProductLabel" style="font-size:1rem;font-weight:700"></span>
+        </div>
+
+        <div class="calc-card">
+          <h3>Loan Calculator</h3>
+          <div class="calc-row">
+            <div class="field">
+              <label>Loan Amount (BHD)</label>
+              <input type="number" id="calcAmount" placeholder="e.g. 5000" oninput="calcEMI()">
+            </div>
+            <div class="field">
+              <label>Tenure</label>
+              <select id="calcTenure" onchange="calcEMI()">
+                <option value="">Select months</option>
+              </select>
+            </div>
+          </div>
+          <div class="emi-result" id="emiResult" style="display:none">
+            <div class="emi-item"><label>Monthly EMI</label><span id="emiMonthly">—</span></div>
+            <div class="emi-item"><label>Total Repayment</label><span id="emiTotal">—</span></div>
+            <div class="emi-item"><label>Total Interest</label><span id="emiInterest">—</span></div>
+          </div>
+        </div>
+
+        <div class="apply-card">
+          <h3>Submit Application</h3>
+          <p>Your identity is pre-verified. Upload your documents and we'll process your application within 2 business days.</p>
+          <div class="error-msg" id="applyError"></div>
+          <div class="field" style="margin-bottom:14px">
+            <label>Salary Certificate (PDF) <span style="color:var(--nb-accent)">*</span></label>
+            <input type="file" id="fileSalary" accept=".pdf" style="background:rgba(255,255,255,0.04);border:1px solid var(--nb-border);border-radius:var(--nb-radius-sm);padding:8px 12px;color:var(--nb-text);font-size:0.85rem;width:100%">
+          </div>
+          <div class="field" style="margin-bottom:14px">
+            <label>Bank Statements — Last 3 Months (PDF) <span style="color:var(--nb-accent)">*</span></label>
+            <input type="file" id="fileStatement" accept=".pdf" style="background:rgba(255,255,255,0.04);border:1px solid var(--nb-border);border-radius:var(--nb-radius-sm);padding:8px 12px;color:var(--nb-text);font-size:0.85rem;width:100%">
+          </div>
+          <div class="field" style="margin-bottom:18px">
+            <label>Purpose (optional)</label>
+            <textarea id="applyPurpose" placeholder="e.g. Home renovation, debt consolidation…"></textarea>
+          </div>
+          <button class="apply-btn" id="applyBtn" onclick="submitApplication()">Apply Now →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Success -->
+      <div id="stepSuccess" style="display:none">
+        <div class="success-card">
+          <div class="check">✅</div>
+          <h3>Application Submitted!</h3>
+          <p>Your loan application has been received and is being processed.</p>
+          <div class="app-id-display" id="successAppId">—</div>
+          <div style="margin-top:16px;font-size:0.8rem;color:var(--nb-text-muted)">Expected decision within 2 business days. We'll notify you by email.</div>
+        </div>
+        <button onclick="resetAll()" style="background:none;border:1px solid var(--nb-border);border-radius:var(--nb-radius-sm);padding:8px 18px;font-size:0.82rem;color:var(--nb-text-muted);cursor:pointer;margin-bottom:28px">Apply for another loan</button>
+      </div>
+
+      <!-- Existing loans -->
+      <div class="section-title">Your Loan Applications <button onclick="loadLoans()" id="refreshBtn" style="float:right;background:none;border:1px solid var(--nb-accent);color:var(--nb-accent);border-radius:var(--nb-radius-sm);padding:3px 10px;font-size:0.78rem;cursor:pointer;">↻ Refresh</button></div>
+      <div id="loansContainer"><div style="color:var(--nb-text-muted);font-size:0.85rem">Loading…</div></div>
+
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { a as auth, C as config } from '/assets/auth-DpGNMwuK.js';
+await auth.requireCustomer();
+const profile = auth.session.profile;
+const name = profile?.name || '';
+const firstName = name.split(' ')[0];
+document.getElementById('avatarInitials').textContent = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+document.getElementById('sidebarName').textContent = name;
+document.getElementById('headerGreeting').textContent = firstName ? `Hi, ${firstName}` : '';
+window._userId = auth.session.profile?.customer_id || auth.session.profile?.id || auth.session.profile?.customerId || auth.session.profile?.email || 'unknown';
+window._authToken = auth.session.idToken || auth.session.token || '';
+window.logout = async () => { await auth.logout(); };
+loadLoans();
+</script>
+
+<script>
+const LOAN_API = window.LOAN_AGENT_API || '/loan-agent/chat';
+const PRODUCTS = {
+  instant_money: { name:'Instant Money', min:100,   max:2000,   rate:5.5, tenures:[3,6,12,18,24] },
+  personal:      { name:'Personal Finance', min:500, max:20000,  rate:4.5, tenures:[12,24,36,48,60] },
+  housing:       { name:'Housing Finance', min:10000,max:200000, rate:3.5, tenures:[60,84,120,180,240,300] },
+  vehicle:       { name:'Vehicle Finance', min:1000, max:40000,  rate:3.8, tenures:[12,24,36,48,60,72,84] },
+  education:     { name:'Education Finance',min:500, max:40000,  rate:4.0, tenures:[12,24,36,48,60,84,120] },
+};
+let selectedProduct = null;
+
+function selectProduct(key, el) {
+  selectedProduct = key;
+  document.querySelectorAll('.product-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const p = PRODUCTS[key];
+  document.getElementById('selectedProductLabel').textContent = p.name;
+  const sel = document.getElementById('calcTenure');
+  sel.innerHTML = '<option value="">Select months</option>' + p.tenures.map(t=>`<option value="${t}">${t} months</option>`).join('');
+  document.getElementById('calcAmount').value = '';
+  document.getElementById('emiResult').style.display = 'none';
+  document.getElementById('applyError').style.display = 'none';
+  document.getElementById('stepProducts').style.display = 'none';
+  document.getElementById('stepApply').style.display = 'block';
+}
+
+function resetProduct() {
+  document.getElementById('stepProducts').style.display = 'block';
+  document.getElementById('stepApply').style.display = 'none';
+  selectedProduct = null;
+}
+
+function resetAll() {
+  document.getElementById('stepSuccess').style.display = 'none';
+  document.getElementById('stepProducts').style.display = 'block';
+  selectedProduct = null;
+  loadLoans();
+}
+
+function calcEMI() {
+  const amount  = parseFloat(document.getElementById('calcAmount').value);
+  const months  = parseInt(document.getElementById('calcTenure').value);
+  const p = PRODUCTS[selectedProduct];
+  if (!amount || !months || !p) { document.getElementById('emiResult').style.display='none'; return; }
+  if (amount < p.min || amount > p.max) { document.getElementById('emiResult').style.display='none'; return; }
+  const r = p.rate / 100 / 12;
+  const emi = amount * r * Math.pow(1+r,months) / (Math.pow(1+r,months)-1);
+  const total = emi * months;
+  document.getElementById('emiMonthly').textContent  = 'BHD ' + emi.toLocaleString('en-BH',{minimumFractionDigits:3,maximumFractionDigits:3});
+  document.getElementById('emiTotal').textContent    = 'BHD ' + total.toLocaleString('en-BH',{minimumFractionDigits:3,maximumFractionDigits:3});
+  document.getElementById('emiInterest').textContent = 'BHD ' + (total-amount).toLocaleString('en-BH',{minimumFractionDigits:3,maximumFractionDigits:3});
+  document.getElementById('emiResult').style.display = 'grid';
+}
+
+async function submitApplication() {
+  const amount  = parseFloat(document.getElementById('calcAmount').value);
+  const months  = parseInt(document.getElementById('calcTenure').value);
+  const purpose = document.getElementById('applyPurpose').value.trim();
+  const fileSalary    = document.getElementById('fileSalary').files[0];
+  const fileStatement = document.getElementById('fileStatement').files[0];
+  const errEl   = document.getElementById('applyError');
+  const p = PRODUCTS[selectedProduct];
+  errEl.style.display = 'none';
+
+  if (!amount || !months) { showErr('Please enter a loan amount and select a tenure.'); return; }
+  if (amount < p.min || amount > p.max) { showErr(`Amount must be between BHD ${p.min.toLocaleString()} and BHD ${p.max.toLocaleString()}.`); return; }
+  if (!fileSalary)    { showErr('Please upload your salary certificate (PDF).'); return; }
+  if (!fileStatement) { showErr('Please upload your bank statements (PDF).'); return; }
+
+  const btn = document.getElementById('applyBtn');
+  btn.disabled = true; btn.textContent = 'Uploading documents…';
+
+  try {
+    const userId    = window._userId || 'unknown';
+    const appId     = `AIB-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    const docPrefix = `documents/input/${userId}/${appId}`;
+
+    btn.textContent = 'Submitting application…';
+
+    // 1. Submit application FIRST — creates DynamoDB record with loan details
+    const res = await fetch('/loan-agent/apply', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        userId,
+        applicationId: appId,
+        loanType: selectedProduct,
+        amount,
+        tenureMonths: months,
+        purpose,
+        documents: {
+          salary_certificate: `${docPrefix}/salary_certificate/salary-certificate.pdf`,
+          bank_statement:     `${docPrefix}/bank_statement/bank-statement.pdf`,
+        }
+      }),
+    });
+    if (!res.ok) throw new Error('Application submission failed');
+    const data = await res.json();
+
+    // 2. Get pre-signed upload URLs
+    const urlRes = await fetch('/loan-agent/upload-urls', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        applicationId: appId,
+        files: [
+          { key: `${docPrefix}/salary_certificate/salary-certificate.pdf`, contentType: 'application/pdf' },
+          { key: `${docPrefix}/bank_statement/bank-statement.pdf`,         contentType: 'application/pdf' },
+        ]
+      })
+    });
+    const { urls } = await urlRes.json();
+
+    // 3. Upload documents — BDA triggers pipeline AFTER record has loan details
+    btn.textContent = 'Uploading salary certificate…';
+    await fetch(urls[0], { method:'PUT', body: fileSalary, headers:{'Content-Type':'application/pdf'} });
+
+    btn.textContent = 'Uploading bank statement…';
+    await fetch(urls[1], { method:'PUT', body: fileStatement, headers:{'Content-Type':'application/pdf'} });
+    document.getElementById('successAppId').textContent = data.applicationId || appId;
+    document.getElementById('stepApply').style.display = 'none';
+    document.getElementById('stepSuccess').style.display = 'block';
+  } catch (e) {
+    showErr('Submission failed. Please try again or contact support.');
+    btn.disabled = false; btn.textContent = 'Apply Now →';
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('applyError');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+let _pollTimer = null;
+
+async function loadLoans() {
+  clearTimeout(_pollTimer);
+  const container = document.getElementById('loansContainer');
+  if (!window._userId) { container.innerHTML = '<div style="color:var(--nb-text-muted);font-size:0.85rem">No loan applications yet.</div>'; return; }
+  try {
+    const res = await fetch(`/loan-agent/loans?userId=${encodeURIComponent(window._userId)}`, {credentials:'include'});
+    const { loans } = await res.json();
+    if (!loans?.length) { container.innerHTML = '<div style="color:var(--nb-text-muted);font-size:0.85rem">No loan applications yet.</div>'; return; }
+    const sc = s => ({'APPROVED':'status-approved','SUBMITTED':'status-pending','processing':'status-pending','REJECTED':'status-rejected','DISBURSED':'status-disbursed'}[s]||'status-pending');
+    const label = s => ({'SUBMITTED':'Under Review','processing':'Processing','APPROVED':'Approved','REJECTED':'Rejected','DISBURSED':'Disbursed'}[s]||s||'—');
+    container.innerHTML = loans.map(l => `
+      <div class="loan-card">
+        <div class="loan-header">
+          <div class="loan-type">${(l.loanType||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+          <span class="status-badge ${sc(l.status)}">${label(l.status)}</span>
+        </div>
+        <div class="loan-grid">
+          <div class="loan-stat"><label>Amount</label><span>BHD ${parseFloat(l.amount||0).toLocaleString('en-BH',{minimumFractionDigits:3})}</span></div>
+          <div class="loan-stat"><label>Tenure</label><span>${l.tenureMonths ? l.tenureMonths+' months' : '—'}</span></div>
+          <div class="loan-stat"><label>Application ID</label><span style="font-size:0.78rem;font-family:var(--nb-font-mono)">${l.applicationId||'—'}</span></div>
+          <div class="loan-stat"><label>Applied</label><span>${l.submittedAt ? new Date(l.submittedAt).toLocaleDateString('en-BH') : '—'}</span></div>
+        </div>
+      </div>`).join('');
+    // Auto-poll every 30s while any loan is still in-progress
+    const inProgress = ['SUBMITTED','processing','DOCUMENTS_RECEIVED','UNDER_REVIEW'];
+    if (loans.some(l => inProgress.includes(l.status))) {
+      _pollTimer = setTimeout(loadLoans, 30000);
+    }
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--nb-text-muted);font-size:0.85rem">Unable to load loan history.</div>';
+  }
+}
+</script>
+</body>
+</html>
