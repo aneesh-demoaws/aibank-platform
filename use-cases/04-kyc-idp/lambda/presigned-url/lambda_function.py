@@ -4,7 +4,7 @@ import json, os, uuid, boto3, logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-BUCKET = os.environ.get('UPLOAD_BUCKET', 'aibank-kyc-uploads-519124228967')
+BUCKET = os.environ.get('KYC_BUCKET', 'aibank-kyc-documents-eu-west-1')
 SESSION_TABLE = os.environ.get('SESSION_TABLE', 'aibank-session-routing')
 CLUSTER_ARN = os.environ.get('AURORA_CLUSTER_ARN', 'arn:aws:rds:me-south-1:519124228967:cluster:aibank-core-banking')
 SECRET_ARN = os.environ.get('AURORA_SECRET_ARN', 'arn:aws:secretsmanager:me-south-1:519124228967:secret:aibank-core-banking-credentials-DEdCPJ')
@@ -14,7 +14,7 @@ VALID_DOC_TYPES = ('identity', 'address')
 
 ddb = boto3.resource('dynamodb', region_name=os.environ.get('AWS_REGION', 'eu-west-1'))
 rds = boto3.client('rds-data', region_name='me-south-1')
-s3 = boto3.client('s3', region_name=os.environ.get('AWS_REGION', 'eu-west-1'))
+s3 = boto3.client('s3', region_name=os.environ.get('BUCKET_REGION', 'eu-west-1'))
 session_table = ddb.Table(SESSION_TABLE)
 
 
