@@ -613,8 +613,10 @@
       bDiv.innerHTML = answer ? md(answer) : "I couldn't get a response. Please try again.";
       msgs.scrollTop = msgs.scrollHeight;
 
-      // KYC document upload widget — triggered when agent returns uploadUrl
-      if (answer && answer.includes('uploadUrl')) {
+      // KYC document upload widget — triggered by [KYC_UPLOAD] marker
+      if (answer && answer.includes('[KYC_UPLOAD]')) {
+        // Strip the marker from displayed text
+        bDiv.innerHTML = md(answer.replace('[KYC_UPLOAD]', '').trim());
         const kycDiv = document.createElement('div');
         kycDiv.className = 'ap-msg bot';
         kycDiv.innerHTML = `<div style="background:#f0faf5;border:1px solid #c6f6d5;border-radius:14px;padding:18px;margin-top:8px">
