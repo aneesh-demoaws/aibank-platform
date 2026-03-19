@@ -77,7 +77,6 @@ When a customer asks about identity verification, KYC, or document upload:
      * Address: Driving License (if it shows address) or Utility Bill
    - Call generate_kyc_upload_url for each document one at a time
    - Use document_type="identity" for CPR/passport/license, document_type="address" for address proof
-   - Use file_name="document.pdf" and file_size=5000000 as defaults — the actual file is uploaded by the customer
 3. If status is PROCESSING: tell them documents are being analyzed, check back soon
 4. If status is VERIFIED: congratulate them, show verification details
 5. If status is REJECTED: explain the mismatch and offer to re-upload
@@ -198,14 +197,12 @@ def query_customer_data(sql_query: str, customer_id: str) -> str:
 
 
 @tool
-def generate_kyc_upload_url(customer_id: str, document_type: str, file_name: str, file_size: int) -> str:
+def generate_kyc_upload_url(customer_id: str, document_type: str) -> str:
     """Generate a presigned URL for the customer to upload a KYC document.
 
     Args:
         customer_id: The authenticated customer's ID (e.g. CUST00000001).
         document_type: Either "identity" (passport, CPR, license) or "address" (license, utility bill).
-        file_name: Original filename with extension (e.g. "passport.jpg"). Allowed: pdf, jpg, jpeg, png.
-        file_size: File size in bytes. Maximum 10MB (10485760 bytes).
 
     Returns:
         JSON with uploadUrl, key, and fileId — or an error message.
@@ -217,8 +214,8 @@ def generate_kyc_upload_url(customer_id: str, document_type: str, file_name: str
                 "body": json.dumps({
                     "customer_id": customer_id,
                     "documentType": document_type,
-                    "fileName": file_name,
-                    "fileSize": file_size,
+                    "fileName": "document.pdf",
+                    "fileSize": 5000000,
                 }),
             }),
         )
