@@ -264,6 +264,7 @@
             <a class="btn-accent" href="/banking/transfers.html">↑ Send Money</a>
             <a class="btn-ghost-white" href="/banking/accounts.html">View Accounts</a>
             <button class="btn-ghost-white" onclick="(async()=>{if(!confirm('Reset your KYC verification? You will need to re-upload all documents.'))return;const btn=this;btn.textContent='Resetting...';btn.disabled=true;try{const r=await fetch('/kyc/reset',{method:'POST',credentials:'include'});const d=await r.json();if(r.ok){btn.textContent='✅ KYC Reset';alert('KYC has been reset. You can now re-verify through Alma.')}else{btn.textContent='❌ Failed';alert(d.error||'Reset failed')}}catch(e){btn.textContent='❌ Error';alert(e.message)}finally{setTimeout(()=>{btn.textContent='🔄 Reset KYC';btn.disabled=false},2000)}})()">🔄 Reset KYC</button>
+            <button class="btn-ghost-white" onclick="(async()=>{if(!confirm('Reset all your loan applications? This will delete all loan records.'))return;const btn=this;btn.textContent='Resetting...';btn.disabled=true;try{const r=await fetch('/kyc/loans-reset',{method:'POST',credentials:'include'});const d=await r.json();if(r.ok){btn.textContent='✅ Loans Reset';alert(d.message||'All loan applications have been reset.')}else{btn.textContent='❌ Failed';alert(d.error||'Reset failed')}}catch(e){btn.textContent='❌ Error';alert(e.message)}finally{setTimeout(()=>{btn.textContent='🔄 Reset Loans';btn.disabled=false},2000)}})()">🔄 Reset Loans</button>
           </div>
         </div>
       </div>
