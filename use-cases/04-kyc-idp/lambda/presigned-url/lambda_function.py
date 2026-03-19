@@ -98,29 +98,27 @@ def lambda_handler(event, context):
         cid = _get_customer_id(email)
         if not cid:
             return _resp(403, {'error': 'No banking profile found.'})
-        # Delete from DynamoDB (aibank-personal-loan)
-        loan_ddb = boto3.resource('dynamodb', region_name='eu-west-1').Table('aibank-personal-loan')
-        resp = loan_ddb.query(
-            KeyConditionExpression=boto3.dynamodb.conditions.Key('customer_id').eq(cid)
-        )
-        deleted = 0
-        for item in resp.get('Items', []):
-            loan_ddb.delete_item(Key={'customer_id': cid, 'application_id': item['application_id']})
-            deleted += 1
-        # Delete loan sessions
-        session_ddb = ddb.Table(SESSION_TABLE)
-        scan = session_ddb.scan(
-            FilterExpression=boto3.dynamodb.conditions.Attr('session_id').begins_with('loan:')
-        )
-        for item in scan.get('Items', []):
-            session_ddb.delete_item(Key={'session_id': item['session_id']})
-        # Delete from core banking MySQL
-        rds.execute_statement(
-            resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database=DB_NAME,
-            sql="DELETE FROM loan_applications WHERE customer_id = :c",
-            parameters=[{'name': 'c', 'value': {'stringValue': cid}}],
-        )
-        return _resp(200, {'message': f'Loans reset: {deleted} applications deleted', 'customer_id': cid})
+        try:
+            from boto3.dynamodb.conditions import Key, Attr
+            loan_ddb = boto3.resource('dynamodb', region_name='eu-west-1').Table('aibank-personal-loan')
+            resp = loan_ddb.query(KeyConditionExpression=Key('customer_id').eq(cid))
+            deleted = 0
+            for item in resp.get('Items', []):
+                loan_ddb.delete_item(Key={'customer_id': cid, 'application_id': item['application_id']})
+                deleted += 1
+            session_ddb = ddb.Table(SESSION_TABLE)
+            scan = session_ddb.scan(FilterExpression=Attr('session_id').begins_with('loan:'))
+            for item in scan.get('Items', []):
+                session_ddb.delete_item(Key={'session_id': item['session_id']})
+            rds.execute_statement(
+                resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database=DB_NAME,
+                sql="DELETE FROM loan_applications WHERE customer_id = :c",
+                parameters=[{'name': 'c', 'value': {'stringValue': cid}}],
+            )
+            return _resp(200, {'message': f'Loans reset: {deleted} applications deleted', 'customer_id': cid})
+        except Exception as e:
+            logger.error(f'Loans reset error: {e}')
+            return _resp(500, {'error': f'Reset failed: {str(e)}'})
 
     # Resolve customer_id: internal invoke (from agent) or session auth (from frontend)
     try:
