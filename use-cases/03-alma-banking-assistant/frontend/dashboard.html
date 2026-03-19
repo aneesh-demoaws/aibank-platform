@@ -613,6 +613,61 @@
       bDiv.innerHTML = answer ? md(answer) : "I couldn't get a response. Please try again.";
       msgs.scrollTop = msgs.scrollHeight;
 
+      // KYC document upload widget — triggered when agent returns uploadUrl
+      if (answer && answer.includes('uploadUrl')) {
+        const kycDiv = document.createElement('div');
+        kycDiv.className = 'ap-msg bot';
+        kycDiv.innerHTML = `<div style="background:#f0faf5;border:1px solid #c6f6d5;border-radius:14px;padding:18px;margin-top:8px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="font-size:1.5rem">📄</span>
+            <div>
+              <div style="font-weight:600;font-size:0.95rem;color:#1a3a5c">KYC Document Upload</div>
+              <div style="font-size:0.75rem;color:#718096">Upload all 3 documents below, then click Submit</div>
+            </div>
+          </div>
+          <div id="kycSlots" style="display:flex;flex-direction:column;gap:8px">
+            ${[{id:'id1',type:'identity',label:'Identity Document 1',hint:'Passport, CPR, or Driving License'},
+               {id:'id2',type:'identity',label:'Identity Document 2',hint:'A different identity document'},
+               {id:'addr',type:'address',label:'Address Document',hint:'Driving License or Utility Bill'}
+            ].map(s=>`<label style="display:flex;align-items:center;gap:10px;padding:12px;border:2px dashed #cbd5e0;border-radius:10px;cursor:pointer;background:#f7fafc;transition:all 0.2s" data-slot="${s.id}" data-type="${s.type}">
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="
+                this.parentElement.style.borderColor='#38a169';this.parentElement.style.borderStyle='solid';this.parentElement.style.background='#f0fff4';
+                this.parentElement.querySelector('.hint').textContent=this.files[0].name;
+                this.parentElement.querySelector('.icon').textContent='📄';
+                window._kycFiles=window._kycFiles||{};window._kycFiles['${s.id}']={file:this.files[0],type:'${s.type}'};
+                const all=document.querySelectorAll('#kycSlots label');
+                const ready=[...all].every(l=>l.style.borderStyle==='solid');
+                document.getElementById('kycSubmitBtn').disabled=!ready;
+                if(ready)document.getElementById('kycSubmitBtn').style.opacity='1';
+              ">
+              <span class="icon" style="font-size:1.2rem">📎</span>
+              <div style="flex:1"><div style="font-weight:600;font-size:0.85rem;color:#2d3748">${s.label}</div><div class="hint" style="font-size:0.75rem;color:#718096">${s.hint}</div></div>
+            </label>`).join('')}
+          </div>
+          <button id="kycSubmitBtn" disabled onclick="(async()=>{
+            const btn=this;btn.disabled=true;btn.textContent='Uploading...';btn.style.opacity='0.7';
+            const files=window._kycFiles||{};const bar=document.getElementById('kycStatusBar');
+            try{
+              for(const[id,info]of Object.entries(files)){
+                if(bar)bar.textContent='Uploading '+id+'...';
+                const r=await fetch('/kyc/upload/presigned-url',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({documentType:info.type,fileName:info.file.name,fileSize:info.file.size})});
+                const data=await r.json();if(!r.ok||data.error){throw new Error(data.error||'Failed');}
+                const ext=info.file.name.split('.').pop().toLowerCase();
+                const ct=ext==='pdf'?'application/pdf':'image/'+(ext==='jpg'?'jpeg':ext);
+                const up=await fetch(data.uploadUrl,{method:'PUT',headers:{'Content-Type':ct},body:info.file});
+                if(!up.ok)throw new Error('Upload failed');
+              }
+              btn.textContent='✅ All documents uploaded!';btn.style.background='#38a169';btn.style.color='#fff';btn.style.opacity='1';
+              if(bar)bar.textContent='Verification will begin automatically.';
+              setTimeout(()=>apSend('I have uploaded all my KYC documents'),2000);
+            }catch(e){btn.textContent='❌ Failed — tap to retry';btn.style.background='#e53e3e';btn.style.color='#fff';btn.style.opacity='1';btn.disabled=false;if(bar)bar.textContent=e.message;}
+          })()" style="width:100%;padding:12px;border:none;border-radius:10px;background:#e2e8f0;color:#4a5568;font-weight:600;cursor:pointer;font-size:0.85rem;margin-top:10px;opacity:0.4;transition:all 0.2s">Select all 3 documents to submit</button>
+          <div id="kycStatusBar" style="font-size:0.75rem;text-align:center;color:#718096;margin-top:6px"></div>
+        </div>`;
+        msgs.appendChild(kycDiv);
+        msgs.scrollTop = msgs.scrollHeight;
+      }
+
       // Loan document upload widget
       if (data.loan_upload && data.loan_upload.length > 0) {
         const u = data.loan_upload[0];
