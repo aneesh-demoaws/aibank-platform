@@ -198,7 +198,19 @@ def _get_accounts(event):
                "monthly_payment": float(r[4].get("stringValue") or r[4].get("doubleValue") or 0) if r[4] else 0}
              for r in loan_rows]
 
-    return _resp(200, {"accounts": accounts, "loans": loans})
+    # KYC status from customers table
+    kyc_status = "PENDING"
+    try:
+        kyc_rows = _sql(
+            "SELECT kyc_status FROM customers WHERE customer_id = :cid LIMIT 1",
+            [{"name": "cid", "value": {"stringValue": customer_id}}]
+        )
+        if kyc_rows:
+            kyc_status = kyc_rows[0][0].get("stringValue", "PENDING")
+    except Exception:
+        pass
+
+    return _resp(200, {"accounts": accounts, "loans": loans, "kyc_status": kyc_status})
 
 
 def _get_transactions(event):

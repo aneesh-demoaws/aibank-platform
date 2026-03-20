@@ -254,8 +254,20 @@
         <div class="dash-hero-content">
           <h2 id="heroGreeting">Welcome back</h2>
           <p id="heroSub">Your financial overview</p>
-          <div class="balance-label">Total Balance</div>
-          <div class="balance-value" id="heroBalance">BHD —</div>
+          <div style="display:flex;align-items:flex-end;gap:32px;margin-top:10px;flex-wrap:wrap">
+            <div>
+              <div class="balance-label">Total Balance</div>
+              <div class="balance-value" id="heroBalance">BHD —</div>
+            </div>
+            <div style="padding-bottom:4px">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.4)">Total Loans</div>
+              <div id="heroLoans" style="font-size:1.3rem;font-weight:700;color:white;font-family:var(--nb-font-mono)">BHD —</div>
+            </div>
+            <div style="padding-bottom:4px">
+              <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.4)">KYC Status</div>
+              <div id="heroKyc" style="font-size:1.1rem;font-weight:700;color:white">—</div>
+            </div>
+          </div>
           <div class="balance-sub" style="display:flex;align-items:center;gap:6px">
             <span id="heroAccountNo">Loading account...</span>
             <button id="heroAccToggle" onclick="(function(){const el=document.getElementById('heroAccountNo');const btn=document.getElementById('heroAccToggle');const full=btn.dataset.full;const masked=btn.dataset.masked;if(!full)return;const showing=btn.dataset.showing==='1';el.textContent=showing?masked:full;btn.dataset.showing=showing?'0':'1';btn.innerHTML=showing?'<svg width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\'/><circle cx=\'12\' cy=\'12\' r=\'3\'/></svg>':'<svg width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\'><path d=\'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24\'/><line x1=\'1\' y1=\'1\' x2=\'23\' y2=\'23\'/></svg>';})()" data-showing="0" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);padding:0;display:none;align-items:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -465,6 +477,16 @@
       document.getElementById('statSavingsChange').textContent = 'Of monthly income';
       document.getElementById('statLoans').textContent = data.loans?.length ?? '0';
       document.getElementById('statLoansChange').textContent = data.loans?.length ? 'Active loan(s)' : 'No active loans';
+      // Hero tile: total loan amount
+      const totalLoan = (data.loans || []).reduce((sum, l) => sum + parseFloat(l.amount || 0), 0);
+      document.getElementById('heroLoans').textContent = totalLoan > 0 ? config.formatCurrency(totalLoan) : 'None';
+      // Hero tile: KYC status
+      const kyc = data.kyc_status || '';
+      const kycEl = document.getElementById('heroKyc');
+      if (kyc === 'VERIFIED') { kycEl.textContent = '✅ Verified'; kycEl.style.color = '#68D391'; }
+      else if (kyc === 'PROCESSING') { kycEl.textContent = '⏳ Processing'; kycEl.style.color = '#F6AD55'; }
+      else if (kyc === 'REJECTED') { kycEl.textContent = '❌ Rejected'; kycEl.style.color = '#FC8181'; }
+      else { kycEl.textContent = '⚠️ Pending'; kycEl.style.color = '#F6AD55'; }
     }
   }
 
