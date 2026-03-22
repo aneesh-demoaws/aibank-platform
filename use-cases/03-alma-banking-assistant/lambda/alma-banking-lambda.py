@@ -74,7 +74,7 @@ def call_loan_agent(prompt, loan_session_id, customer_id):
     payload = json.dumps({
         "jsonrpc": "2.0", "id": uuid.uuid4().hex, "method": "message/send",
         "params": {"message": {"role": "user",
-            "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}] {prompt}"}],
+            "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}, Session: {loan_session_id}] {prompt}"}],
             "messageId": uuid.uuid4().hex}}})
     try:
         r = agentcore.invoke_agent_runtime(

@@ -9,6 +9,8 @@ from botocore.config import Config as BotoConfig
 from strands import Agent, tool
 from strands.models import BedrockModel
 from strands.multiagent.a2a import A2AServer
+from strands.hooks import BeforeInvocationEvent, AfterInvocationEvent
+from bedrock_agentcore.memory import MemoryClient
 import uvicorn
 from fastapi import FastAPI
 
@@ -299,6 +301,97 @@ def check_loan_status(customer_id: str) -> str:
 
 
 runtime_url = os.environ.get("AGENTCORE_RUNTIME_URL", "http://127.0.0.1:9000/")
+LOAN_MEMORY_ID = os.environ.get("BEDROCK_AGENTCORE_MEMORY_ID", "loan_agent_a2a_mem-p9206F7MkP")
+loan_memory_client = MemoryClient(region_name=REGION)
+
+# ── STM Hooks for Loan Agent multi-turn persistence ──
+def loan_load_stm(event: BeforeInvocationEvent):
+    """Load previous conversation turns from STM before each invocation."""
+    # Extract session_id from the user message (passed as [Customer ID: ...] prefix)
+    msgs = event.agent.messages
+    if not msgs:
+        return
+    # Get session context from the last user message
+    last_user = ""
+    for m in msgs:
+        if m.get("role") == "user":
+            last_user = m.get("content", [{}])[0].get("text", "")
+    # Extract customer_id for actor_id
+    cid_match = re.search(r'(CUST\d{8})', last_user)
+    actor_id = cid_match.group(1) if cid_match else "unknown"
+    # Extract session_id from message prefix
+    sid_match = re.search(r'Session:\s*([a-f0-9-]+)', last_user)
+    session_id = sid_match.group(1) if sid_match else "default"
+    if session_id == "default":
+        return
+    try:
+        turns = loan_memory_client.get_last_k_turns(
+            memory_id=LOAN_MEMORY_ID, actor_id=actor_id, session_id=session_id, k=5
+        )
+        turns.reverse()  # Chronological order
+        stm_messages = []
+        for turn in turns:
+            for evt in turn:
+                role = evt.get("role", "").lower()
+                text = evt.get("content", {}).get("text", "")
+                if role in ("user", "assistant") and text:
+                    stm_messages.append({"role": role, "content": [{"text": text}]})
+        if stm_messages:
+            current = list(msgs)
+            msgs.clear()
+            msgs.extend(stm_messages[-10:] + current)
+            log.info(f"Loan STM: loaded {len(stm_messages[-10:])} messages for session {session_id[:20]}")
+    except Exception as e:
+        log.warning(f"Loan STM load failed: {e}")
+
+
+def loan_save_stm(event: AfterInvocationEvent):
+    """Save conversation turn to STM after each invocation."""
+    # Extract session_id and customer_id from messages
+    actor_id = "unknown"
+    session_id = "default"
+    for m in event.agent.messages:
+        if m.get("role") == "user":
+            text = m.get("content", [{}])[0].get("text", "")
+            cid_match = re.search(r'(CUST\d{8})', text)
+            sid_match = re.search(r'Session:\s*([a-f0-9-]+)', text)
+            if cid_match:
+                actor_id = cid_match.group(1)
+            if sid_match:
+                session_id = sid_match.group(1)
+            if actor_id != "unknown" and session_id != "default":
+                break
+    if session_id == "default":
+        return
+    try:
+        messages_to_save = []
+        # First user text message
+        for msg in event.agent.messages:
+            if msg.get("role") == "user":
+                content = msg.get("content", [])
+                if not any("toolResult" in c for c in content):
+                    text_parts = [c.get("text", "") for c in content if "text" in c]
+                    if text_parts:
+                        messages_to_save.append((text_parts[0][:500], "USER"))
+                        break
+        # Last assistant text message
+        for msg in reversed(event.agent.messages):
+            if msg.get("role") == "assistant":
+                content = msg.get("content", [])
+                if not any("toolUse" in c for c in content):
+                    text_parts = [c.get("text", "") for c in content if "text" in c]
+                    if text_parts:
+                        messages_to_save.append((text_parts[0][:500], "ASSISTANT"))
+                        break
+        if messages_to_save:
+            loan_memory_client.save_conversation(
+                memory_id=LOAN_MEMORY_ID, actor_id=actor_id, session_id=session_id,
+                messages=messages_to_save
+            )
+            log.info(f"Loan STM: saved {len(messages_to_save)} messages")
+    except Exception as e:
+        log.warning(f"Loan STM save failed: {e}")
+
 
 strands_agent = Agent(
     name="AI Bank Loan Agent",
@@ -312,6 +405,8 @@ strands_agent = Agent(
         "tags": ["loan", "a2a", "agentcore"],
     },
 )
+strands_agent.add_hook(loan_load_stm, BeforeInvocationEvent)
+strands_agent.add_hook(loan_save_stm, AfterInvocationEvent)
 
 a2a_server = A2AServer(agent=strands_agent, http_url=runtime_url, serve_at_root=True)
 app = FastAPI()
