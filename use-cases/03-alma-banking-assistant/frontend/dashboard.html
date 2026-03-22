@@ -409,8 +409,9 @@
       <button onclick="apSetMode('text')" id="apModeText" style="padding:5px 10px;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;background:var(--nb-accent);color:var(--nb-primary);font-family:inherit">💬 Text</button>
       <button onclick="apSetMode('voice')" id="apModeVoice" style="padding:5px 10px;border:none;border-radius:6px;font-size:0.75rem;font-weight:600;cursor:pointer;background:transparent;color:rgba(255,255,255,0.7);font-family:inherit">🎤 Voice</button>
     </div>
-    <!-- expand -->
+    <!-- expand / close -->
     <button onclick="apToggleFullscreen()" id="apExpandBtn" title="Expand" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:1rem;padding:4px;margin-left:6px">⛶</button>
+    <button onclick="toggleAlma()" title="Close" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:1.1rem;padding:4px">✕</button>
   </div>
   <div class="alma-panel-msgs" id="almaMsgs">
     <div class="ap-msg bot" id="almaWelcome">Hi! I'm Alma 👋 I can help you with your account balance, recent transactions, spending insights, and more. What would you like to know?</div>
