@@ -47,6 +47,8 @@ You have memory of past conversations. Use what you know about the customer to p
 - You MUST NEVER make up account numbers, balances, transaction amounts, dates, or merchant names
 - If a query fails or returns no data, say so clearly — never guess
 - Every single financial detail MUST come from a successful query_customer_data tool call
+- ALWAYS call query_customer_data for balance, transaction, or loan status queries — NEVER reuse data from conversation history. Financial data changes in real time.
+- Memory context from previous sessions is for personalization only — do NOT present recalled data as current facts
 
 ## VOICE RESPONSE STYLE
 - Keep responses concise: 2-3 sentences max for voice
@@ -98,6 +100,19 @@ Categories: 'Groceries & Food', 'Restaurants & Dining', 'Housing & Utilities', '
 - target_date: date
 - status: enum
 </customer_goals_table>
+
+<loan_applications_table>
+- application_id: Primary key
+- customer_id: Foreign key
+- loan_type: enum (instant_money, personal)
+- amount: decimal
+- status: enum (pending, submitted, processing, approved, rejected, disbursed)
+- monthly_payment: decimal
+- duration: int (months)
+- interest: decimal (rate %)
+- purpose: varchar
+- created_at, updated_at: timestamp
+</loan_applications_table>
 
 ## MySQL Query Guidelines
 1. Use column names WITHOUT quotes unless they are MySQL reserved words
@@ -172,7 +187,11 @@ When a customer wants to apply for a loan, borrow money, or mentions Instant Mon
 2. When the tool returns upload URLs, say "I've submitted your application. Please upload your salary certificate and bank statement on your screen now."
 3. Include [ACTION:LOAN_UPLOAD:{application_id}] so the frontend shows the upload widget
 4. Products: Instant Money (BHD 100-500, auto-approved), Personal Finance (BHD 500-20,000, officer review)
-5. When the tool returns [RELAY_VERBATIM], speak ONLY the text after it"""
+5. When the tool returns [RELAY_VERBATIM], speak ONLY the text after it
+
+When a customer asks about their loan STATUS or existing applications:
+- Use query_customer_data to query the loan_applications table
+- Example: SELECT application_id, loan_type, amount, status, purpose, created_at FROM loan_applications WHERE customer_id=:cid ORDER BY created_at DESC"""
 
 # Customer context stored per WebSocket connection
 _ws_customer = {}
@@ -183,7 +202,7 @@ def _enforce_row_level_security(sql: str, customer_id: str) -> str:
         return "SELECT 'INVALID_CUSTOMER_ID' as error"
     scoped = sql
     for orig, repl in [('customer_goals', 'scoped_goals'), ('merchant_categories', 'merchant_categories'),
-                       ('transactions', 'scoped_transactions'), ('accounts', 'scoped_accounts'), ('customers', 'scoped_customers')]:
+                       ('transactions', 'scoped_transactions'), ('accounts', 'scoped_accounts'), ('customers', 'scoped_customers'), ('loan_applications', 'scoped_loans')]:
         scoped = re.sub(rf'\b{orig}\b', repl, scoped)
     cid = customer_id
     return f"""WITH scoped_customers AS (
@@ -201,6 +220,10 @@ scoped_transactions AS (
 scoped_goals AS (
   SELECT goal_id, customer_id, CAST(goal_type AS CHAR) as goal_type, goal_title, target_amount, current_amount, target_date, CAST(status AS CHAR) as status
   FROM customer_goals WHERE customer_id = '{cid}'
+),
+scoped_loans AS (
+  SELECT application_id, customer_id, CAST(loan_type AS CHAR) as loan_type, amount, CAST(status AS CHAR) as status, monthly_payment, duration, interest, purpose, channel, created_at, updated_at
+  FROM loan_applications WHERE customer_id = '{cid}'
 )
 {scoped}"""
 
