@@ -318,6 +318,7 @@ import uuid as _uuid
 
 # Per-connection loan session tracking
 _loan_sessions = {}  # ws_id -> loan_session_id
+_pending_ws_events = {}  # customer_id -> event to send via WebSocket
 
 @tool
 def start_loan_application(customer_message: str, customer_id: str) -> str:
@@ -344,14 +345,34 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
         raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
         try:
             parsed = json.loads(raw)
-            for artifact in parsed.get("result", {}).get("artifacts", []):
+            # Handle streaming A2A response
+            result = parsed.get("result", {})
+            text = ""
+            for artifact in result.get("artifacts", []):
                 for part in artifact.get("parts", []):
                     if part.get("kind") == "text":
                         text = part["text"]
-                        # Clear loan session when flow completes
-                        if any(s in text.lower() for s in ["submitted successfully", "application id"]):
-                            _loan_sessions.pop(customer_id, None)
-                        return f"[RELAY_VERBATIM]{text}"
+                        break
+            if not text:
+                # Streaming format: concatenate agent text parts from history
+                for msg in result.get("history", []):
+                    if msg.get("role") == "agent":
+                        for part in msg.get("parts", []):
+                            if part.get("kind") == "text":
+                                text += part["text"]
+            if text:
+                # Queue upload events for the WebSocket handler to send
+                if "[UPLOAD_REQUEST:salary_certificate]" in text:
+                    _pending_ws_events[customer_id] = {"type": "loan_upload", "documentType": "salary_certificate"}
+                elif "[UPLOAD_REQUEST:bank_statement]" in text:
+                    _pending_ws_events[customer_id] = {"type": "loan_upload", "documentType": "bank_statement"}
+                # Clear loan session when flow completes
+                if any(s in text.lower() for s in ["submitted successfully", "has been submitted"]):
+                    _loan_sessions.pop(customer_id, None)
+                # Strip markers for voice output
+                clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', text)
+                clean = re.sub(r'\[RELAY_VERBATIM\]', '', clean).strip()
+                return clean
             return raw
         except json.JSONDecodeError:
             return raw
@@ -402,6 +423,7 @@ async def banking_voice_chat(websocket: WebSocket):
         return
 
     logger.info(f"Authenticated voice session: {first_name} ({customer_id})")
+    _ws_customer[id(websocket)] = {"customer_id": customer_id, "first_name": first_name}
 
     # Build personalized system prompt
     personal_prompt = f"{SYSTEM_PROMPT}\n\nCurrent customer: {first_name} (ID: {customer_id}). Always address them as {first_name}."
@@ -471,6 +493,12 @@ async def banking_voice_chat(websocket: WebSocket):
                 await websocket.send_json({"type": "interruption"})
             elif t == "bidi_response_complete":
                 await websocket.send_json({"type": "response_end"})
+                # Send any pending upload events queued by start_loan_application tool
+                customer_id = _ws_customer.get(id(websocket), {}).get("customer_id", "")
+                if customer_id and customer_id in _pending_ws_events:
+                    evt = _pending_ws_events.pop(customer_id)
+                    await websocket.send_json(evt)
+                    logger.info(f"Sent pending upload event: {evt}")
             elif t == "bidi_error":
                 await websocket.send_json({"type": "error", "message": event.get("message", "")})
         except Exception as e:
