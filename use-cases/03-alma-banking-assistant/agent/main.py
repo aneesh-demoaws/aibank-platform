@@ -385,13 +385,19 @@ def load_memory(event: BeforeInvocationEvent):
 
     # Load LTM: preferences + facts as system context
     try:
+        # Use the current user message for relevant retrieval
+        user_query = "banking customer"
+        for m in reversed(msgs):
+            if m.get("role") == "user" and m.get("content"):
+                user_query = m["content"][0].get("text", user_query)[:200]
+                break
         ltm_parts = []
         for ns, label in [
             (f"/users/{customer_id}/preferences/", "User Preferences"),
             (f"/users/{customer_id}/facts/", "Known Facts"),
         ]:
             records = memory_client.retrieve_memories(
-                memory_id=MEMORY_ID, namespace=ns, query="banking customer", top_k=5
+                memory_id=MEMORY_ID, namespace=ns, query=user_query, top_k=5
             )
             if records:
                 items = [r.get("content", {}).get("text", "") for r in records if r.get("content", {}).get("text")]
@@ -399,10 +405,12 @@ def load_memory(event: BeforeInvocationEvent):
                     ltm_parts.append(f"[{label}]: " + " | ".join(items[:5]))
         if ltm_parts:
             ltm_text = "\n".join(ltm_parts)
-            # Insert LTM as first user message context
-            if msgs and msgs[0].get("role") == "user":
-                original = msgs[0]["content"][0].get("text", "")
-                msgs[0]["content"] = [{"text": f"[Memory Context]\n{ltm_text}\n\n[Current Request]\n{original}"}]
+            # Insert LTM as context in the LAST user message (current request)
+            for i in range(len(msgs) - 1, -1, -1):
+                if msgs[i].get("role") == "user" and msgs[i].get("content"):
+                    original = msgs[i]["content"][0].get("text", "")
+                    msgs[i]["content"] = [{"text": f"[Memory Context]\n{ltm_text}\n\n[Current Request]\n{original}"}]
+                    break
             logger.info(f"LTM: injected {len(ltm_parts)} context blocks")
     except Exception as e:
         logger.warning(f"LTM retrieval failed: {e}")
