@@ -425,17 +425,26 @@ def save_memory(event: AfterInvocationEvent):
         return
 
     try:
-        # Collect user and assistant text messages from this turn
+        # Save the user's original message and the final assistant response
         messages_to_save = []
-        for msg in event.agent.messages[-2:]:  # Last user + assistant
-            role = msg.get("role", "")
-            content = msg.get("content", [])
-            has_tool = any("toolUse" in c or "toolResult" in c for c in content)
-            if has_tool:
-                continue
-            text_parts = [c.get("text", "") for c in content if "text" in c]
-            if role in ("user", "assistant") and text_parts:
-                messages_to_save.append((text_parts[0][:500], role.upper()))
+        # Find first user text message (the original request)
+        for msg in event.agent.messages:
+            if msg.get("role") == "user":
+                content = msg.get("content", [])
+                if not any("toolResult" in c for c in content):
+                    text_parts = [c.get("text", "") for c in content if "text" in c]
+                    if text_parts:
+                        messages_to_save.append((text_parts[0][:500], "USER"))
+                        break
+        # Find last assistant text message (the final response)
+        for msg in reversed(event.agent.messages):
+            if msg.get("role") == "assistant":
+                content = msg.get("content", [])
+                if not any("toolUse" in c for c in content):
+                    text_parts = [c.get("text", "") for c in content if "text" in c]
+                    if text_parts:
+                        messages_to_save.append((text_parts[0][:500], "ASSISTANT"))
+                        break
 
         if messages_to_save:
             memory_client.save_conversation(
