@@ -182,12 +182,10 @@ When a customer asks about identity verification, KYC, or document upload:
 5. IMPORTANT: The [ACTION:...] markers trigger the upload widget on the customer's screen. Include them naturally in your spoken response — the frontend will strip them before audio playback.
 
 ## LOAN APPLICATIONS (Voice)
-When a customer wants to apply for a loan, borrow money, or mentions Instant Money or Personal Finance:
-1. Use start_loan_application tool — it handles eligibility, calculation, and submission
-2. When the tool returns upload URLs, say "I've submitted your application. Please upload your salary certificate and bank statement on your screen now."
-3. Include [ACTION:LOAN_UPLOAD:{application_id}] so the frontend shows the upload widget
-4. Products: Instant Money (BHD 100-500, auto-approved), Personal Finance (BHD 500-20,000, officer review)
-5. When the tool returns [RELAY_VERBATIM], speak ONLY the text after it
+When a customer wants to APPLY for a loan, borrow money, or mentions Instant Money or Personal Finance:
+- Do NOT use start_loan_application tool in voice mode — it is not compatible with voice streaming
+- Instead, tell the customer: "I can help you check loan eligibility and rates. However, for the actual loan application and document upload, please use the text chat interface by clicking the Text button. The text interface provides a seamless document upload experience."
+- You CAN answer questions about loan products, rates, and eligibility using query_customer_data
 
 When a customer asks about their loan STATUS or existing applications:
 - Use query_customer_data to query the loan_applications table
@@ -448,7 +446,7 @@ async def banking_voice_chat(websocket: WebSocket):
     )
     session_manager = AgentCoreMemorySessionManager(memory_config, region_name=MEMORY_REGION)
 
-    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status, start_loan_application], system_prompt=personal_prompt, session_manager=session_manager)
+    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status], system_prompt=personal_prompt, session_manager=session_manager)
     input_queue = asyncio.Queue()
     stop_event = asyncio.Event()
 
