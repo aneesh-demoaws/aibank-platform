@@ -295,7 +295,7 @@ def start_loan_application(customer_message: str, customer_id: str) -> str:
             "params": {
                 "message": {
                     "role": "user",
-                    "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}] {customer_message}"}],
+                    "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}, Session: {loan_session_id}] {customer_message}"}],
                     "messageId": _uuid.uuid4().hex,
                 }
             }
