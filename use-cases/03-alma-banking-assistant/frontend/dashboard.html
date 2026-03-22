@@ -396,6 +396,7 @@
 
 <!-- Alma slide-in panel -->
 <div class="alma-panel" id="almaPanel">
+  <button id="apVoiceBack" onclick="apSetMode('text')" style="display:none;position:absolute;top:10px;left:10px;z-index:300;background:rgba(10,22,40,0.75);color:#fff;border:none;border-radius:20px;padding:6px 14px;font-size:0.8rem;cursor:pointer;backdrop-filter:blur(4px)">← Back to Text</button>
   <div class="alma-panel-header">
     <div class="alma-dot"><img src="/assets/alma-avatar.png" alt="Alma" style="width:100%;height:100%;border-radius:50%;object-fit:cover"></div>
     <div class="alma-info">
@@ -533,6 +534,7 @@
     document.getElementById('apModeText').style.color = isVoice ? 'rgba(255,255,255,0.7)' : 'var(--nb-primary)';
     document.getElementById('apModeVoice').style.background = isVoice ? 'var(--nb-accent)' : 'transparent';
     document.getElementById('apModeVoice').style.color = isVoice ? 'var(--nb-primary)' : 'rgba(255,255,255,0.7)';
+    document.getElementById('apVoiceBack').style.display = isVoice ? 'block' : 'none';
     // show/hide text vs voice UI
     document.getElementById('almaMsgs').style.display = isVoice ? 'none' : '';
     document.getElementById('almaSuggestions').style.display = isVoice ? 'none' : '';
