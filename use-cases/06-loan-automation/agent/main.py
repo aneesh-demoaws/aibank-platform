@@ -396,7 +396,7 @@ def loan_save_stm(event: AfterInvocationEvent):
 strands_agent = Agent(
     name="AI Bank Loan Agent",
     description="Guides customers through loan applications step by step: eligibility check, document uploads (salary certificate and bank statement), and application submission.",
-    model=BedrockModel(model_id="eu.anthropic.claude-3-haiku-20240307-v1:0", region_name=REGION),
+    model=BedrockModel(model_id="eu.anthropic.claude-sonnet-4-20250514-v1:0", region_name=REGION),
     system_prompt=SYSTEM_PROMPT,
     tools=[check_loan_eligibility, calculate_loan, generate_upload_url, submit_loan_application, check_loan_status],
     callback_handler=None,
