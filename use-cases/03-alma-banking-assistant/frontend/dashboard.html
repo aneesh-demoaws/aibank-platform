@@ -523,6 +523,7 @@
     document.getElementById('almaBackdrop').classList.toggle('open', almaOpen);
     const fab = document.getElementById('almaFab');
     fab.classList.toggle('open', almaOpen);
+    fab.style.display = almaOpen ? 'none' : 'flex';
     document.getElementById('almaFabLabel').textContent = 'Ask Alma';
     if (almaOpen) document.getElementById('apInput').focus();
   };
