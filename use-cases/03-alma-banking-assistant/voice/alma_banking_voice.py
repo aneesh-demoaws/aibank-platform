@@ -182,10 +182,14 @@ When a customer asks about identity verification, KYC, or document upload:
 5. IMPORTANT: The [ACTION:...] markers trigger the upload widget on the customer's screen. Include them naturally in your spoken response — the frontend will strip them before audio playback.
 
 ## LOAN APPLICATIONS (Voice)
-When a customer wants to APPLY for a loan, borrow money, or mentions Instant Money or Personal Finance:
-- Do NOT use start_loan_application tool in voice mode — it is not compatible with voice streaming
-- Instead, tell the customer: "I can help you check loan eligibility and rates. However, for the actual loan application and document upload, please use the text chat interface by clicking the Text button. The text interface provides a seamless document upload experience."
-- You CAN answer questions about loan products, rates, and eligibility using query_customer_data
+When a customer wants to apply for a loan:
+1. Determine loan_type from amount: BHD 100-500 = instant_money, BHD 500-20000 = personal
+2. Ask for tenure and purpose if not provided
+3. Call check_loan_eligibility to verify eligibility
+4. Call calculate_loan to show EMI breakdown
+5. If customer confirms and wants to proceed with the application:
+   - Say: "Great news! You're eligible. To complete your application, please switch to the Text chat by clicking the Text button. The text interface will guide you through uploading your salary certificate and bank statement seamlessly."
+   - Do NOT attempt to handle document uploads via voice
 
 When a customer asks about their loan STATUS or existing applications:
 - Use query_customer_data to query the loan_applications table
@@ -313,71 +317,106 @@ def check_kyc_status(customer_id: str) -> str:
 
 
 import uuid as _uuid
+from botocore.config import Config as BotoConfig
+from decimal import Decimal
 
 # Per-connection loan session tracking
-_loan_sessions = {}  # ws_id -> loan_session_id
-_pending_ws_events = {}  # customer_id -> event to send via WebSocket
+_loan_sessions = {}
+_pending_ws_events = {}
+
+CONFIG_TABLE = os.environ.get("CONFIG_TABLE", "aibank-loan-config")
+
+
+# Load loan product config from DynamoDB
+def _load_loan_config():
+    tbl = dynamodb.Table(CONFIG_TABLE)
+    products = {}
+    try:
+        resp = tbl.query(KeyConditionExpression=boto3.dynamodb.conditions.Key("config_type").eq("product"))
+        for item in resp.get("Items", []):
+            products[item["config_id"]] = {
+                "min": int(item["min_amount"]), "max": int(item["max_amount"]),
+                "min_tenure": int(item["min_tenure"]), "max_tenure": int(item["max_tenure"]),
+                "rate": float(item["rate"]), "salary_mult": int(item["salary_multiplier"]),
+                "auto": bool(item.get("auto_decision", False))
+            }
+    except Exception as e:
+        logger.error(f"Loan config load failed: {e}")
+        products = {
+            "instant_money": {"min": 100, "max": 500, "min_tenure": 3, "max_tenure": 12, "rate": 7.5, "salary_mult": 20, "auto": True},
+            "personal": {"min": 500, "max": 20000, "min_tenure": 6, "max_tenure": 60, "rate": 4.5, "salary_mult": 40, "auto": False},
+        }
+    return products
+
+PRODUCTS = _load_loan_config()
+
 
 @tool
-def start_loan_application(customer_message: str, customer_id: str) -> str:
-    """Hand off to the Loan AI Agent when a customer wants to apply for a loan.
+def check_loan_eligibility(customer_id: str, loan_type: str, amount: float) -> str:
+    """Check if a customer is eligible for a loan.
     Args:
-        customer_message: The customer's message about the loan, including any details
-        customer_id: The authenticated customer's ID (e.g. CUST00000001)
+        customer_id: Customer ID (e.g. CUST00000001)
+        loan_type: Either 'instant_money' or 'personal'
+        amount: Requested loan amount in BHD
     """
+    if loan_type not in PRODUCTS:
+        return json.dumps({"eligible": False, "reason": "Unknown loan type. Choose: instant_money or personal"})
+    p = PRODUCTS[loan_type]
+    if amount < p["min"] or amount > p["max"]:
+        return json.dumps({"eligible": False, "reason": f"Amount must be BHD {p['min']}–{p['max']} for {loan_type}"})
     try:
-        # Reuse existing loan session for multi-turn, or create new
-        loan_session_id = _loan_sessions.get(customer_id) or str(_uuid.uuid4())
-        _loan_sessions[customer_id] = loan_session_id
+        resp = rds.execute_statement(
+            resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database=DB_NAME,
+            sql="SELECT AVG(t.amount) FROM transactions t JOIN accounts a ON t.account_id=a.account_id "
+                "WHERE a.customer_id=:cid AND t.transaction_type='credit' AND t.category_id='CAT014' "
+                "AND t.transaction_date>=DATE_SUB(CURDATE(),INTERVAL 3 MONTH)",
+            parameters=[{"name": "cid", "value": {"stringValue": customer_id}}])
+        rec = resp["records"][0][0]
+        avg_salary = float(rec.get("doubleValue", rec.get("stringValue", 0))) if not rec.get("isNull") else 0
+    except Exception:
+        avg_salary = 0
+    if avg_salary == 0:
+        return json.dumps({"eligible": False, "reason": "No salary credits found in the last 3 months."})
+    max_loan = avg_salary * p["salary_mult"]
+    if amount > max_loan:
+        return json.dumps({"eligible": False, "reason": f"Based on avg salary BHD {avg_salary:.3f}, max eligible is BHD {max_loan:.3f}."})
+    # Check KYC
+    try:
+        kyc = dynamodb.Table(KYC_TABLE).get_item(Key={"customer_id": customer_id}).get("Item")
+        kyc_status = kyc.get("kyc_status", "PENDING") if kyc else "NOT_STARTED"
+        if kyc_status != "VERIFIED":
+            return json.dumps({"eligible": False, "reason": f"KYC status is {kyc_status}. Identity verification must be completed first."})
+    except Exception:
+        pass
+    return json.dumps({"eligible": True, "avg_monthly_salary": round(avg_salary, 3), "max_eligible_amount": round(max_loan, 3), "auto_decision": p["auto"]})
 
-        payload = json.dumps({
-            "jsonrpc": "2.0", "id": _uuid.uuid4().hex, "method": "message/send",
-            "params": {"message": {"role": "user",
-                "parts": [{"kind": "text", "text": f"[Customer ID: {customer_id}] {customer_message}"}],
-                "messageId": _uuid.uuid4().hex}}
-        })
-        response = _agentcore_client.invoke_agent_runtime(
-            agentRuntimeArn=LOAN_AGENT_ARN, runtimeSessionId=loan_session_id,
-            payload=payload, qualifier="DEFAULT")
-        stream = response.get("response") or response.get("body")
-        raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
-        try:
-            parsed = json.loads(raw)
-            # Handle streaming A2A response
-            result = parsed.get("result", {})
-            text = ""
-            for artifact in result.get("artifacts", []):
-                for part in artifact.get("parts", []):
-                    if part.get("kind") == "text":
-                        text = part["text"]
-                        break
-            if not text:
-                # Streaming format: concatenate agent text parts from history
-                for msg in result.get("history", []):
-                    if msg.get("role") == "agent":
-                        for part in msg.get("parts", []):
-                            if part.get("kind") == "text":
-                                text += part["text"]
-            if text:
-                # Queue upload events for the WebSocket handler to send
-                if "[UPLOAD_REQUEST:salary_certificate]" in text:
-                    _pending_ws_events[customer_id] = {"type": "loan_upload", "documentType": "salary_certificate"}
-                elif "[UPLOAD_REQUEST:bank_statement]" in text:
-                    _pending_ws_events[customer_id] = {"type": "loan_upload", "documentType": "bank_statement"}
-                # Clear loan session when flow completes
-                if any(s in text.lower() for s in ["submitted successfully", "has been submitted"]):
-                    _loan_sessions.pop(customer_id, None)
-                # Strip markers for voice output
-                clean = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', text)
-                clean = re.sub(r'\[RELAY_VERBATIM\]', '', clean).strip()
-                return clean
-            return raw
-        except json.JSONDecodeError:
-            return raw
-    except Exception as e:
-        logger.error(f"start_loan_application error: {e}", exc_info=True)
-        _loan_sessions.pop(customer_id, None)
-        return "I'm sorry, the loan service is temporarily unavailable. Please try again later."
+
+@tool
+def calculate_loan(amount: float, tenure_months: int, loan_type: str) -> str:
+    """Calculate EMI, total interest, and total repayment.
+    Args:
+        amount: Loan amount in BHD
+        tenure_months: Tenure in months
+        loan_type: Either 'instant_money' or 'personal'
+    """
+    if loan_type not in PRODUCTS:
+        return json.dumps({"error": "Unknown loan type"})
+    p = PRODUCTS[loan_type]
+    r = p["rate"] / 100 / 12
+    emi = amount * r * (1 + r) ** tenure_months / ((1 + r) ** tenure_months - 1) if r > 0 else amount / tenure_months
+    total = emi * tenure_months
+    return json.dumps({"monthly_emi": round(emi, 3), "total_repayment": round(total, 3),
+                        "total_interest": round(total - amount, 3), "annual_rate": p["rate"]})
+
+
+@tool
+def generate_loan_upload_url(customer_id: str, document_type: str, loan_type: str = "", amount: float = 0, tenure_months: int = 0, purpose: str = "") -> str:
+    """This tool is not available in voice mode. Tell the customer to use the Text chat interface for document uploads.
+    Args:
+        customer_id: Customer ID
+        document_type: Either 'salary_certificate' or 'bank_statement'
+    """
+    return json.dumps({"error": "Document upload is only available through the Text chat interface. Please switch to Text mode to complete your loan application."})
 
 
 def get_customer_id(email: str) -> tuple[str, str]:
@@ -446,7 +485,7 @@ async def banking_voice_chat(websocket: WebSocket):
     )
     session_manager = AgentCoreMemorySessionManager(memory_config, region_name=MEMORY_REGION)
 
-    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status], system_prompt=personal_prompt, session_manager=session_manager)
+    agent = BidiAgent(model=model, tools=[query_customer_data, check_kyc_status, check_loan_eligibility, calculate_loan], system_prompt=personal_prompt, session_manager=session_manager)
     input_queue = asyncio.Queue()
     stop_event = asyncio.Event()
 
