@@ -214,19 +214,22 @@ def handler(event, context):
                 if loan_session_id:
                     set_loan_session(chat_session, loan_session_id)
             else:
-                # Check if loan flow should release — either no app or past upload phase
-                loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
-                app_id = loan_meta.get("application_id")
-                if not app_id:
-                    # No application created (eligibility rejected) — release to Alma
-                    clear_loan_session(chat_session)
-                elif app_id:
-                    try:
-                        app = loan_table.get_item(Key={"customer_id": customer_id, "application_id": app_id}).get("Item", {})
-                        if app.get("status") in ("processing", "PENDING_REVIEW", "APPROVED", "REJECTED"):
-                            clear_loan_session(chat_session)
-                    except Exception:
-                        pass
+                # Check if loan flow should release
+                # First check if response contains an app_id (new application being created)
+                has_app_in_response = bool(re.search(r'AIB-\d{8}-[A-Z0-9]{6}', answer or ''))
+                if not has_app_in_response:
+                    loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
+                    app_id = loan_meta.get("application_id")
+                    if not app_id:
+                        # No app in response or session — eligibility rejected
+                        clear_loan_session(chat_session)
+                    elif app_id:
+                        try:
+                            app = loan_table.get_item(Key={"customer_id": customer_id, "application_id": app_id}).get("Item", {})
+                            if app.get("status") in ("processing", "PENDING_REVIEW", "APPROVED", "REJECTED"):
+                                clear_loan_session(chat_session)
+                        except Exception:
+                            pass
         else:
             # Route through Alma Banking
             answer, loan_session_id = call_banking(prompt, chat_session, customer_id, customer_first_name)
