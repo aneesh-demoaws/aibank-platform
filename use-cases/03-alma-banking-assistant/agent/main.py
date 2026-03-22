@@ -352,30 +352,11 @@ def load_memory(event: BeforeInvocationEvent):
         stm_messages = []
         for turn in turns:
             for evt in turn:
-                payload = evt.get("payload", [])
-                for p in payload:
-                    conv = p.get("conversational", {})
-                    if not conv:
-                        continue
-                    role_str = conv.get("role", "").lower()
-                    text = conv.get("content", {}).get("text", "")
-                    if not text:
-                        continue
-                    try:
-                        msg_data = json.loads(text)
-                        msg = msg_data.get("message", {})
-                        role = msg.get("role", role_str)
-                        content = msg.get("content", [])
-                        # Skip tool-related messages
-                        has_tool = any("toolUse" in c or "toolResult" in c for c in content)
-                        if has_tool:
-                            continue
-                        if role in ("user", "assistant") and content:
-                            stm_messages.append({"role": role, "content": content})
-                    except (json.JSONDecodeError, KeyError):
-                        pass
+                role = evt.get("role", "").lower()
+                text = evt.get("content", {}).get("text", "")
+                if role in ("user", "assistant") and text:
+                    stm_messages.append({"role": role, "content": [{"text": text}]})
         if stm_messages:
-            # Prepend STM before current message
             current = list(msgs)
             msgs.clear()
             msgs.extend(stm_messages[-10:] + current)
