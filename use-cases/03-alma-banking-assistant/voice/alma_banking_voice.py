@@ -452,12 +452,17 @@ async def banking_voice_chat(websocket: WebSocket):
                 kyc_actions = re.findall(r'\[ACTION:KYC_UPLOAD:(\w+)\]', text)
                 for doc_type in kyc_actions:
                     await websocket.send_json({"type": "kyc_upload", "documentType": doc_type})
-                # Extract Loan action markers
+                # Extract Loan action markers (both voice [ACTION:] and text agent [UPLOAD_REQUEST:])
                 loan_actions = re.findall(r'\[ACTION:LOAN_UPLOAD:([\w-]+)\]', text)
                 for app_id in loan_actions:
-                    await websocket.send_json({"type": "loan_upload", "applicationId": app_id})
+                    await websocket.send_json({"type": "loan_upload", "applicationId": app_id, "documentType": "salary_certificate"})
+                upload_requests = re.findall(r'\[UPLOAD_REQUEST:(\w+)\]', text)
+                for doc_type in upload_requests:
+                    await websocket.send_json({"type": "loan_upload", "documentType": doc_type})
                 # Strip all action markers from spoken text
-                clean_text = re.sub(r'\[ACTION:(?:KYC_UPLOAD:\w+|LOAN_UPLOAD:[\w-]+)\]', '', text).strip()
+                clean_text = re.sub(r'\[ACTION:(?:KYC_UPLOAD:\w+|LOAN_UPLOAD:[\w-]+)\]', '', text)
+                clean_text = re.sub(r'\[UPLOAD_REQUEST:\w+\]', '', clean_text)
+                clean_text = re.sub(r'\[RELAY_VERBATIM\]', '', clean_text).strip()
                 await websocket.send_json({
                     "type": "transcript", "role": event.get("role", ""),
                     "text": clean_text, "is_final": event.get("is_final", False),
