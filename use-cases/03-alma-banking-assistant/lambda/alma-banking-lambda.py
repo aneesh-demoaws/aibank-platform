@@ -214,7 +214,7 @@ def handler(event, context):
                 if loan_session_id:
                     set_loan_session(chat_session, loan_session_id)
             else:
-                # Check if loan flow should release — either submitted or no app created (rejected)
+                # Check if loan flow should release — either no app or past upload phase
                 loan_meta = session_table.get_item(Key={"session_id": f"loan:{chat_session}"}).get("Item", {})
                 app_id = loan_meta.get("application_id")
                 if not app_id:
@@ -223,7 +223,7 @@ def handler(event, context):
                 elif app_id:
                     try:
                         app = loan_table.get_item(Key={"customer_id": customer_id, "application_id": app_id}).get("Item", {})
-                        if app.get("status") in ("SUBMITTED", "processing", "PENDING_REVIEW", "APPROVED", "REJECTED"):
+                        if app.get("status") in ("processing", "PENDING_REVIEW", "APPROVED", "REJECTED"):
                             clear_loan_session(chat_session)
                     except Exception:
                         pass
