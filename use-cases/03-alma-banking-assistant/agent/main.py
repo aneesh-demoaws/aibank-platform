@@ -332,17 +332,8 @@ app = BedrockAgentCoreApp()
 memory_client = MemoryClient(region_name=REGION)
 
 model = BedrockModel(model_id=MODEL_ID, region_name=REGION)
-agent = Agent(
-    model=model,
-    system_prompt=SYSTEM_PROMPT,
-    tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application],
-    trace_attributes={
-        "agent.name": "alma_banking_assistant",
-        "tags": ["alma", "banking", "agentcore"],
-    },
-)
 
-# ── Memory Hooks ──
+# ── Memory Hooks (registered per-request on each Agent instance) ──
 def load_memory(event: BeforeInvocationEvent):
     """Before invocation: load last 10 STM turns + LTM context into agent messages."""
     state = event.invocation_state
@@ -448,9 +439,6 @@ def save_memory(event: AfterInvocationEvent):
         logger.warning(f"STM save failed: {e}")
 
 
-agent.add_hook(load_memory, BeforeInvocationEvent)
-agent.add_hook(save_memory, AfterInvocationEvent)
-
 
 @app.entrypoint
 def invoke(payload):
@@ -465,8 +453,22 @@ def invoke(payload):
     name_ctx = f", name: {customer_first_name}" if customer_first_name else ""
     prompt = f"[Customer ID: {customer_id}{name_ctx}] {user_message}"
 
-    # Pass context to hooks via invocation state
-    result = agent(prompt, customer_id=customer_id, session_id=session_id)
+    # Per-request Agent — supports concurrent users, inherits OTEL context from AgentCore sidecar
+    req_agent = Agent(
+        model=model,
+        system_prompt=SYSTEM_PROMPT,
+        tools=[query_customer_data, generate_kyc_upload_url, check_kyc_status, start_loan_application],
+        trace_attributes={
+            "agent.name": "alma_banking_assistant",
+            "customer.id": customer_id,
+            "session.id": session_id,
+            "tags": ["alma", "banking", "agentcore"],
+        },
+    )
+    req_agent.add_hook(load_memory, BeforeInvocationEvent)
+    req_agent.add_hook(save_memory, AfterInvocationEvent)
+
+    result = req_agent(prompt, customer_id=customer_id, session_id=session_id)
 
     answer = re.sub(r"<thinking>[\s\S]*?</thinking>", "", str(result)).strip()
     answer = re.sub(r'\x00SID:[a-f0-9-]+\x00', '', answer)
