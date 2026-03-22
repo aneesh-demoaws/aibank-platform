@@ -349,12 +349,18 @@ def load_memory(event: BeforeInvocationEvent):
         turns = memory_client.get_last_k_turns(
             memory_id=MEMORY_ID, actor_id=customer_id, session_id=session_id, k=5
         )
+        # Reverse turns to chronological order (get_last_k_turns returns newest first)
+        turns.reverse()
         stm_messages = []
         for turn in turns:
             for evt in turn:
                 role = evt.get("role", "").lower()
                 text = evt.get("content", {}).get("text", "")
                 if role in ("user", "assistant") and text:
+                    # Strip [Memory Context] prefix from saved messages to avoid nesting
+                    if text.startswith("[Memory Context]"):
+                        parts = text.split("[Current Request]\n", 1)
+                        text = parts[1] if len(parts) > 1 else text
                     stm_messages.append({"role": role, "content": [{"text": text}]})
         if stm_messages:
             current = list(msgs)
