@@ -197,6 +197,7 @@ When a customer asks about their loan STATUS or existing applications:
 
 # Customer context stored per WebSocket connection
 _ws_customer = {}
+_customer_cache = {}  # email -> (customer_id, first_name, timestamp)
 
 
 def _enforce_row_level_security(sql: str, customer_id: str) -> str:
@@ -420,16 +421,25 @@ def generate_loan_upload_url(customer_id: str, document_type: str, loan_type: st
 
 
 def get_customer_id(email: str) -> tuple[str, str]:
-    """Look up customer_id and first_name from email."""
-    resp = rds.execute_statement(
-        resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database=DB_NAME,
-        sql="SELECT customer_id, first_name FROM customers WHERE email = :e LIMIT 1",
-        parameters=[{"name": "e", "value": {"stringValue": email}}],
-        includeResultMetadata=True
-    )
-    if resp["records"]:
-        rec = resp["records"][0]
-        return rec[0]["stringValue"], rec[1]["stringValue"]
+    """Look up customer_id and first_name from email, with cache."""
+    import time
+    cached = _customer_cache.get(email)
+    if cached and (time.time() - cached[2]) < 3600:  # 1 hour cache
+        return cached[0], cached[1]
+    try:
+        resp = rds.execute_statement(
+            resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, database=DB_NAME,
+            sql="SELECT customer_id, first_name FROM customers WHERE email = :e LIMIT 1",
+            parameters=[{"name": "e", "value": {"stringValue": email}}],
+            includeResultMetadata=True
+        )
+        if resp["records"]:
+            rec = resp["records"][0]
+            cid, name = rec[0]["stringValue"], rec[1]["stringValue"]
+            _customer_cache[email] = (cid, name, time.time())
+            return cid, name
+    except Exception as e:
+        logger.error(f"Customer lookup error: {e}")
     return "", ""
 
 
@@ -445,8 +455,9 @@ async def health():
 async def banking_voice_chat(websocket: WebSocket):
     await websocket.accept()
     logger.info("Banking voice WebSocket connected")
+    await websocket.send_json({"type": "status", "message": "Authenticating..."})
 
-    # Authenticate from query param (cookie is HttpOnly, cross-domain won't send it)
+    # Authenticate from query param
     email = websocket.query_params.get("token", "")
     if not email:
         await websocket.send_json({"type": "error", "message": "Authentication required. Please log in first."})
@@ -459,6 +470,7 @@ async def banking_voice_chat(websocket: WebSocket):
         await websocket.close(code=4002)
         return
 
+    await websocket.send_json({"type": "status", "message": f"Welcome {first_name}! Initializing voice..."})
     logger.info(f"Authenticated voice session: {first_name} ({customer_id})")
     _ws_customer[id(websocket)] = {"customer_id": customer_id, "first_name": first_name}
 
