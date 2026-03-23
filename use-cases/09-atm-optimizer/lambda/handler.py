@@ -111,6 +111,20 @@ def _invoke_agent(request_id, prompt, session_id, actor_id):
         raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
         parsed = json.loads(raw)
 
+        # Extract embedded trace metadata from response text
+        import re
+        resp_text = parsed.get("response", "")
+        meta_match = re.search(r'<!--AGENT_META:(.*?):AGENT_META-->', resp_text)
+        if meta_match:
+            try:
+                meta = json.loads(meta_match.group(1))
+                parsed["trace"] = meta.get("trace", [])
+                parsed["timing"] = meta.get("timing", {})
+                parsed["model"] = meta.get("model", "Claude Sonnet 4")
+                parsed["response"] = re.sub(r'\n?<!--AGENT_META:.*?:AGENT_META-->', '', resp_text).strip()
+            except Exception:
+                pass
+
         results_table.update_item(
             Key={"request_id": request_id},
             UpdateExpression="SET #s = :s, #r = :r, completed_at = :t",
