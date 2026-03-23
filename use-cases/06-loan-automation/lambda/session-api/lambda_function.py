@@ -92,7 +92,8 @@ def _login(event):
         group_name = groups[0]["GroupName"] if groups else "employee"
         # Normalize group names to UI role keys (loan-officers -> loan-officer)
         ROLE_MAP = {"loan-officers": "loan-officer", "risk-analysts": "risk-analyst",
-                    "branch-managers": "branch-manager", "admins": "admin"}
+                    "branch-managers": "branch-manager", "admins": "admin",
+                    "relationship-managers": "rm"}
         role = ROLE_MAP.get(group_name, group_name.rstrip("s"))
     else:
         role = portal

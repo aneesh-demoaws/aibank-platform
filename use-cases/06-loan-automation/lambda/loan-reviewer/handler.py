@@ -360,7 +360,7 @@ def handle_c360_customers(event):
     if not _is_authenticated(event):
         return _cors(401, json.dumps({"message": "Unauthorised"}))
     role = _get_user_role(event)
-    if role not in ("relationship-managers", "admin"):
+    if role not in ("relationship-managers", "rm", "admin"):
         return _cors(403, json.dumps({"error": "Access denied. Customer 360 is available to Relationship Managers and Admins only."}))
     try:
         resp = _c360_sql("""
@@ -381,7 +381,7 @@ def handle_c360_detail(event):
     if not _is_authenticated(event):
         return _cors(401, json.dumps({"message": "Unauthorised"}))
     role = _get_user_role(event)
-    if role not in ("relationship-managers", "admin"):
+    if role not in ("relationship-managers", "rm", "admin"):
         return _cors(403, json.dumps({"error": "Access denied. Customer 360 is available to Relationship Managers and Admins only."}))
     cid = (event.get("queryStringParameters") or {}).get("id", "").strip()
     if not cid:
