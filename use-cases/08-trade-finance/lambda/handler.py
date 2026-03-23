@@ -1,0 +1,87 @@
+"""
+Trade Finance AI Agent — Lambda Proxy
+Authenticates employee sessions, proxies chat to AgentCore Trade Finance Agent.
+Modular: independent of other use cases (loan, C360, etc.)
+"""
+import json, logging, os, uuid
+import boto3
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# ── Config ──
+AGENT_ARN = os.environ.get("TF_AGENT_ARN", "arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/trade_finance_agent-c8Al0REGd1")
+SESSION_TABLE = os.environ.get("SESSION_TABLE", "aibank-session-routing")
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://aibank.demoaws.com")
+ALLOWED_ROLES = ("rm", "relationship-managers", "admin")
+
+ddb = boto3.resource("dynamodb", region_name="eu-west-1")
+agentcore = boto3.client("bedrock-agentcore", region_name="eu-west-1")
+session_table = ddb.Table(SESSION_TABLE)
+
+
+def _cors(status, body):
+    return {
+        "statusCode": status,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "POST,OPTIONS",
+        },
+        "body": body if isinstance(body, str) else json.dumps(body, default=str),
+    }
+
+
+def _get_session(event):
+    """Validate employee session cookie and return (email, role) or (None, None)."""
+    cookies = event.get("headers", {}).get("Cookie", "") or \
+              " ".join(event.get("multiValueHeaders", {}).get("Cookie", []))
+    for part in cookies.split(";"):
+        part = part.strip()
+        if part.startswith("aibank_sid="):
+            sid = part[len("aibank_sid="):]
+            item = session_table.get_item(Key={"session_id": sid}).get("Item")
+            if item and item.get("status") == "active" and item.get("portal") == "employee":
+                return item.get("user_email", ""), item.get("role", "employee")
+    return None, None
+
+
+def lambda_handler(event, context):
+    if event.get("httpMethod") == "OPTIONS":
+        return _cors(200, "{}")
+
+    path = event.get("path", "")
+
+    if path.endswith("/chat"):
+        return handle_chat(event)
+    return _cors(404, {"error": "Not found"})
+
+
+def handle_chat(event):
+    email, role = _get_session(event)
+    if not email:
+        return _cors(401, {"error": "Authentication required. Please log in."})
+    if role not in ALLOWED_ROLES:
+        return _cors(403, {"error": "Access denied. Trade Finance is available to Relationship Managers and Admins only."})
+
+    try:
+        body = json.loads(event.get("body", "{}"))
+        prompt = body.get("prompt", "Hello")
+        session_id = body.get("session_id", f"tf-{uuid.uuid4()}")
+        actor_id = body.get("actor_id", email.split("@")[0])
+
+        response = agentcore.invoke_agent_runtime(
+            agentRuntimeArn=AGENT_ARN,
+            runtimeSessionId=session_id,
+            payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id}),
+            qualifier="DEFAULT")
+
+        stream = response.get("response") or response.get("body")
+        raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
+        parsed = json.loads(raw)
+        return _cors(200, parsed)
+    except Exception as e:
+        logger.exception("Trade finance chat error")
+        return _cors(500, {"error": f"Agent error: {str(e)}"})

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Finance AI — AI Bank</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#0a1628;min-height:100vh;display:flex;flex-direction:column}
+  .topbar{background:linear-gradient(135deg,#1a3a5c,#0d2137);color:#fff;padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.1)}
+  .topbar h1{font-size:1.1rem;font-weight:700;display:flex;align-items:center;gap:8px}
+  .topbar .nav{display:flex;gap:10px}
+  .topbar .nav a{color:rgba(255,255,255,0.6);text-decoration:none;font-size:0.82rem;padding:5px 12px;border-radius:8px;transition:all 0.2s}
+  .topbar .nav a:hover,.topbar .nav a.active{background:rgba(255,255,255,0.12);color:#fff}
+  .chat-container{flex:1;display:flex;flex-direction:column;max-width:900px;width:100%;margin:0 auto;padding:16px}
+  .messages{flex:1;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:85%;padding:14px 18px;border-radius:16px;font-size:0.9rem;line-height:1.6;word-wrap:break-word}
+  .msg.user{align-self:flex-end;background:linear-gradient(135deg,#1a3a5c,#2d5a8c);color:#fff;border-bottom-right-radius:4px}
+  .msg.assistant{align-self:flex-start;background:#111b2e;color:#e2e8f0;border:1px solid rgba(255,255,255,0.08);border-bottom-left-radius:4px}
+  .msg.assistant table{width:100%;border-collapse:collapse;margin:8px 0;font-size:0.82rem}
+  .msg.assistant th{text-align:left;padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.15);color:#00d4aa;font-size:0.72rem;text-transform:uppercase}
+  .msg.assistant td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,0.05)}
+  .msg.assistant strong{color:#00d4aa}
+  .msg.assistant code{background:rgba(0,212,170,0.1);padding:1px 6px;border-radius:4px;font-size:0.82rem}
+  .trace{margin-top:10px;padding:10px 14px;background:rgba(0,0,0,0.3);border-radius:10px;border:1px solid rgba(255,255,255,0.06);font-size:0.78rem}
+  .trace summary{cursor:pointer;color:#718096;font-weight:600}
+  .trace .step{margin:6px 0;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .trace .tool{color:#f472b6;font-weight:600}
+  .trace .sql{background:rgba(0,0,0,0.4);padding:6px 10px;border-radius:6px;font-family:monospace;font-size:0.75rem;color:#a78bfa;margin:4px 0;overflow-x:auto;white-space:pre-wrap}
+  .trace .result{color:#34d399;font-size:0.75rem}
+  .input-bar{padding:12px 0;display:flex;gap:10px}
+  .input-bar input{flex:1;padding:12px 18px;background:#111b2e;border:1px solid rgba(255,255,255,0.12);border-radius:12px;color:#fff;font-size:0.9rem;outline:none}
+  .input-bar input:focus{border-color:#00d4aa;box-shadow:0 0 0 3px rgba(0,212,170,0.15)}
+  .input-bar input::placeholder{color:rgba(255,255,255,0.3)}
+  .input-bar button{padding:12px 20px;background:#00d4aa;color:#0a1628;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:0.9rem;transition:all 0.2s}
+  .input-bar button:hover{background:#00b894;transform:translateY(-1px)}
+  .input-bar button:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+  .faq-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin:12px 0}
+  .faq-btn{background:#111b2e;border:1px solid rgba(255,255,255,0.08);border-left:3px solid #22d3ee;border-radius:0 10px 10px 0;padding:10px 14px;cursor:pointer;text-align:left;color:#e2e8f0;font-size:0.8rem;transition:all 0.2s}
+  .faq-btn:hover{background:#1a2744;border-left-color:#00d4aa}
+  .typing{color:#718096;font-style:italic;padding:8px 0}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🚢 Trade Finance AI Agent</h1>
+  <div class="nav">
+    <a href="/employee/dashboard.html">← Dashboard</a>
+    <a href="/employee/c360/customers.html">👥 Customer 360</a>
+    <a href="/employee/c360/trade-finance.html" class="active">🚢 Trade Finance</a>
+    <a href="#">🎯 NBA Advisor</a>
+  </div>
+</div>
+
+<div class="chat-container">
+  <div class="messages" id="messages">
+    <div class="msg assistant">
+      <strong>🚢 Trade Finance AI Agent</strong><br><br>
+      I can help you with Letters of Credit, Bank Guarantees, Documentary Collections, shipment tracking, compliance screening, and document analysis.<br><br>
+      <strong>Quick queries:</strong>
+      <div class="faq-grid">
+        <button class="faq-btn" onclick="send('Give me a complete portfolio summary — LCs, BGs, and Documentary Collections with total amounts by type')">📊 Portfolio Summary</button>
+        <button class="faq-btn" onclick="send('Show all active Bank Guarantees with sub-types — Bid Bonds, Performance Bonds, Counter Guarantees')">🏦 Active Guarantees</button>
+        <button class="faq-btn" onclick="send('Which shipments are currently in transit? Show vessel, ports, goods, and ETA')">🚢 Shipments In Transit</button>
+        <button class="faq-btn" onclick="send('List all documents with discrepancies — instrument, document type, discrepancy, and resolution')">⚠️ Discrepancies</button>
+        <button class="faq-btn" onclick="send('Show compliance screenings with hits or escalations — entity, risk score, and analyst decision')">🔍 Compliance Alerts</button>
+        <button class="faq-btn" onclick="send('What is the bank total outstanding exposure per client? Top 10 by exposure with country and sector')">💰 Client Exposure</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-bar">
+    <input type="text" id="chatInput" placeholder="Ask about trade finance operations..." onkeydown="if(event.key==='Enter'&&!sending)send()">
+    <button id="sendBtn" onclick="send()">Send</button>
+  </div>
+</div>
+
+<script>
+const API = 'https://uehpobur26.execute-api.eu-west-1.amazonaws.com/prod/chat';
+let sessionId = 'tf-' + crypto.randomUUID();
+let sending = false;
+
+function md(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\n\|(.+)\|/g, (m) => {
+      const rows = text.match(/\|.+\|/g);
+      if (!rows) return m;
+      let html = '<table>';
+      rows.forEach((row, i) => {
+        if (row.match(/^\|[\s-|]+\|$/)) return;
+        const cells = row.split('|').filter(c => c.trim());
+        const tag = i === 0 ? 'th' : 'td';
+        html += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+      });
+      return html + '</table>';
+    })
+    .replace(/\n/g, '<br>');
+}
+
+function renderTrace(data) {
+  const trace = data.trace || [];
+  const timing = data.timing || {};
+  const wall = data.wall_time || timing.total_seconds || 0;
+  if (!trace.length) return '';
+  let html = `<details class="trace"><summary>🔍 Agent Trace — ${wall}s · ${trace.filter(t=>t.step==='tool_call').length} tool calls</summary>`;
+  let step = 0;
+  for (const item of trace) {
+    if (item.step === 'tool_call') {
+      step++;
+      const icon = {'execute_sql_query':'🗄️','get_schema_info':'📋','analyze_blob_data':'📄'}[item.tool] || '🔧';
+      html += `<div class="step"><span class="tool">${icon} Step ${step}: ${item.tool}</span>`;
+      if (item.input?.query) html += `<div class="sql">${item.input.query}</div>`;
+      html += '</div>';
+    } else if (item.step === 'tool_result') {
+      html += `<div class="result">✅ ${(item.output||'').substring(0,150)}</div>`;
+    }
+  }
+  html += '</details>';
+  return html;
+}
+
+async function send(text) {
+  const input = document.getElementById('chatInput');
+  const msg = text || input.value.trim();
+  if (!msg || sending) return;
+  input.value = '';
+  sending = true;
+  document.getElementById('sendBtn').disabled = true;
+
+  const msgs = document.getElementById('messages');
+  msgs.innerHTML += `<div class="msg user">${msg}</div>`;
+  msgs.innerHTML += `<div class="typing" id="typing">🚢 Querying trade finance data...</div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const r = await fetch(API, {
+      method: 'POST', credentials: 'include',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt: msg, session_id: sessionId, actor_id: 'rm_user'})
+    });
+    const data = await r.json();
+    document.getElementById('typing')?.remove();
+
+    const response = data.response || data.error || 'No response';
+    const traceHtml = renderTrace(data);
+    msgs.innerHTML += `<div class="msg assistant">${md(response)}${traceHtml}</div>`;
+  } catch (e) {
+    document.getElementById('typing')?.remove();
+    msgs.innerHTML += `<div class="msg assistant" style="border-color:#e53e3e">❌ Error: ${e.message}</div>`;
+  }
+
+  msgs.scrollTop = msgs.scrollHeight;
+  sending = false;
+  document.getElementById('sendBtn').disabled = false;
+}
+</script>
+</body>
+</html>

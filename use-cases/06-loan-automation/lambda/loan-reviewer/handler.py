@@ -459,3 +459,5 @@ def handle_c360_detail(event):
     except Exception as e:
         logger.exception("C360 detail error")
         return _cors(500, json.dumps({"error": str(e)}))
+
+
