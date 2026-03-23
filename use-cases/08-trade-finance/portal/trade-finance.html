@@ -142,10 +142,15 @@ async function send(text) {
     });
     const data = await r.json();
     document.getElementById('typing')?.remove();
+    console.log('TF response:', JSON.stringify(data).substring(0, 500));
 
-    const response = data.response || data.error || 'No response';
-    const traceHtml = renderTrace(data);
-    msgs.innerHTML += `<div class="msg assistant">${md(response)}${traceHtml}</div>`;
+    if (!r.ok) {
+      msgs.innerHTML += `<div class="msg assistant" style="border-color:#e53e3e">❌ ${data.error || 'Request failed'}</div>`;
+    } else {
+      const response = data.response || data.error || 'No response';
+      const traceHtml = renderTrace(data);
+      msgs.innerHTML += `<div class="msg assistant">${md(response)}${traceHtml}</div>`;
+    }
   } catch (e) {
     document.getElementById('typing')?.remove();
     msgs.innerHTML += `<div class="msg assistant" style="border-color:#e53e3e">❌ Error: ${e.message}</div>`;
