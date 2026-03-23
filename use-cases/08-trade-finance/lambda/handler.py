@@ -36,10 +36,12 @@ def _cors(status, body):
 
 def _get_session(event):
     """Validate employee session cookie and return (email, role) or (None, None)."""
-    # Check cookie first (same-domain requests via CloudFront)
-    cookies = event.get("headers", {}).get("cookie", "") or \
-              event.get("headers", {}).get("Cookie", "") or \
-              " ".join(event.get("multiValueHeaders", {}).get("Cookie", []))
+    # HTTP API v2 puts cookies in a separate array
+    cookies = "; ".join(event.get("cookies", []))
+    if not cookies:
+        cookies = event.get("headers", {}).get("cookie", "") or \
+                  event.get("headers", {}).get("Cookie", "") or \
+                  " ".join(event.get("multiValueHeaders", {}).get("Cookie", []))
     for part in cookies.split(";"):
         part = part.strip()
         if part.startswith("aibank_sid="):
