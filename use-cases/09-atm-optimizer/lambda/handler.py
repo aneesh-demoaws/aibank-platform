@@ -105,7 +105,7 @@ def _invoke_agent(request_id, prompt, session_id, actor_id):
         response = agentcore.invoke_agent_runtime(
             agentRuntimeArn=AGENT_ARN,
             runtimeSessionId=session_id,
-            payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id}),
+            payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id, "user_role": "admin"}),
             qualifier="DEFAULT")
         stream = response.get("response") or response.get("body")
         raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
