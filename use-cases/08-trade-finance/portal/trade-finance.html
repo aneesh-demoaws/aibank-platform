@@ -76,9 +76,22 @@
 </div>
 
 <script>
-const API = '/kyc/trade-finance/chat';
+const API = 'https://2s2yfzdth3dwikhvyaawjjgsme0thzuq.lambda-url.eu-west-1.on.aws';
 let sessionId = 'tf-' + crypto.randomUUID();
 let sending = false;
+let sessionToken = '';
+
+// Get session token from cookie (for cross-origin auth)
+try {
+  const m = document.cookie.match(/aibank_sid=([^;]+)/);
+  sessionToken = m ? m[1] : '';
+} catch(e) {}
+// Fallback: fetch from session API
+if (!sessionToken) {
+  fetch('/sessions/me', {credentials:'include'}).then(r=>r.json()).then(d=>{
+    if(d.session_id) sessionToken = d.session_id;
+  }).catch(()=>{});
+}
 
 function md(text) {
   return text
@@ -136,9 +149,9 @@ async function send(text) {
 
   try {
     const r = await fetch(API, {
-      method: 'POST', credentials: 'include',
+      method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({prompt: msg, session_id: sessionId, actor_id: 'rm_user'})
+      body: JSON.stringify({prompt: msg, session_id: sessionId, actor_id: 'rm_user', session_token: sessionToken})
     });
     const data = await r.json();
     document.getElementById('typing')?.remove();

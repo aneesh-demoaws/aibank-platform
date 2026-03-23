@@ -49,12 +49,16 @@ def _get_session(event):
             item = session_table.get_item(Key={"session_id": sid}).get("Item")
             if item and item.get("status") == "active" and item.get("portal") == "employee":
                 return item.get("user_email", ""), item.get("role", "employee")
-    # Fallback: check x-session-id header (cross-domain requests via Function URL)
-    sid = (event.get("headers") or {}).get("x-session-id", "")
-    if sid:
-        item = session_table.get_item(Key={"session_id": sid}).get("Item")
-        if item and item.get("status") == "active" and item.get("portal") == "employee":
-            return item.get("user_email", ""), item.get("role", "employee")
+    # Fallback: check session_token in request body (for cross-origin Function URL)
+    try:
+        body = json.loads(event.get("body", "{}"))
+        sid = body.get("session_token", "")
+        if sid:
+            item = session_table.get_item(Key={"session_id": sid}).get("Item")
+            if item and item.get("status") == "active" and item.get("portal") == "employee":
+                return item.get("user_email", ""), item.get("role", "employee")
+    except Exception:
+        pass
     return None, None
 
 
