@@ -81,21 +81,26 @@ let sessionId = 'tf-' + crypto.randomUUID();
 let sending = false;
 
 function md(text) {
-  return text
+  // Convert markdown tables to HTML first
+  const lines = text.split('\n');
+  let html = '', inTable = false;
+  for (const line of lines) {
+    if (line.match(/^\|.+\|$/)) {
+      if (line.match(/^\|[\s-:|]+\|$/)) continue; // skip separator
+      const cells = line.split('|').filter(c => c.trim());
+      if (!inTable) { html += '<table>'; inTable = true; html += '<tr>' + cells.map(c => `<th>${c.trim()}</th>`).join('') + '</tr>'; }
+      else { html += '<tr>' + cells.map(c => `<td>${c.trim()}</td>`).join('') + '</tr>'; }
+    } else {
+      if (inTable) { html += '</table>'; inTable = false; }
+      html += line + '\n';
+    }
+  }
+  if (inTable) html += '</table>';
+  return html
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\n\|(.+)\|/g, (m) => {
-      const rows = text.match(/\|.+\|/g);
-      if (!rows) return m;
-      let html = '<table>';
-      rows.forEach((row, i) => {
-        if (row.match(/^\|[\s-|]+\|$/)) return;
-        const cells = row.split('|').filter(c => c.trim());
-        const tag = i === 0 ? 'th' : 'td';
-        html += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
-      });
-      return html + '</table>';
-    })
+    .replace(/###\s+(.*?)(\n|<)/g, '<h4>$1</h4><')
+    .replace(/##\s+(.*?)(\n|<)/g, '<h3>$1</h3><')
     .replace(/\n/g, '<br>');
 }
 
