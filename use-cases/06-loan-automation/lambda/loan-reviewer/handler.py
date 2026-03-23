@@ -272,6 +272,20 @@ def _is_authenticated(event):
     return bool(_verify_token(event))
 
 
+def _get_user_role(event):
+    """Get the authenticated user's role from session."""
+    cookies = event.get("headers", {}).get("Cookie", "") or \
+              " ".join(event.get("multiValueHeaders", {}).get("Cookie", []))
+    for part in cookies.split(";"):
+        part = part.strip()
+        if part.startswith("aibank_sid="):
+            sid = part[len("aibank_sid="):]
+            item = ddb.Table(SESSION_TABLE).get_item(Key={"session_id": sid}).get("Item")
+            if item and item.get("status") == "active":
+                return item.get("role", "employee")
+    return None
+
+
 def _verify_token(event):
     auth = event.get("headers", {}).get("Authorization", "")
     if not auth.startswith("Bearer "):
@@ -345,6 +359,9 @@ def _c360_rows(resp):
 def handle_c360_customers(event):
     if not _is_authenticated(event):
         return _cors(401, json.dumps({"message": "Unauthorised"}))
+    role = _get_user_role(event)
+    if role not in ("relationship-managers", "admin"):
+        return _cors(403, json.dumps({"error": "Access denied. Customer 360 is available to Relationship Managers and Admins only."}))
     try:
         resp = _c360_sql("""
             SELECT customer_id, full_name, email, phone_number, credit_score,
@@ -363,6 +380,9 @@ def handle_c360_customers(event):
 def handle_c360_detail(event):
     if not _is_authenticated(event):
         return _cors(401, json.dumps({"message": "Unauthorised"}))
+    role = _get_user_role(event)
+    if role not in ("relationship-managers", "admin"):
+        return _cors(403, json.dumps({"error": "Access denied. Customer 360 is available to Relationship Managers and Admins only."}))
     cid = (event.get("queryStringParameters") or {}).get("id", "").strip()
     if not cid:
         return _cors(400, json.dumps({"error": "id required"}))
