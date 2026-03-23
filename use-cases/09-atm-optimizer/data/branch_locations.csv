@@ -1,0 +1,9 @@
+branch_id,name,latitude,longitude,atm_count,avg_daily_footfall
+BR_SEEF,Seef Branch - CrediMax Building,26.2285,50.5280,1,850
+BR_SITRA,Sitra Branch,26.1540,50.6180,1,400
+BR_HAMAD,Hamad Town Branch,26.1150,50.4850,1,500
+BR_RIFFA,East Riffa Branch,26.1300,50.5550,1,550
+BR_MUHARRAQ,Muharraq Branch,26.2570,50.6120,1,600
+BR_MANAMA,Manama Head Office Branch,26.2235,50.5775,1,950
+BR_GUDAIBIYA,Gudaibiya Branch,26.2150,50.5680,1,500
+BR_ISA_TOWN,Isa Town Branch,26.1730,50.5480,1,450

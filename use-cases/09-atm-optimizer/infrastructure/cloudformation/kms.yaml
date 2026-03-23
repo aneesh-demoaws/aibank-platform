@@ -1,0 +1,187 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  KMS keys for ATM Profitability Optimizer - transaction data, application data,
+  and user/session data encryption. All keys deployed in me-south-1 (Bahrain)
+  with automatic rotation enabled.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ATM-Profitability-Optimizer
+  Environment:
+    Type: String
+    Default: Demo
+    AllowedValues: [Demo, Production]
+
+Resources:
+  # ─── Transaction Data KMS Key ───
+  TransactionDataKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Encrypts ATM transaction data in S3 and Athena query results
+      Enabled: true
+      EnableKeyRotation: true
+      RotationPeriodInDays: 365
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableRootAccountAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: AllowEC2RoleDecrypt
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:GenerateDataKey*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'kms:ViaService':
+                  - !Sub 's3.${AWS::Region}.amazonaws.com'
+                  - !Sub 'athena.${AWS::Region}.amazonaws.com'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: DataClassification
+          Value: TransactionData
+
+  TransactionDataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/atm-transaction-key
+      TargetKeyId: !Ref TransactionDataKey
+
+  # ─── Application Data KMS Key ───
+  ApplicationDataKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Encrypts application data including Athena workgroup results and logs
+      Enabled: true
+      EnableKeyRotation: true
+      RotationPeriodInDays: 365
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableRootAccountAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: AllowCloudWatchLogs
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: '*'
+            Condition:
+              ArnLike:
+                'kms:EncryptionContext:aws:logs:arn': !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: DataClassification
+          Value: ApplicationData
+
+  ApplicationDataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/atm-application-key
+      TargetKeyId: !Ref ApplicationDataKey
+
+  # ─── User/Session Data KMS Key ───
+  UserDataKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Encrypts user and session data including Cognito tokens and session state
+      Enabled: true
+      EnableKeyRotation: true
+      RotationPeriodInDays: 365
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableRootAccountAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: AllowCognitoEncryption
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:GenerateDataKey*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'kms:ViaService':
+                  - !Sub 'cognito-idp.${AWS::Region}.amazonaws.com'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: DataClassification
+          Value: UserData
+
+  UserDataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/atm-user-key
+      TargetKeyId: !Ref UserDataKey
+
+Outputs:
+  TransactionDataKeyId:
+    Description: KMS Key ID for transaction data encryption
+    Value: !Ref TransactionDataKey
+    Export:
+      Name: !Sub '${AWS::StackName}-TransactionDataKeyId'
+  TransactionDataKeyArn:
+    Description: KMS Key ARN for transaction data encryption
+    Value: !GetAtt TransactionDataKey.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-TransactionDataKeyArn'
+  ApplicationDataKeyId:
+    Description: KMS Key ID for application data encryption
+    Value: !Ref ApplicationDataKey
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationDataKeyId'
+  ApplicationDataKeyArn:
+    Description: KMS Key ARN for application data encryption
+    Value: !GetAtt ApplicationDataKey.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationDataKeyArn'
+  UserDataKeyId:
+    Description: KMS Key ID for user/session data encryption
+    Value: !Ref UserDataKey
+    Export:
+      Name: !Sub '${AWS::StackName}-UserDataKeyId'
+  UserDataKeyArn:
+    Description: KMS Key ARN for user/session data encryption
+    Value: !GetAtt UserDataKey.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserDataKeyArn'

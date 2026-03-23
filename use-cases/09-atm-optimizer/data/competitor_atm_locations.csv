@@ -1,0 +1,83 @@
+competitor_atm_id,bank_name,name,latitude,longitude,location_type,area,status
+COMP_RED_01,Red Bank,Red Bank Seef Branch,26.2217,50.5623,mall,Capital,active
+COMP_RED_02,Red Bank,Red Bank Manama Main,26.2447,50.6637,standalone,Muharraq,active
+COMP_RED_03,Red Bank,Red Bank Muharraq Centre,26.1553,50.4702,standalone,Northern,active
+COMP_RED_04,Red Bank,Red Bank Diplomatic Area,26.0294,50.5687,branch,Southern,closed
+COMP_RED_05,Red Bank,Red Bank Juffair,26.2101,50.5332,standalone,Capital,active
+COMP_RED_06,Red Bank,Red Bank Riffa Branch,26.2435,50.6092,standalone,Muharraq,active
+COMP_RED_07,Red Bank,Red Bank Isa Town,26.2109,50.4844,mall,Northern,closed
+COMP_RED_08,Red Bank,Red Bank Sitra,26.0626,50.4956,standalone,Southern,active
+COMP_RED_09,Red Bank,Red Bank Hamad Town,26.2055,50.6187,mall,Capital,active
+COMP_RED_10,Red Bank,Red Bank Budaiya,26.2604,50.6356,standalone,Muharraq,planned
+COMP_RED_11,Red Bank,Red Bank City Centre Mall,26.2116,50.5296,mall,Northern,active
+COMP_RED_12,Red Bank,Red Bank Bahrain Mall,25.9418,50.5305,mall,Southern,active
+COMP_RED_13,Red Bank,Red Bank Airport,26.2196,50.5672,branch,Capital,closed
+COMP_RED_14,Red Bank,Red Bank Hoora,26.296,50.6188,standalone,Muharraq,active
+COMP_RED_15,Red Bank,Red Bank Gudaibiya,26.2053,50.5321,mall,Northern,active
+COMP_RED_16,Red Bank,Red Bank Adliya,25.9449,50.6074,mall,Southern,active
+COMP_RED_17,Red Bank,Red Bank Zinj,26.2663,50.6014,mall,Capital,active
+COMP_RED_18,Red Bank,Red Bank Tubli,26.293,50.6292,branch,Muharraq,active
+COMP_RED_19,Red Bank,Red Bank Sanabis,26.1905,50.4791,standalone,Northern,active
+COMP_RED_20,Red Bank,Red Bank Hidd,26.1273,50.5221,mall,Southern,active
+COMP_RED_21,Red Bank,Red Bank Amwaj,26.2074,50.5857,standalone,Capital,active
+COMP_RED_22,Red Bank,Red Bank Bahrain Bay,26.2435,50.6267,branch,Muharraq,planned
+COMP_GOLD_01,Gold Bank,Gold Bank City Centre,26.2588,50.5583,standalone,Capital,active
+COMP_GOLD_02,Gold Bank,Gold Bank Seef Tower,26.2573,50.602,branch,Muharraq,active
+COMP_GOLD_03,Gold Bank,Gold Bank Manama Branch,26.2078,50.5332,mall,Northern,active
+COMP_GOLD_04,Gold Bank,Gold Bank Muharraq,26.0833,50.4882,mall,Southern,active
+COMP_GOLD_05,Gold Bank,Gold Bank Diplomatic Area,26.2464,50.5686,standalone,Capital,active
+COMP_GOLD_06,Gold Bank,Gold Bank Juffair Mall,26.2673,50.6063,standalone,Muharraq,active
+COMP_GOLD_07,Gold Bank,Gold Bank Riffa,26.1722,50.4453,mall,Northern,active
+COMP_GOLD_08,Gold Bank,Gold Bank Isa Town,25.9988,50.4897,mall,Southern,planned
+COMP_GOLD_09,Gold Bank,Gold Bank Sitra,26.2021,50.5367,branch,Capital,active
+COMP_GOLD_10,Gold Bank,Gold Bank Hamad Town,26.2903,50.6497,standalone,Muharraq,active
+COMP_GOLD_11,Gold Bank,Gold Bank Budaiya Road,26.2058,50.4604,standalone,Northern,active
+COMP_GOLD_12,Gold Bank,Gold Bank Hoora,25.985,50.4757,standalone,Southern,active
+COMP_GOLD_13,Gold Bank,Gold Bank Gudaibiya,26.2678,50.5819,standalone,Capital,active
+COMP_GOLD_14,Gold Bank,Gold Bank Adliya,26.2697,50.6208,branch,Muharraq,active
+COMP_GOLD_15,Gold Bank,Gold Bank Zinj,26.137,50.5405,standalone,Northern,active
+COMP_GOLD_16,Gold Bank,Gold Bank Sanabis,25.9843,50.492,branch,Southern,planned
+COMP_GOLD_17,Gold Bank,Gold Bank Hidd,26.2441,50.6151,mall,Capital,active
+COMP_GOLD_18,Gold Bank,Gold Bank Bahrain Bay,26.2711,50.679,mall,Muharraq,active
+COMP_GREEN_01,Green Bank,Green Bank Seef Branch,26.205,50.5737,branch,Capital,planned
+COMP_GREEN_02,Green Bank,Green Bank Manama,26.2787,50.6039,mall,Muharraq,active
+COMP_GREEN_03,Green Bank,Green Bank Muharraq,26.1117,50.4814,mall,Northern,planned
+COMP_GREEN_04,Green Bank,Green Bank Riffa,26.125,50.4893,standalone,Southern,planned
+COMP_GREEN_05,Green Bank,Green Bank Isa Town,26.2623,50.5642,branch,Capital,active
+COMP_GREEN_06,Green Bank,Green Bank Sitra,26.2582,50.6471,standalone,Muharraq,closed
+COMP_GREEN_07,Green Bank,Green Bank Hamad Town,26.2343,50.5057,standalone,Northern,active
+COMP_GREEN_08,Green Bank,Green Bank Budaiya,25.9359,50.5618,branch,Southern,active
+COMP_GREEN_09,Green Bank,Green Bank City Centre,26.2246,50.5304,mall,Capital,active
+COMP_GREEN_10,Green Bank,Green Bank Juffair,26.2801,50.6558,branch,Muharraq,planned
+COMP_GREEN_11,Green Bank,Green Bank Hoora,26.1646,50.5252,mall,Northern,active
+COMP_GREEN_12,Green Bank,Green Bank Gudaibiya,25.9607,50.509,branch,Southern,active
+COMP_GREEN_13,Green Bank,Green Bank Adliya,26.2042,50.5856,branch,Capital,active
+COMP_GREEN_14,Green Bank,Green Bank Zinj,26.2603,50.6073,mall,Muharraq,planned
+COMP_GREEN_15,Green Bank,Green Bank Tubli,26.1953,50.5496,mall,Northern,active
+COMP_GREEN_16,Green Bank,Green Bank Sanabis,26.0905,50.4515,mall,Southern,active
+COMP_PURPLE_01,Purple Bank,Purple Bank Seef,26.2358,50.5815,branch,Capital,active
+COMP_PURPLE_02,Purple Bank,Purple Bank Manama,26.277,50.6714,mall,Muharraq,active
+COMP_PURPLE_03,Purple Bank,Purple Bank Muharraq,26.1986,50.4536,branch,Northern,active
+COMP_PURPLE_04,Purple Bank,Purple Bank Riffa,25.9352,50.5923,mall,Southern,closed
+COMP_PURPLE_05,Purple Bank,Purple Bank Isa Town,26.2308,50.6044,branch,Capital,active
+COMP_PURPLE_06,Purple Bank,Purple Bank Sitra,26.2988,50.6568,mall,Muharraq,active
+COMP_PURPLE_07,Purple Bank,Purple Bank Hamad Town,26.1264,50.4509,standalone,Northern,active
+COMP_PURPLE_08,Purple Bank,Purple Bank Budaiya,26.0312,50.605,mall,Southern,planned
+COMP_PURPLE_09,Purple Bank,Purple Bank Juffair,26.2618,50.5463,mall,Capital,active
+COMP_PURPLE_10,Purple Bank,Purple Bank Hoora,26.2706,50.6181,branch,Muharraq,active
+COMP_PURPLE_11,Purple Bank,Purple Bank Adliya,26.2273,50.5211,standalone,Northern,active
+COMP_PURPLE_12,Purple Bank,Purple Bank Hidd,25.9018,50.5425,branch,Southern,planned
+COMP_PURPLE_13,Purple Bank,Purple Bank Bahrain Mall,26.1984,50.6036,branch,Capital,active
+COMP_TEAL_01,Teal Bank,Teal Bank Seef,26.214,50.5645,branch,Capital,active
+COMP_TEAL_02,Teal Bank,Teal Bank Manama,26.2486,50.6066,mall,Muharraq,active
+COMP_TEAL_03,Teal Bank,Teal Bank Muharraq,26.1942,50.5298,standalone,Northern,active
+COMP_TEAL_04,Teal Bank,Teal Bank Riffa,25.9438,50.5905,standalone,Southern,active
+COMP_TEAL_05,Teal Bank,Teal Bank Isa Town,26.2457,50.5451,mall,Capital,active
+COMP_TEAL_06,Teal Bank,Teal Bank Sitra,26.279,50.6207,standalone,Muharraq,active
+COMP_TEAL_07,Teal Bank,Teal Bank Hamad Town,26.1643,50.449,mall,Northern,active
+COMP_TEAL_08,Teal Bank,Teal Bank Budaiya,25.9307,50.5748,standalone,Southern,active
+COMP_TEAL_09,Teal Bank,Teal Bank Juffair,26.2323,50.6176,branch,Capital,closed
+COMP_TEAL_10,Teal Bank,Teal Bank City Centre,26.2617,50.6689,standalone,Muharraq,active
+COMP_TEAL_11,Teal Bank,Teal Bank Gudaibiya,26.2013,50.4861,mall,Northern,closed
+COMP_TEAL_12,Teal Bank,Teal Bank Zinj,25.925,50.4994,branch,Southern,planned
+COMP_TEAL_13,Teal Bank,Teal Bank Tubli,26.2668,50.5641,mall,Capital,active

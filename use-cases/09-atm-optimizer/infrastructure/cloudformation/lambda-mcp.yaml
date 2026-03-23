@@ -1,0 +1,176 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ATM Profitability Optimizer - Lambda MCP Server
+  Deploys the MCP tool server as a Lambda function with Function URL (IAM auth).
+  AgentCore in eu-west-1 calls this Function URL via SigV4 to execute tool calls.
+  Lambda runs in me-south-1 and queries Athena/S3 locally — no data leaves Bahrain.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ATM-Profitability-Optimizer
+  S3CodeBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda deployment package
+  S3CodeKey:
+    Type: String
+    Default: lambda/mcp-server.zip
+    Description: S3 key for the Lambda deployment ZIP
+  AthenaDatabase:
+    Type: String
+    Default: atm_optimizer
+  AthenaOutputBucket:
+    Type: String
+    Description: S3 bucket for Athena query results (same as data bucket)
+  KmsTransactionKeyArn:
+    Type: String
+    Description: ARN of the KMS key used for S3/Athena encryption
+  VpcId:
+    Type: String
+    Description: VPC ID for Lambda (optional - leave empty for non-VPC Lambda)
+    Default: ''
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: Subnet IDs for Lambda VPC config (optional)
+    Default: ''
+  SecurityGroupId:
+    Type: String
+    Description: Security group for Lambda VPC config (optional)
+    Default: ''
+  AgentCoreRoleArn:
+    Type: String
+    Description: IAM role ARN of AgentCore runtime in eu-west-1 (for Function URL auth)
+    Default: ''
+
+Conditions:
+  UseVpc: !Not [!Equals [!Ref VpcId, '']]
+  HasAgentCoreRole: !Not [!Equals [!Ref AgentCoreRoleArn, '']]
+
+Resources:
+  # --- IAM Role for Lambda ---
+  LambdaMcpRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-Lambda-MCP-Role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: AthenaQueryAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AthenaQuery
+                Effect: Allow
+                Action:
+                  - athena:StartQueryExecution
+                  - athena:GetQueryExecution
+                  - athena:GetQueryResults
+                  - athena:StopQueryExecution
+                Resource:
+                  - !Sub 'arn:aws:athena:${AWS::Region}:${AWS::AccountId}:workgroup/atm-optimizer'
+              - Sid: GlueReadAccess
+                Effect: Allow
+                Action:
+                  - glue:GetTable
+                  - glue:GetTables
+                  - glue:GetDatabase
+                  - glue:GetDatabases
+                  - glue:GetPartitions
+                Resource:
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog'
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/${AthenaDatabase}'
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/${AthenaDatabase}/*'
+              - Sid: S3DataAccess
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                  - s3:PutObject
+                Resource:
+                  - !Sub 'arn:aws:s3:::${AthenaOutputBucket}'
+                  - !Sub 'arn:aws:s3:::${AthenaOutputBucket}/*'
+              - Sid: KmsDecrypt
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource:
+                  - !Ref KmsTransactionKeyArn
+
+  # --- Lambda Function ---
+  McpServerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-MCP-Server'
+      Description: MCP tool server for ATM Profitability Optimizer
+      Runtime: python3.11
+      Handler: mcp_server/lambda_handler.handler
+      Code:
+        S3Bucket: !Ref S3CodeBucket
+        S3Key: !Ref S3CodeKey
+      Role: !GetAtt LambdaMcpRole.Arn
+      Timeout: 300
+      MemorySize: 1024
+      Environment:
+        Variables:
+          ATM_ATHENA_DATABASE: !Ref AthenaDatabase
+          ATM_ATHENA_WORKGROUP: atm-optimizer
+          ATM_S3_DATA_BUCKET: !Ref AthenaOutputBucket
+          LOG_LEVEL: INFO
+      VpcConfig: !If
+        - UseVpc
+        - SubnetIds: !Ref SubnetIds
+          SecurityGroupIds:
+            - !Ref SecurityGroupId
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Component
+          Value: MCP-Server
+
+  # --- Function URL with IAM Auth ---
+  McpServerFunctionUrl:
+    Type: AWS::Lambda::Url
+    Properties:
+      AuthType: AWS_IAM
+      TargetFunctionArn: !GetAtt McpServerFunction.Arn
+      # No CORS — this is an internal-only API invoked via SigV4 from AgentCore/Lambda.
+      # CORS is only needed for browser-based cross-origin requests.
+
+  # --- Resource-based policy: allow AgentCore Gateway role to invoke ---
+  # SECURITY: Scoped to Gateway service role only. No account-wide access.
+  # This follows security-rules.md: never use Principal: '*' or account root.
+  McpServerGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Condition: HasAgentCoreRole
+    Properties:
+      FunctionName: !GetAtt McpServerFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: !Ref AgentCoreRoleArn
+
+Outputs:
+  FunctionUrl:
+    Description: Lambda Function URL for MCP Server (IAM auth required)
+    Value: !GetAtt McpServerFunctionUrl.FunctionUrl
+    Export:
+      Name: !Sub '${ProjectName}-MCP-Function-URL'
+  FunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt McpServerFunction.Arn
+    Export:
+      Name: !Sub '${ProjectName}-MCP-Function-ARN'
+  LambdaRoleArn:
+    Description: Lambda execution role ARN
+    Value: !GetAtt LambdaMcpRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-MCP-Lambda-Role-ARN'

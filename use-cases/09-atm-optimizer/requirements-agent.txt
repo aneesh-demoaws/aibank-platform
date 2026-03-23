@@ -1,0 +1,5 @@
+# Agent runtime dependencies (for AgentCore Runtime deployment)
+strands-agents>=1.0.0
+bedrock-agentcore[strands-agents]
+boto3>=1.34.0
+mcp-proxy-for-aws>=0.1.0

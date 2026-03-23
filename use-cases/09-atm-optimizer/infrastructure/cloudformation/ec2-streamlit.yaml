@@ -1,0 +1,357 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  EC2 instance running Streamlit UI with internal ALB.
+  Private subnet only, no public IP, least-privilege IAM role.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ATM-Profitability-Optimizer
+  Environment:
+    Type: String
+    Default: Demo
+    AllowedValues: [Demo, Production]
+  InstanceType:
+    Type: String
+    Default: t3.medium
+  VpcStackName:
+    Type: String
+    Default: atm-optimizer-vpc
+    Description: Name of the VPC CloudFormation stack
+  S3AthenaStackName:
+    Type: String
+    Default: atm-optimizer-s3-athena
+    Description: Name of the S3/Athena CloudFormation stack
+  CognitoStackName:
+    Type: String
+    Default: atm-optimizer-cognito
+    Description: Name of the Cognito CloudFormation stack
+  KmsStackName:
+    Type: String
+    Default: atm-optimizer-kms
+    Description: Name of the KMS CloudFormation stack
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: Amazon Linux 2023 AMI (latest)
+  ACMCertificateArn:
+    Type: String
+    Description: ARN of the ACM certificate for HTTPS listener
+    Default: ''
+
+Conditions:
+  HasCertificate: !Not [!Equals [!Ref ACMCertificateArn, '']]
+  NoCertificate: !Equals [!Ref ACMCertificateArn, '']
+
+Resources:
+  # ─── IAM Role for EC2 ───
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-EC2-Role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+      Policies:
+        - PolicyName: S3ReadOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:GetBucketLocation'
+                Resource:
+                  - Fn::ImportValue: !Sub '${S3AthenaStackName}-DataBucketArn'
+                  - !Sub
+                    - '${BucketArn}/*'
+                    - BucketArn:
+                        Fn::ImportValue: !Sub '${S3AthenaStackName}-DataBucketArn'
+        - PolicyName: AthenaQueryExecution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'athena:StartQueryExecution'
+                  - 'athena:GetQueryExecution'
+                  - 'athena:GetQueryResults'
+                  - 'athena:StopQueryExecution'
+                  - 'athena:GetWorkGroup'
+                Resource:
+                  - !Sub 'arn:aws:athena:${AWS::Region}:${AWS::AccountId}:workgroup/atm-optimizer'
+              - Effect: Allow
+                Action:
+                  - 'glue:GetTable'
+                  - 'glue:GetTables'
+                  - 'glue:GetDatabase'
+                  - 'glue:GetDatabases'
+                  - 'glue:GetPartitions'
+                Resource:
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:catalog'
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:database/atm_optimizer'
+                  - !Sub 'arn:aws:glue:${AWS::Region}:${AWS::AccountId}:table/atm_optimizer/*'
+              # Athena needs S3 write for query results
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:AbortMultipartUpload'
+                Resource:
+                  - !Sub
+                    - '${BucketArn}/athena_results/*'
+                    - BucketArn:
+                        Fn::ImportValue: !Sub '${S3AthenaStackName}-DataBucketArn'
+        - PolicyName: CognitoReadOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'cognito-idp:GetUser'
+                  - 'cognito-idp:ListUsers'
+                  - 'cognito-idp:AdminGetUser'
+                  - 'cognito-idp:AdminListGroupsForUser'
+                Resource:
+                  Fn::ImportValue: !Sub '${CognitoStackName}-UserPoolArn'
+        - PolicyName: CloudWatchLogsWrite
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                  - 'logs:DescribeLogStreams'
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/ec2/${ProjectName}/*'
+        - PolicyName: KMSDecrypt
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'kms:Decrypt'
+                  - 'kms:DescribeKey'
+                  - 'kms:GenerateDataKey*'
+                Resource:
+                  - Fn::ImportValue: !Sub '${KmsStackName}-TransactionDataKeyArn'
+                  - Fn::ImportValue: !Sub '${KmsStackName}-ApplicationDataKeyArn'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2Role
+
+  # ─── ALB Security Group ───
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Internal ALB - inbound 443 from VPC CIDR
+      VpcId:
+        Fn::ImportValue: !Sub '${VpcStackName}-VpcId'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp:
+            Fn::ImportValue: !Sub '${VpcStackName}-VpcCidr'
+          Description: HTTPS from VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          DestinationSecurityGroupId:
+            Fn::ImportValue: !Sub '${VpcStackName}-EC2SecurityGroupId'
+          Description: Streamlit on EC2
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-sg-alb'
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ─── Internal Application Load Balancer ───
+  InternalALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${ProjectName}-ALB'
+      Scheme: internal
+      Type: application
+      Subnets:
+        - Fn::ImportValue: !Sub '${VpcStackName}-PrivateSubnetAId'
+        - Fn::ImportValue: !Sub '${VpcStackName}-PrivateSubnetBId'
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: 'true'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${ProjectName}-TG'
+      Port: 8501
+      Protocol: HTTP
+      VpcId:
+        Fn::ImportValue: !Sub '${VpcStackName}-VpcId'
+      TargetType: instance
+      HealthCheckPath: /healthz
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Targets:
+        - Id: !Ref EC2Instance
+          Port: 8501
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # HTTPS listener (when certificate is provided)
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: HasCertificate
+    Properties:
+      LoadBalancerArn: !Ref InternalALB
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref ACMCertificateArn
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # HTTP listener (fallback for demo without certificate)
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Condition: NoCertificate
+    Properties:
+      LoadBalancerArn: !Ref InternalALB
+      Port: 443
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+  # ─── EC2 Instance ───
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !Ref AmiId
+      SubnetId:
+        Fn::ImportValue: !Sub '${VpcStackName}-PrivateSubnetAId'
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub '${VpcStackName}-EC2SecurityGroupId'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+
+          # Log setup
+          exec > >(tee /var/log/user-data.log) 2>&1
+          echo "Starting Streamlit setup..."
+
+          # Install Python and dependencies
+          dnf update -y
+          dnf install -y python3.11 python3.11-pip git
+
+          # Create app user
+          useradd -m -s /bin/bash streamlit
+
+          # Install Python packages
+          su - streamlit -c "pip3.11 install --user \
+            streamlit==1.40.0 \
+            boto3 \
+            folium \
+            streamlit-folium \
+            pyathena \
+            pyjwt \
+            requests"
+
+          # Create healthcheck endpoint
+          mkdir -p /home/streamlit/app
+          cat > /home/streamlit/app/healthz.py << 'HEALTHZ'
+          import streamlit as st
+          st.set_page_config(page_title="Health Check")
+          st.write("OK")
+          HEALTHZ
+
+          # Create systemd service
+          cat > /etc/systemd/system/streamlit.service << 'SERVICE'
+          [Unit]
+          Description=Streamlit ATM Profitability Optimizer
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=streamlit
+          WorkingDirectory=/home/streamlit/app
+          ExecStart=/home/streamlit/.local/bin/streamlit run app.py \
+            --server.port=8501 \
+            --server.address=0.0.0.0 \
+            --server.headless=true \
+            --browser.gatherUsageStats=false
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+          SERVICE
+
+          systemctl daemon-reload
+          systemctl enable streamlit
+          echo "Streamlit setup complete."
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-Streamlit'
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── EC2 Log Group ───
+  EC2LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub '/ec2/${ProjectName}/streamlit'
+      RetentionInDays: 30
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  ALBDnsName:
+    Description: Internal ALB DNS name
+    Value: !GetAtt InternalALB.DNSName
+    Export:
+      Name: !Sub '${AWS::StackName}-ALBDnsName'
+  EC2InstanceId:
+    Description: EC2 Instance ID
+    Value: !Ref EC2Instance
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2InstanceId'
+  EC2RoleArn:
+    Description: EC2 IAM Role ARN
+    Value: !GetAtt EC2Role.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EC2RoleArn'

@@ -1,0 +1,29 @@
+atm_id,name,latitude,longitude,location_type,branch_id,daily_capacity,status
+ATM_SEEF_01,Seef - CrediMax Building,26.2285,50.5280,branch,BR_SEEF,500,active
+ATM_AALI_01,Al Aali Shopping Complex,26.2180,50.5150,mall,,800,active
+ATM_BMALL_01,Bahrain Mall,26.2230,50.4780,mall,,800,active
+ATM_ATRIUM_01,Atrium Mall,26.2100,50.5050,mall,,800,active
+ATM_AIRPORT_01,Bahrain International Airport,26.2708,50.6336,airport,,600,active
+ATM_SITRA_01,Sitra Branch,26.1540,50.6180,branch,BR_SITRA,500,active
+ATM_JUFFAIR_01,Juffair,26.2120,50.6010,standalone,,300,active
+ATM_HAMAD_01,Hamad Town,26.1150,50.4850,branch,BR_HAMAD,500,active
+ATM_RIFFA_01,East Riffa,26.1300,50.5550,branch,BR_RIFFA,500,active
+ATM_MUHARRAQ_01,Muharraq Branch,26.2570,50.6120,branch,BR_MUHARRAQ,500,active
+ATM_MANAMA_01,Manama - Head Office,26.2235,50.5775,branch,BR_MANAMA,500,active
+ATM_MANAMA_02,Manama - Government Ave,26.2180,50.5830,standalone,,300,active
+ATM_GUDAIBIYA_01,Gudaibiya,26.2150,50.5680,branch,BR_GUDAIBIYA,500,active
+ATM_ADLIYA_01,Adliya,26.2100,50.5520,standalone,,300,active
+ATM_HOORA_01,Hoora,26.2280,50.5850,standalone,,300,active
+ATM_SALMANIYA_01,Salmaniya Medical Complex,26.2200,50.5600,hospital,,400,active
+ATM_ISA_TOWN_01,Isa Town,26.1730,50.5480,branch,BR_ISA_TOWN,500,active
+ATM_BUDAIYA_01,Budaiya,26.2180,50.4500,standalone,,300,active
+ATM_ZINJ_01,Zinj,26.2050,50.5450,standalone,,300,active
+ATM_TUBLI_01,Tubli,26.1950,50.5350,standalone,,300,active
+ATM_SANABIS_01,Sanabis,26.2350,50.5150,standalone,,300,active
+ATM_HIDD_01,Hidd,26.2450,50.6500,standalone,,300,active
+ATM_AWALI_01,Awali,26.0780,50.5250,standalone,,300,active
+ATM_DURRAT_01,Durrat Al Bahrain,25.9850,50.5950,standalone,,300,active
+ATM_AMWAJ_01,Amwaj Islands,26.2850,50.6700,standalone,,300,active
+ATM_BAHRAIN_BAY_01,Bahrain Bay,26.2400,50.5900,standalone,,300,active
+ATM_CITY_CENTRE_01,City Centre Bahrain,26.2290,50.5380,mall,,800,active
+ATM_SEEF_MALL_01,Seef Mall,26.2310,50.5200,mall,,800,active

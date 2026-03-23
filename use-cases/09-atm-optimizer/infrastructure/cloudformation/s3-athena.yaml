@@ -1,0 +1,388 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  S3 data lake and Athena workgroup for ATM Profitability Optimizer.
+  KMS encrypted, VPC endpoint restricted, no public access.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ATM-Profitability-Optimizer
+  Environment:
+    Type: String
+    Default: Demo
+    AllowedValues: [Demo, Production]
+  KmsStackName:
+    Type: String
+    Default: atm-optimizer-kms
+    Description: Name of the KMS CloudFormation stack
+  VpcStackName:
+    Type: String
+    Default: atm-optimizer-vpc
+    Description: Name of the VPC CloudFormation stack
+  EnableVpcRestriction:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable VPC endpoint restriction on S3 bucket (disable temporarily for data upload)
+  LambdaMcpRoleArn:
+    Type: String
+    Default: ''
+    Description: ARN of the Lambda MCP role to exempt from VPC restriction (for Athena internal S3 access)
+
+Conditions:
+  VpcRestrictionEnabled: !Equals [!Ref EnableVpcRestriction, 'true']
+  HasLambdaRole: !Not [!Equals [!Ref LambdaMcpRoleArn, '']]
+
+Resources:
+  # ─── S3 Data Bucket ───
+  DataBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub 'atm-optimizer-data-${AWS::AccountId}-me-south-1'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+              KMSMasterKeyID:
+                Fn::ImportValue: !Sub '${KmsStackName}-TransactionDataKeyArn'
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 90
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── S3 Bucket Policy ───
+  # SECURITY FIX: The VPC endpoint restriction now exempts CloudFormation
+  # and the account root principal to prevent self-locking. Previously,
+  # the blanket Deny on s3:* for non-VPC sources blocked CloudFormation
+  # from updating the bucket policy itself, causing UPDATE_ROLLBACK_FAILED.
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyNonSSLRequests
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt DataBucket.Arn
+              - !Sub '${DataBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+          - !If
+            - VpcRestrictionEnabled
+            - Sid: RestrictDataAccessToVPCEndpoint
+              Effect: Deny
+              Principal: '*'
+              Action:
+                - 's3:GetObject'
+                - 's3:PutObject'
+                - 's3:DeleteObject'
+                - 's3:ListBucket'
+              Resource:
+                - !GetAtt DataBucket.Arn
+                - !Sub '${DataBucket.Arn}/*'
+              Condition:
+                StringNotEquals:
+                  'aws:sourceVpce':
+                    Fn::ImportValue: !Sub '${VpcStackName}-S3GatewayEndpointId'
+                ArnNotLike:
+                  'aws:PrincipalArn':
+                    - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*'
+                    - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+                    - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ATM-Profitability-Optimizer-Lambda-MCP-Role'
+                    - !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ATM-Profitability-Optimizer-Lambda-MCP-EU-Role'
+            - !Ref 'AWS::NoValue'
+
+  # ─── Athena Workgroup ───
+  AthenaWorkgroup:
+    Type: AWS::Athena::WorkGroup
+    Properties:
+      Name: atm-optimizer
+      Description: Athena workgroup for ATM Profitability Optimizer queries
+      State: ENABLED
+      WorkGroupConfiguration:
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        BytesScannedCutoffPerQuery: 10737418240  # 10 GB
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${DataBucket}/athena_results/'
+          EncryptionConfiguration:
+            EncryptionOption: SSE_KMS
+            KmsKey:
+              Fn::ImportValue: !Sub '${KmsStackName}-TransactionDataKeyArn'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ─── Athena Database ───
+  AthenaDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseInput:
+        Name: atm_optimizer
+        Description: Database for ATM Profitability Optimizer data tables
+
+  # ─── Athena Tables (Glue Catalog) ───
+
+  AtmTransactionsTable:
+    Type: AWS::Glue::Table
+    DependsOn: AthenaDatabase
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseName: atm_optimizer
+      TableInput:
+        Name: atm_transactions
+        Description: ATM transaction history
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          'skip.header.line.count': '1'
+          classification: csv
+        StorageDescriptor:
+          Location: !Sub 's3://${DataBucket}/atm_transactions/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.serde2.OpenCSVSerde
+            Parameters:
+              separatorChar: ','
+              quoteChar: '"'
+          Columns:
+            - Name: transaction_id
+              Type: string
+            - Name: atm_id
+              Type: string
+            - Name: timestamp
+              Type: string
+            - Name: transaction_type
+              Type: string
+            - Name: amount
+              Type: string
+            - Name: fee
+              Type: string
+
+  AtmLocationsTable:
+    Type: AWS::Glue::Table
+    DependsOn: AthenaDatabase
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseName: atm_optimizer
+      TableInput:
+        Name: atm_locations
+        Description: ATM location data with GPS coordinates
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          'skip.header.line.count': '1'
+          classification: csv
+        StorageDescriptor:
+          Location: !Sub 's3://${DataBucket}/atm_locations/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.serde2.OpenCSVSerde
+            Parameters:
+              separatorChar: ','
+              quoteChar: '"'
+          Columns:
+            - Name: atm_id
+              Type: string
+            - Name: name
+              Type: string
+            - Name: latitude
+              Type: string
+            - Name: longitude
+              Type: string
+            - Name: location_type
+              Type: string
+            - Name: branch_id
+              Type: string
+            - Name: daily_capacity
+              Type: string
+            - Name: status
+              Type: string
+
+  BranchLocationsTable:
+    Type: AWS::Glue::Table
+    DependsOn: AthenaDatabase
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseName: atm_optimizer
+      TableInput:
+        Name: branch_locations
+        Description: NeoBank branch location data
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          'skip.header.line.count': '1'
+          classification: csv
+        StorageDescriptor:
+          Location: !Sub 's3://${DataBucket}/branch_locations/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.serde2.OpenCSVSerde
+            Parameters:
+              separatorChar: ','
+              quoteChar: '"'
+          Columns:
+            - Name: branch_id
+              Type: string
+            - Name: name
+              Type: string
+            - Name: latitude
+              Type: string
+            - Name: longitude
+              Type: string
+            - Name: atm_count
+              Type: string
+            - Name: avg_daily_footfall
+              Type: string
+
+  AtmProximityTable:
+    Type: AWS::Glue::Table
+    DependsOn: AthenaDatabase
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseName: atm_optimizer
+      TableInput:
+        Name: atm_proximity
+        Description: Distance matrix between ATM pairs
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          'skip.header.line.count': '1'
+          classification: csv
+        StorageDescriptor:
+          Location: !Sub 's3://${DataBucket}/proximity_data/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.serde2.OpenCSVSerde
+            Parameters:
+              separatorChar: ','
+              quoteChar: '"'
+          Columns:
+            - Name: source_atm_id
+              Type: string
+            - Name: target_atm_id
+              Type: string
+            - Name: distance_km
+              Type: string
+            - Name: is_same_branch
+              Type: string
+
+  MaintenanceCostsTable:
+    Type: AWS::Glue::Table
+    DependsOn: AthenaDatabase
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseName: atm_optimizer
+      TableInput:
+        Name: maintenance_costs
+        Description: ATM maintenance cost records
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          'skip.header.line.count': '1'
+          classification: csv
+        StorageDescriptor:
+          Location: !Sub 's3://${DataBucket}/maintenance_costs/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.serde2.OpenCSVSerde
+            Parameters:
+              separatorChar: ','
+              quoteChar: '"'
+          Columns:
+            - Name: atm_id
+              Type: string
+            - Name: date
+              Type: string
+            - Name: maintenance_type
+              Type: string
+            - Name: cost
+              Type: string
+            - Name: downtime_hours
+              Type: string
+
+  CashLevelsTable:
+    Type: AWS::Glue::Table
+    DependsOn: AthenaDatabase
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseName: atm_optimizer
+      TableInput:
+        Name: cash_levels
+        Description: Daily ATM cash level records
+        TableType: EXTERNAL_TABLE
+        Parameters:
+          'skip.header.line.count': '1'
+          classification: csv
+        StorageDescriptor:
+          Location: !Sub 's3://${DataBucket}/cash_levels/'
+          InputFormat: org.apache.hadoop.mapred.TextInputFormat
+          OutputFormat: org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat
+          SerdeInfo:
+            SerializationLibrary: org.apache.hadoop.hive.serde2.OpenCSVSerde
+            Parameters:
+              separatorChar: ','
+              quoteChar: '"'
+          Columns:
+            - Name: atm_id
+              Type: string
+            - Name: date
+              Type: string
+            - Name: opening_balance
+              Type: string
+            - Name: closing_balance
+              Type: string
+            - Name: total_withdrawals
+              Type: string
+            - Name: replenishment_amount
+              Type: string
+            - Name: replenishment_cost
+              Type: string
+
+Outputs:
+  DataBucketName:
+    Description: S3 data bucket name
+    Value: !Ref DataBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucketName'
+  DataBucketArn:
+    Description: S3 data bucket ARN
+    Value: !GetAtt DataBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-DataBucketArn'
+  AthenaWorkgroupName:
+    Description: Athena workgroup name
+    Value: !Ref AthenaWorkgroup
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaWorkgroupName'
+  AthenaDatabaseName:
+    Description: Athena/Glue database name
+    Value: atm_optimizer
+    Export:
+      Name: !Sub '${AWS::StackName}-AthenaDatabaseName'

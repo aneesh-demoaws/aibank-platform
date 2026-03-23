@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Cognito User Pool for ATM Profitability Optimizer authentication.
+  MFA required (TOTP), admin and operator groups, advanced security enforced.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ATM-Profitability-Optimizer
+  Environment:
+    Type: String
+    Default: Demo
+    AllowedValues: [Demo, Production]
+
+Resources:
+  # ─── Cognito User Pool ───
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: atm-optimizer-users
+      MfaConfiguration: 'OFF'
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserPoolAddOns:
+        AdvancedSecurityMode: ENFORCED
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+          AttributeDataType: String
+        - Name: name
+          Required: true
+          Mutable: true
+          AttributeDataType: String
+      UserPoolTags:
+        Project: !Ref ProjectName
+        Environment: !Ref Environment
+
+  # ─── User Pool Groups ───
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId: !Ref UserPool
+      Description: Full access to all tools, analytics, and management features
+      Precedence: 0
+
+  OperatorGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: operator
+      UserPoolId: !Ref UserPool
+      Description: Basic query access - ATM data, proximity, and revenue only
+      Precedence: 1
+
+  # ─── App Client (Streamlit) ───
+  StreamlitAppClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: streamlit-app
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      PreventUserExistenceErrors: ENABLED
+      SupportedIdentityProviders:
+        - COGNITO
+
+Outputs:
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+  UserPoolArn:
+    Description: Cognito User Pool ARN
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolArn'
+  AppClientId:
+    Description: Streamlit App Client ID
+    Value: !Ref StreamlitAppClient
+    Export:
+      Name: !Sub '${AWS::StackName}-AppClientId'
+  UserPoolProviderUrl:
+    Description: Cognito User Pool Provider URL (for JWT validation)
+    Value: !GetAtt UserPool.ProviderURL
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolProviderUrl'
