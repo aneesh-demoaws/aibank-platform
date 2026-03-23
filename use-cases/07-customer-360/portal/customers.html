@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer 360 — AI Bank</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f5;min-height:100vh}
+  .topbar{background:linear-gradient(135deg,#1a3a5c,#0d2137);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+  .topbar h1{font-size:1.2rem;font-weight:700}
+  .topbar .nav{display:flex;gap:12px}
+  .topbar .nav a{color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.85rem;padding:6px 14px;border-radius:8px;transition:all 0.2s}
+  .topbar .nav a:hover,.topbar .nav a.active{background:rgba(255,255,255,0.15);color:#fff}
+  .container{max-width:1400px;margin:0 auto;padding:20px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+  .stat{background:#fff;border-radius:12px;padding:16px 20px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+  .stat .label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#718096;margin-bottom:4px}
+  .stat .value{font-size:1.5rem;font-weight:700;color:#1a3a5c}
+  .stat .sub{font-size:0.75rem;color:#a0aec0;margin-top:2px}
+  .search-bar{display:flex;gap:12px;margin-bottom:20px;align-items:center}
+  .search-bar input{flex:1;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;font-size:0.9rem;outline:none}
+  .search-bar input:focus{border-color:#1a3a5c;box-shadow:0 0 0 3px rgba(26,58,92,0.1)}
+  .search-bar select{padding:10px 14px;border:1px solid #e2e8f0;border-radius:10px;font-size:0.85rem;background:#fff}
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+  thead{background:#f7fafc}
+  th{padding:12px 16px;text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#718096;font-weight:600;border-bottom:1px solid #e2e8f0}
+  td{padding:12px 16px;font-size:0.85rem;color:#2d3748;border-bottom:1px solid #f0f2f5}
+  tr:hover{background:#f7fafc}
+  .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:600}
+  .badge-verified{background:#c6f6d5;color:#22543d}
+  .badge-pending{background:#fefcbf;color:#744210}
+  .badge-low{background:#c6f6d5;color:#22543d}
+  .badge-medium{background:#fefcbf;color:#744210}
+  .badge-high{background:#fed7d7;color:#9b2c2c}
+  .btn-view{padding:6px 14px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s}
+  .btn-view:hover{background:#2d5a8c;transform:translateY(-1px)}
+  .customer-name{font-weight:600;color:#1a3a5c}
+  .customer-email{font-size:0.75rem;color:#a0aec0}
+  .balance{font-weight:600;font-family:'SF Mono',monospace}
+  .segment{font-size:0.72rem;color:#718096}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🏦 AI Bank — Employee Portal</h1>
+  <div class="nav">
+    <a href="/employee/c360/customers.html" class="active">👥 Customer 360</a>
+    <a href="/employee/credit/loan-queue.html">📋 Loan Queue</a>
+    <a href="#">🎯 NBA Advisor</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stats" id="statsBar">
+    <div class="stat"><div class="label">Total Customers</div><div class="value" id="statTotal">—</div></div>
+    <div class="stat"><div class="label">KYC Verified</div><div class="value" id="statVerified">—</div><div class="sub" id="statVerifiedPct"></div></div>
+    <div class="stat"><div class="label">High Value</div><div class="value" id="statHighValue">—</div></div>
+    <div class="stat"><div class="label">High Risk</div><div class="value" id="statHighRisk">—</div></div>
+    <div class="stat"><div class="label">Total AUM</div><div class="value" id="statAUM">—</div><div class="sub">BHD</div></div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Search by name, email, or customer ID..." oninput="filterTable()">
+    <select id="filterRisk" onchange="filterTable()">
+      <option value="">All Risk</option>
+      <option value="LOW">Low</option>
+      <option value="MEDIUM">Medium</option>
+      <option value="HIGH">High</option>
+    </select>
+    <select id="filterKYC" onchange="filterTable()">
+      <option value="">All KYC</option>
+      <option value="VERIFIED">Verified</option>
+      <option value="PENDING">Pending</option>
+      <option value="NOT_STARTED">Not Started</option>
+    </select>
+    <select id="filterSegment" onchange="filterTable()">
+      <option value="">All Segments</option>
+      <option value="HIGH_VALUE">High Value</option>
+      <option value="MEDIUM_VALUE">Medium Value</option>
+      <option value="STANDARD">Standard</option>
+    </select>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Customer</th>
+        <th>Credit Score</th>
+        <th>KYC</th>
+        <th>Risk</th>
+        <th>Accounts</th>
+        <th>Total Balance</th>
+        <th>Segment</th>
+        <th>90d Txns</th>
+        <th>Last Active</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody">
+      <tr><td colspan="10" style="text-align:center;padding:40px;color:#a0aec0">Loading customers...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+const API = '/loan-review';
+let allCustomers = [];
+
+async function loadCustomers() {
+  try {
+    const r = await fetch(`${API}/c360/customers`, { credentials: 'include' });
+    const data = await r.json();
+    allCustomers = data.customers || [];
+    updateStats();
+    renderTable(allCustomers);
+  } catch (e) {
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:#e53e3e">Failed to load: ${e.message}</td></tr>`;
+  }
+}
+
+function updateStats() {
+  const c = allCustomers;
+  document.getElementById('statTotal').textContent = c.length;
+  const verified = c.filter(x => x.kyc_status === 'VERIFIED').length;
+  document.getElementById('statVerified').textContent = verified;
+  document.getElementById('statVerifiedPct').textContent = `${Math.round(verified/c.length*100)}% of total`;
+  document.getElementById('statHighValue').textContent = c.filter(x => x.value_segment === 'HIGH_VALUE').length;
+  document.getElementById('statHighRisk').textContent = c.filter(x => x.risk_category === 'HIGH').length;
+  const aum = c.reduce((s, x) => s + (x.total_balance || 0), 0);
+  document.getElementById('statAUM').textContent = aum.toLocaleString('en-BH', {maximumFractionDigits: 0});
+}
+
+function renderTable(customers) {
+  if (!customers.length) {
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:#a0aec0">No customers match your filters</td></tr>`;
+    return;
+  }
+  document.getElementById('tableBody').innerHTML = customers.map(c => `
+    <tr>
+      <td>
+        <div class="customer-name">${c.full_name || '—'}</div>
+        <div class="customer-email">${c.customer_id} · ${c.email || ''}</div>
+      </td>
+      <td><strong>${c.credit_score || '—'}</strong><br><span class="segment">${c.credit_rating || ''}</span></td>
+      <td><span class="badge badge-${(c.kyc_status||'').toLowerCase()}">${c.kyc_status || '—'}</span></td>
+      <td><span class="badge badge-${(c.risk_category||'').toLowerCase()}">${c.risk_category || '—'}</span></td>
+      <td>${c.total_accounts || 0}</td>
+      <td class="balance">${(c.total_balance||0).toLocaleString('en-BH',{minimumFractionDigits:3})} BHD</td>
+      <td><span class="segment">${(c.value_segment||'').replace('_',' ')}</span><br><span class="segment">${(c.spending_segment||'').replace('_',' ')}</span></td>
+      <td>${c.transaction_count_90d || 0}</td>
+      <td>${c.days_since_last_transaction != null ? (c.days_since_last_transaction > 90 ? '<span style="color:#e53e3e">'+c.days_since_last_transaction+'d</span>' : c.days_since_last_transaction+'d ago') : '—'}</td>
+      <td><button class="btn-view" onclick="location.href='/employee/c360/detail.html?id=${c.customer_id}'">View C360</button></td>
+    </tr>
+  `).join('');
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const risk = document.getElementById('filterRisk').value;
+  const kyc = document.getElementById('filterKYC').value;
+  const seg = document.getElementById('filterSegment').value;
+  const filtered = allCustomers.filter(c => {
+    if (q && !(c.full_name||'').toLowerCase().includes(q) && !(c.email||'').toLowerCase().includes(q) && !(c.customer_id||'').toLowerCase().includes(q)) return false;
+    if (risk && c.risk_category !== risk) return false;
+    if (kyc && c.kyc_status !== kyc) return false;
+    if (seg && c.value_segment !== seg) return false;
+    return true;
+  });
+  renderTable(filtered);
+}
+
+loadCustomers();
+</script>
+</body>
+</html>

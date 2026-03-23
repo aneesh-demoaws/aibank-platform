@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer 360 Detail — AI Bank</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:#f0f2f5;min-height:100vh}
+  .topbar{background:linear-gradient(135deg,#1a3a5c,#0d2137);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+  .topbar h1{font-size:1.2rem;font-weight:700}
+  .topbar .nav{display:flex;gap:12px}
+  .topbar .nav a{color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.85rem;padding:6px 14px;border-radius:8px;transition:all 0.2s}
+  .topbar .nav a:hover,.topbar .nav a.active{background:rgba(255,255,255,0.15);color:#fff}
+  .container{max-width:1200px;margin:0 auto;padding:20px}
+  .back{display:inline-flex;align-items:center;gap:6px;color:#1a3a5c;text-decoration:none;font-size:0.85rem;font-weight:600;margin-bottom:16px}
+  .back:hover{text-decoration:underline}
+  .hero{background:linear-gradient(135deg,#1a3a5c,#0d2137);border-radius:16px;padding:28px;color:#fff;margin-bottom:20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+  .hero-avatar{width:72px;height:72px;border-radius:50%;background:rgba(0,212,170,0.2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#00d4aa;border:3px solid rgba(0,212,170,0.4);flex-shrink:0}
+  .hero-info{flex:1;min-width:200px}
+  .hero-name{font-size:1.4rem;font-weight:700}
+  .hero-sub{color:rgba(255,255,255,0.6);font-size:0.85rem;margin-top:4px}
+  .hero-badges{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .hero-badge{padding:4px 12px;border-radius:20px;font-size:0.72rem;font-weight:600}
+  .hero-stats{display:flex;gap:28px;flex-wrap:wrap}
+  .hero-stat .label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.5)}
+  .hero-stat .val{font-size:1.2rem;font-weight:700;margin-top:2px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:20px}
+  .card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);overflow:hidden}
+  .card h3{background:#f7fafc;padding:12px 20px;font-size:0.85rem;font-weight:600;color:#1a3a5c;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px}
+  .card-body{padding:16px 20px}
+  .field{margin-bottom:10px}
+  .field .lbl{font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:#718096}
+  .field .val{font-size:0.9rem;color:#2d3748;font-weight:500;margin-top:1px}
+  .field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  table{width:100%;border-collapse:collapse;font-size:0.82rem}
+  table th{text-align:left;padding:8px 12px;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.05em;color:#718096;border-bottom:1px solid #e2e8f0}
+  table td{padding:8px 12px;border-bottom:1px solid #f0f2f5;color:#2d3748}
+  .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:600}
+  .badge-verified,.badge-approved,.badge-low{background:#c6f6d5;color:#22543d}
+  .badge-pending,.badge-submitted,.badge-processing,.badge-medium{background:#fefcbf;color:#744210}
+  .badge-high,.badge-rejected{background:#fed7d7;color:#9b2c2c}
+  .badge-active{background:#bee3f8;color:#2a4365}
+  .progress{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:6px}
+  .progress-bar{height:100%;background:linear-gradient(90deg,#00d4aa,#38a169);border-radius:4px;transition:width 0.5s}
+  .placeholder{text-align:center;padding:30px;color:#a0aec0;font-size:0.85rem}
+  .cat-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .cat-bar .name{width:120px;font-size:0.78rem;color:#4a5568;text-align:right}
+  .cat-bar .bar{flex:1;height:20px;background:#e2e8f0;border-radius:4px;overflow:hidden}
+  .cat-bar .fill{height:100%;background:linear-gradient(90deg,#1a3a5c,#2d5a8c);border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:0.68rem;color:#fff;font-weight:600}
+  #loading{text-align:center;padding:60px;color:#718096;font-size:1rem}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🏦 AI Bank — Customer 360</h1>
+  <div class="nav">
+    <a href="/employee/c360/customers.html">👥 Customer 360</a>
+    <a href="/employee/credit/loan-queue.html">📋 Loan Queue</a>
+    <a href="#">🎯 NBA Advisor</a>
+  </div>
+</div>
+
+<div class="container">
+  <a class="back" href="/employee/c360/customers.html">← Back to Customer List</a>
+  <div id="loading">Loading customer data...</div>
+  <div id="content" style="display:none">
+
+    <!-- Hero -->
+    <div class="hero" id="heroSection"></div>
+
+    <!-- Row 1: Profile + Financial Summary -->
+    <div class="grid">
+      <div class="card">
+        <h3>👤 Profile</h3>
+        <div class="card-body"><div class="field-grid" id="profileFields"></div></div>
+      </div>
+      <div class="card">
+        <h3>💰 Accounts</h3>
+        <div class="card-body"><table><thead><tr><th>Type</th><th>Number</th><th>Balance</th><th>Status</th></tr></thead><tbody id="accountsBody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- Row 2: Spending + Metrics -->
+    <div class="grid">
+      <div class="card">
+        <h3>📊 Spending by Category (90 days)</h3>
+        <div class="card-body" id="spendingChart"></div>
+      </div>
+      <div class="card">
+        <h3>📈 Financial Health Metrics</h3>
+        <div class="card-body" id="metricsBody"></div>
+      </div>
+    </div>
+
+    <!-- Row 3: Loans + Goals -->
+    <div class="grid">
+      <div class="card">
+        <h3>💳 Loan Applications</h3>
+        <div class="card-body"><table><thead><tr><th>ID</th><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="loansBody"></tbody></table></div>
+      </div>
+      <div class="card">
+        <h3>🎯 Customer Goals & Financial Planning</h3>
+        <div class="card-body" id="goalsBody"></div>
+      </div>
+    </div>
+
+    <!-- Row 4: Recent Transactions -->
+    <div class="card" style="margin-bottom:20px">
+      <h3>🔄 Recent Transactions</h3>
+      <div class="card-body"><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th>Amount</th><th>Balance After</th></tr></thead><tbody id="txnBody"></tbody></table></div>
+    </div>
+
+    <!-- Row 5: Placeholders -->
+    <div class="grid">
+      <div class="card">
+        <h3>🎯 Next Best Action</h3>
+        <div class="card-body"><div class="placeholder">🚧 Coming Soon — Next Best Action recommendations powered by AI will appear here</div></div>
+      </div>
+      <div class="card">
+        <h3>🧠 Financial Coach</h3>
+        <div class="card-body"><div class="placeholder">🚧 Coming Soon — AI-powered financial coaching insights and personalized advice will appear here</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = '/loan-review';
+const cid = new URLSearchParams(location.search).get('id');
+if (!cid) { document.getElementById('loading').textContent = 'No customer ID provided'; }
+
+async function load() {
+  try {
+    const r = await fetch(`${API}/c360/detail?id=${cid}`, { credentials: 'include' });
+    const d = await r.json();
+    if (d.error) { document.getElementById('loading').textContent = d.error; return; }
+
+    const p = d.profile;
+    const initials = (p.full_name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+
+    // Hero
+    document.getElementById('heroSection').innerHTML = `
+      <div class="hero-avatar">${initials}</div>
+      <div class="hero-info">
+        <div class="hero-name">${p.full_name}</div>
+        <div class="hero-sub">${p.customer_id} · ${p.email} · ${p.phone_number || ''}</div>
+        <div class="hero-badges">
+          <span class="hero-badge" style="background:${p.kyc_status==='VERIFIED'?'rgba(56,161,105,0.2);color:#38a169':'rgba(246,173,85,0.2);color:#f6ad55'}">${p.kyc_status}</span>
+          <span class="hero-badge" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8)">${p.risk_category} Risk</span>
+          <span class="hero-badge" style="background:rgba(0,212,170,0.15);color:#00d4aa">${(p.value_segment||'').replace('_',' ')}</span>
+          <span class="hero-badge" style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.7)">Since ${new Date(p.member_since).toLocaleDateString('en-BH',{month:'short',year:'numeric'})}</span>
+        </div>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="label">Total Balance</div><div class="val">${(p.total_balance||0).toLocaleString('en-BH',{minimumFractionDigits:3})} BHD</div></div>
+        <div class="hero-stat"><div class="label">Credit Score</div><div class="val">${p.credit_score || '—'} <span style="font-size:0.7rem;color:rgba(255,255,255,0.5)">${p.credit_rating||''}</span></div></div>
+        <div class="hero-stat"><div class="label">90d Transactions</div><div class="val">${p.transaction_count_90d || 0}</div></div>
+        <div class="hero-stat"><div class="label">90d Net Cashflow</div><div class="val">${(p.net_cashflow_90d||0).toLocaleString('en-BH',{minimumFractionDigits:0})} BHD</div></div>
+      </div>`;
+
+    // Profile
+    const fields = [
+      ['Nationality', p.nationality], ['Date of Birth', p.date_of_birth],
+      ['City', p.city], ['Country', p.country],
+      ['Phone Verified', p.phone_verified ? '✅' : '❌'], ['Email Verified', p.email_verified ? '✅' : '❌'],
+      ['Account Status', p.account_status], ['Last Login', p.last_login ? new Date(p.last_login).toLocaleString() : '—'],
+    ];
+    document.getElementById('profileFields').innerHTML = fields.map(([l,v]) => `<div class="field"><div class="lbl">${l}</div><div class="val">${v||'—'}</div></div>`).join('');
+
+    // Accounts
+    document.getElementById('accountsBody').innerHTML = (d.accounts||[]).map(a => `
+      <tr><td style="text-transform:capitalize">${a.account_type}</td><td>···${(a.account_number||'').slice(-4)}</td>
+      <td style="font-weight:600">${(a.balance||0).toLocaleString('en-BH',{minimumFractionDigits:3})} ${a.currency}</td>
+      <td><span class="badge badge-${(a.status||'').toLowerCase()}">${a.status}</span></td></tr>
+    `).join('') || '<tr><td colspan="4" class="placeholder">No accounts</td></tr>';
+
+    // Spending
+    const cats = d.spending_by_category || [];
+    const maxSpend = Math.max(...cats.map(c => c.total_amount), 1);
+    document.getElementById('spendingChart').innerHTML = cats.length ? cats.map(c => `
+      <div class="cat-bar"><div class="name">${c.category_name}</div><div class="bar"><div class="fill" style="width:${(c.total_amount/maxSpend*100).toFixed(0)}%">${(c.total_amount||0).toFixed(0)} BHD</div></div><div style="font-size:0.72rem;color:#718096;width:30px">${c.txn_count}</div></div>
+    `).join('') : '<div class="placeholder">No spending data</div>';
+
+    // Metrics
+    const m = d.metrics;
+    if (m) {
+      document.getElementById('metricsBody').innerHTML = `
+        <div class="field-grid">
+          <div class="field"><div class="lbl">Health Score</div><div class="val">${m.financial_health_score||'—'}/100</div><div class="progress"><div class="progress-bar" style="width:${m.financial_health_score||0}%"></div></div></div>
+          <div class="field"><div class="lbl">Monthly Income</div><div class="val">${(m.monthly_income||0).toLocaleString()} BHD</div></div>
+          <div class="field"><div class="lbl">Monthly Expenses</div><div class="val">${(m.monthly_expenses||0).toLocaleString()} BHD</div></div>
+          <div class="field"><div class="lbl">Savings Rate</div><div class="val">${m.savings_rate||0}%</div></div>
+          <div class="field"><div class="lbl">DTI Ratio</div><div class="val">${m.debt_to_income_ratio||0}%</div></div>
+          <div class="field"><div class="lbl">Engagement</div><div class="val">${m.engagement_score||'—'}/100</div></div>
+        </div>`;
+    } else {
+      document.getElementById('metricsBody').innerHTML = '<div class="placeholder">No metrics calculated yet</div>';
+    }
+
+    // Loans
+    document.getElementById('loansBody').innerHTML = (d.loans||[]).map(l => `
+      <tr><td style="font-size:0.78rem">${l.application_id}</td><td style="text-transform:capitalize">${(l.loan_type||'').replace('_',' ')}</td>
+      <td style="font-weight:600">${(l.amount||0).toLocaleString()} BHD</td>
+      <td><span class="badge badge-${(l.status||'').toLowerCase()}">${l.status}</span></td>
+      <td style="font-size:0.78rem">${l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}</td></tr>
+    `).join('') || '<tr><td colspan="5" class="placeholder">No loan applications</td></tr>';
+
+    // Goals
+    const goals = d.goals || [];
+    document.getElementById('goalsBody').innerHTML = goals.length ? goals.map(g => {
+      const pct = g.target_amount > 0 ? Math.min(100, Math.round(g.current_amount / g.target_amount * 100)) : 0;
+      return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:0.85rem"><strong>${g.goal_title}</strong><span class="badge badge-${(g.status||'').toLowerCase()}">${g.status}</span></div>
+        <div style="font-size:0.75rem;color:#718096;margin:4px 0">${(g.current_amount||0).toLocaleString()} / ${(g.target_amount||0).toLocaleString()} BHD · Target: ${g.target_date||'—'}</div>
+        <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div></div>`;
+    }).join('') : '<div class="placeholder">No goals set — Financial Coach coming soon</div>';
+
+    // Transactions
+    document.getElementById('txnBody').innerHTML = (d.recent_transactions||[]).map(t => `
+      <tr><td style="font-size:0.78rem">${t.transaction_date ? new Date(t.transaction_date).toLocaleDateString() : '—'}</td>
+      <td>${t.description||t.merchant_name||'—'}</td><td style="font-size:0.78rem">${t.category_name||'—'}</td>
+      <td><span style="color:${t.transaction_type==='credit'?'#38a169':'#e53e3e'}">${t.transaction_type}</span></td>
+      <td style="font-weight:600">${(t.amount||0).toLocaleString('en-BH',{minimumFractionDigits:3})} ${t.currency||'BHD'}</td>
+      <td>${(t.balance_after||0).toLocaleString('en-BH',{minimumFractionDigits:3})}</td></tr>
+    `).join('') || '<tr><td colspan="6" class="placeholder">No transactions</td></tr>';
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+  } catch (e) {
+    document.getElementById('loading').textContent = 'Error: ' + e.message;
+  }
+}
+
+if (cid) load();
+</script>
+</body>
+</html>
