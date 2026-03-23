@@ -127,7 +127,7 @@ function updateStats() {
   document.getElementById('statVerifiedPct').textContent = `${Math.round(verified/c.length*100)}% of total`;
   document.getElementById('statHighValue').textContent = c.filter(x => x.value_segment === 'HIGH_VALUE').length;
   document.getElementById('statHighRisk').textContent = c.filter(x => x.risk_category === 'HIGH').length;
-  const aum = c.reduce((s, x) => s + (x.total_balance || 0), 0);
+  const aum = c.reduce((s, x) => s + parseFloat(x.total_balance || 0), 0);
   document.getElementById('statAUM').textContent = aum.toLocaleString('en-BH', {maximumFractionDigits: 0});
 }
 
