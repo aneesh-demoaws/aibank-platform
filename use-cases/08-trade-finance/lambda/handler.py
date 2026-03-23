@@ -83,16 +83,27 @@ def handle_chat(event):
         session_id = body.get("session_id", f"tf-{uuid.uuid4()}")
         actor_id = body.get("actor_id", email.split("@")[0])
 
-        response = agentcore.invoke_agent_runtime(
-            agentRuntimeArn=AGENT_ARN,
-            runtimeSessionId=session_id,
-            payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id}),
-            qualifier="DEFAULT")
-
-        stream = response.get("response") or response.get("body")
-        raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
-        parsed = json.loads(raw)
-        return _cors(200, parsed)
+        # Retry on 502 (agent container health check race condition)
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = agentcore.invoke_agent_runtime(
+                    agentRuntimeArn=AGENT_ARN,
+                    runtimeSessionId=session_id,
+                    payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id}),
+                    qualifier="DEFAULT")
+                stream = response.get("response") or response.get("body")
+                raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
+                parsed = json.loads(raw)
+                return _cors(200, parsed)
+            except Exception as e:
+                last_error = e
+                if "502" in str(e) and attempt < 2:
+                    import time
+                    time.sleep(2)
+                    continue
+                raise
+        return _cors(500, {"error": f"Agent error after retries: {str(last_error)}"})
     except Exception as e:
         logger.exception("Trade finance chat error")
         return _cors(500, {"error": f"Agent error: {str(e)}"})
