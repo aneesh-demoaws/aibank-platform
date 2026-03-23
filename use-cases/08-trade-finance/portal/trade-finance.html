@@ -108,8 +108,17 @@ function renderTrace(data) {
   const trace = data.trace || [];
   const timing = data.timing || {};
   const wall = data.wall_time || timing.total_seconds || 0;
-  if (!trace.length) return '';
-  let html = `<details class="trace"><summary>🔍 Agent Trace — ${wall}s · ${trace.filter(t=>t.step==='tool_call').length} tool calls</summary>`;
+  const cycles = timing.cycles || 0;
+  const model = data.model || 'Claude Sonnet 4';
+  const toolCalls = trace.filter(t=>t.step==='tool_call').length;
+  if (!trace.length && !wall) return '';
+  let html = `<details class="trace"><summary>🔍 Agent Execution Details</summary>`;
+  html += `<div style="display:flex;gap:16px;margin:10px 0;flex-wrap:wrap">
+    <div style="background:rgba(0,212,170,0.1);padding:8px 14px;border-radius:8px;text-align:center"><div style="font-size:0.65rem;color:#718096;text-transform:uppercase">Total Time</div><div style="font-size:1.1rem;font-weight:700;color:#00d4aa">${wall}s</div></div>
+    <div style="background:rgba(0,212,170,0.1);padding:8px 14px;border-radius:8px;text-align:center"><div style="font-size:0.65rem;color:#718096;text-transform:uppercase">Agent Cycles</div><div style="font-size:1.1rem;font-weight:700;color:#00d4aa">${cycles || '—'}</div></div>
+    <div style="background:rgba(0,212,170,0.1);padding:8px 14px;border-radius:8px;text-align:center"><div style="font-size:0.65rem;color:#718096;text-transform:uppercase">Model</div><div style="font-size:1.1rem;font-weight:700;color:#00d4aa">${model}</div></div>
+    <div style="background:rgba(0,212,170,0.1);padding:8px 14px;border-radius:8px;text-align:center"><div style="font-size:0.65rem;color:#718096;text-transform:uppercase">Tool Calls</div><div style="font-size:1.1rem;font-weight:700;color:#00d4aa">${toolCalls}</div></div>
+  </div><hr style="border-color:rgba(255,255,255,0.06);margin:8px 0">`;
   let step = 0;
   for (const item of trace) {
     if (item.step === 'tool_call') {
