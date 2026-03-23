@@ -163,7 +163,7 @@ async function send(text) {
         try {
           const pr = await fetch('/kyc/trade-finance/status?id=' + data.request_id, {credentials:'include'});
           const pd = await pr.json();
-          if (pd.status === 'processing') { setTimeout(poll, 3000); return; }
+          if (pd.status === 'processing') { setTimeout(poll, 1000); return; }
           document.getElementById('typing')?.remove();
           if (pd.status === 'complete') {
             msgs.innerHTML += `<div class="msg assistant">${md(pd.response || 'Done')}${renderTrace(pd)}</div>`;
@@ -178,7 +178,7 @@ async function send(text) {
         sending = false;
         document.getElementById('sendBtn').disabled = false;
       };
-      setTimeout(poll, 3000);
+      setTimeout(poll, 1000);
       return;
     }
   } catch (e) {
