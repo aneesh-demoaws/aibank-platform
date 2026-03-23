@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATM Optimizer AI — AI Bank</title>
+<style>
+  :root{--nb-primary:#0A1628;--nb-accent:#00D4AA;--nb-accent-hover:#00b894;--nb-bg:#f0f2f5;--nb-card:rgba(17,27,46,0.7);--nb-glass:rgba(255,255,255,0.03);--nb-border:rgba(255,255,255,0.08);--nb-text:#e2e8f0;--nb-text-secondary:#718096;--nb-radius:14px;--nb-font-mono:'SF Mono',monospace;--nb-glow:0 0 30px rgba(0,212,170,0.08)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',system-ui,sans-serif;background:linear-gradient(160deg,#060e1a 0%,#0A1628 40%,#0d1f35 70%,#081a2a 100%);min-height:100vh;display:flex;flex-direction:column;color:var(--nb-text)}
+  body::before{content:'';position:fixed;top:-50%;right:-30%;width:80%;height:80%;background:radial-gradient(circle,rgba(0,212,170,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+  body::after{content:'';position:fixed;bottom:-40%;left:-20%;width:60%;height:60%;background:radial-gradient(circle,rgba(34,211,238,0.03) 0%,transparent 60%);pointer-events:none;z-index:0}
+  .topbar{background:rgba(26,58,92,0.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.06);position:relative;z-index:10}
+  .topbar h1{font-size:1.1rem;font-weight:700;color:#fff;text-shadow:0 0 20px rgba(0,212,170,0.3)}
+  .topbar .nav{display:flex;gap:6px}
+  .topbar .nav a{color:rgba(255,255,255,0.45);text-decoration:none;font-size:0.8rem;padding:6px 14px;border-radius:8px;transition:all 0.25s;border:1px solid transparent}
+  .topbar .nav a:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.8);border-color:rgba(255,255,255,0.06)}
+  .topbar .nav a.active{background:rgba(0,212,170,0.1);color:var(--nb-accent);border-color:rgba(0,212,170,0.2);box-shadow:0 0 12px rgba(0,212,170,0.1)}
+  .tabs{display:flex;justify-content:center;gap:6px;padding:12px 16px;background:rgba(0,0,0,0.15);backdrop-filter:blur(10px);border-bottom:1px solid var(--nb-border);position:relative;z-index:10}
+  .tab-btn{padding:10px 22px;border:1px solid transparent;border-radius:10px;font-size:0.82rem;font-weight:600;cursor:pointer;background:transparent;color:rgba(255,255,255,0.4);transition:all 0.3s;font-family:inherit}
+  .tab-btn:hover{background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.06)}
+  .tab-btn.active{background:rgba(0,212,170,0.1);color:var(--nb-accent);border-color:rgba(0,212,170,0.2);box-shadow:0 0 16px rgba(0,212,170,0.1),inset 0 1px 0 rgba(255,255,255,0.05)}
+  .tab-content{display:none;flex:1;overflow-y:auto}
+  .tab-content.active{display:flex;flex-direction:column}
+
+  /* Chat */
+  .chat-wrap{flex:1;display:flex;flex-direction:column;max-width:900px;width:100%;margin:0 auto;padding:16px 16px 0}
+  .messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-bottom:8px}
+  .msg{max-width:82%;padding:14px 18px;border-radius:16px;font-size:0.88rem;line-height:1.65;word-wrap:break-word}
+  .msg.user{align-self:flex-end;background:linear-gradient(135deg,#1a3a5c 0%,#2d5a8c 50%,#1a4a6c 100%);color:#fff;border-bottom-right-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,0.2),0 0 20px rgba(0,212,170,0.05);border:1px solid rgba(255,255,255,0.06)}
+  .msg.bot{align-self:flex-start;background:rgba(17,27,46,0.65);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06);border-bottom-left-radius:4px;box-shadow:0 4px 16px rgba(0,0,0,0.12)}
+  .msg.bot strong{color:var(--nb-accent)}
+  .msg.bot h3,.msg.bot h4{color:var(--nb-accent);margin:12px 0 6px;font-size:0.95rem}
+  .msg.bot table{width:100%;border-collapse:collapse;margin:10px 0;font-size:0.8rem}
+  .msg.bot th{text-align:left;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.12);color:var(--nb-accent);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em}
+  .msg.bot td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .msg.bot code{background:rgba(0,212,170,0.1);padding:1px 6px;border-radius:4px;font-size:0.8rem;font-family:var(--nb-font-mono)}
+  .input-bar{padding:12px 0;display:flex;gap:10px;max-width:900px;width:100%;margin:0 auto;padding:12px 16px}
+  .input-bar input{flex:1;padding:13px 20px;background:rgba(17,27,46,0.6);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.08);border-radius:var(--nb-radius);color:#fff;font-size:0.88rem;outline:none;transition:all 0.3s}
+  .input-bar input:focus{border-color:var(--nb-accent);box-shadow:0 0 0 3px rgba(0,212,170,0.12)}
+  .input-bar input::placeholder{color:rgba(255,255,255,0.25)}
+  .input-bar button{padding:13px 24px;background:linear-gradient(135deg,var(--nb-accent),#00b894);color:var(--nb-primary);border:none;border-radius:var(--nb-radius);font-weight:700;cursor:pointer;font-size:0.88rem;transition:all 0.3s;box-shadow:0 4px 16px rgba(0,212,170,0.25)}
+  .input-bar button:hover{background:var(--nb-accent-hover);transform:translateY(-1px)}
+  .input-bar button:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+  .quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin:14px 0}
+  .quick-btn{background:rgba(0,212,170,0.04);backdrop-filter:blur(8px);border:1px solid rgba(0,212,170,0.12);border-radius:10px;padding:12px 16px;cursor:pointer;text-align:left;color:var(--nb-text);font-size:0.8rem;transition:all 0.3s;display:flex;align-items:center;gap:10px}
+  .quick-btn:hover{background:rgba(0,212,170,0.1);border-color:rgba(0,212,170,0.3);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,212,170,0.12)}
+  .quick-btn .icon{font-size:1.1rem;flex-shrink:0}
+  .typing{color:var(--nb-text-secondary);font-style:italic;padding:10px 0;display:flex;align-items:center;gap:8px}
+  .typing::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--nb-accent);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}
+
+  /* Trace */
+  .trace{margin-top:14px;background:rgba(0,0,0,0.2);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.05);border-radius:12px;overflow:hidden}
+  .trace summary{padding:12px 16px;cursor:pointer;color:var(--nb-text-secondary);font-weight:600;font-size:0.82rem}
+  .trace-metrics{display:flex;gap:12px;padding:0 16px 12px;flex-wrap:wrap}
+  .trace-metric{background:rgba(0,212,170,0.06);backdrop-filter:blur(6px);border:1px solid rgba(0,212,170,0.12);padding:10px 18px;border-radius:10px;text-align:center;min-width:110px;box-shadow:0 2px 8px rgba(0,212,170,0.06)}
+  .trace-metric .label{font-size:0.62rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--nb-text-secondary)}
+  .trace-metric .val{font-size:1rem;font-weight:700;color:var(--nb-accent);margin-top:2px}
+  .trace .step{padding:8px 16px;border-top:1px solid var(--nb-border);font-size:0.8rem}
+  .trace .tool{color:#f472b6;font-weight:600}
+  .trace .sql{background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:8px;font-family:var(--nb-font-mono);font-size:0.72rem;color:#a78bfa;margin:6px 0;overflow-x:auto;white-space:pre-wrap}
+  .trace .result{color:#34d399;font-size:0.75rem;padding:4px 16px}
+
+  /* Info pages */
+  .info{max-width:1000px;width:100%;margin:0 auto;padding:24px 20px}
+  .info h2{color:var(--nb-accent);font-size:1.15rem;margin:0 0 6px;display:flex;align-items:center;gap:8px}
+  .info .subtitle{color:var(--nb-text-secondary);font-size:0.82rem;margin-bottom:20px}
+  .info h3{color:#22d3ee;font-size:0.95rem;margin:28px 0 12px;padding-bottom:8px;border-bottom:1px solid rgba(34,211,238,0.15)}
+  .card{background:var(--nb-card);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.06);border-radius:var(--nb-radius);padding:18px 20px;margin-bottom:14px;box-shadow:0 4px 16px rgba(0,0,0,0.15),inset 0 1px 0 rgba(255,255,255,0.04);transition:border-color 0.3s,box-shadow 0.3s}
+  .card-title{font-weight:600;font-size:0.88rem;color:var(--nb-accent);margin-bottom:8px}
+  .info table{width:100%;border-collapse:collapse;font-size:0.82rem;margin:8px 0}
+  .info th{text-align:left;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.12);color:var(--nb-accent);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em}
+  .info td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04)}
+  .info code{background:rgba(0,212,170,0.1);padding:1px 6px;border-radius:4px;font-size:0.8rem;font-family:var(--nb-font-mono)}
+  .info p{color:var(--nb-text-secondary);font-size:0.85rem;line-height:1.6;margin:6px 0}
+
+  /* FAQ */
+  .faq-group{margin-bottom:24px}
+  .faq-group h3{display:flex;align-items:center;gap:8px}
+  .faq-item{background:rgba(17,27,46,0.5);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.05);border-radius:12px;padding:16px 20px;margin:10px 0;position:relative;transition:all 0.3s}
+  .faq-item .q{font-size:0.88rem;color:var(--nb-text);line-height:1.5;padding-right:70px}
+  .faq-item .d{font-size:0.75rem;color:var(--nb-text-secondary);margin-top:4px}
+  .faq-item:hover{border-color:rgba(0,212,170,0.15);box-shadow:0 4px 16px rgba(0,0,0,0.1)}
+  .faq-item .copy-btn{position:absolute;top:12px;right:12px;padding:4px 12px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.2);border-radius:6px;color:var(--nb-accent);font-size:0.7rem;cursor:pointer;font-weight:600;transition:all 0.2s}
+  .faq-item .copy-btn:hover{background:rgba(0,212,170,0.2)}
+  .faq-item .try-btn{display:inline-block;margin-top:8px;padding:4px 14px;background:var(--nb-accent);color:var(--nb-primary);border:none;border-radius:6px;font-size:0.72rem;cursor:pointer;font-weight:700;transition:all 0.2s}
+  .faq-item .try-btn:hover{background:var(--nb-accent-hover)}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:768px){.grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🏧 ATM Profitability Optimizer</h1>
+  <div class="nav">
+    <a href="/employee/dashboard.html">← Dashboard</a>
+    <a href="/employee/dashboard.html">← Dashboard</a>
+    <a href="/employee/c360/atm-optimizer.html" class="active">🏧 ATM Optimizer</a>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('chat',this)">💬 AI Agent</button>
+  <button class="tab-btn" onclick="switchTab('faq',this)">❓ FAQs</button>
+  <button class="tab-btn" onclick="switchTab('db',this)">🗄️ Database</button>
+  <button class="tab-btn" onclick="switchTab('arch',this)">🏗️ Architecture</button>
+</div>
+
+<!-- Chat Tab -->
+<div id="tab-chat" class="tab-content active">
+<div class="chat-wrap">
+  <div class="messages" id="messages">
+    <div class="msg bot">
+      <strong>🏧 ATM Profitability Optimizer</strong><br><br>
+      I can help you with ATM performance analytics, competitor analysis, placement recommendations, cash forecasting, and what-if scenario modeling.<br><br>
+      <div class="quick-grid">
+        <button class="quick-btn" onclick="send('Give me a complete portfolio summary — LCs, BGs, and Documentary Collections with total amounts by type')"><span class="icon">📊</span>Portfolio Summary</button>
+        <button class="quick-btn" onclick="send('Show all active Bank Guarantees with sub-types')"><span class="icon">🏦</span>Active Guarantees</button>
+        <button class="quick-btn" onclick="send('Which shipments are currently in transit? Show vessel, ports, goods, and ETA')"><span class="icon">🏧</span>Shipments In Transit</button>
+        <button class="quick-btn" onclick="send('List all documents with discrepancies — instrument, document type, discrepancy, and resolution')"><span class="icon">⚠️</span>Discrepancies</button>
+        <button class="quick-btn" onclick="send('Show compliance screenings with hits or escalations')"><span class="icon">🔍</span>Compliance Alerts</button>
+        <button class="quick-btn" onclick="send('What is the bank total outstanding exposure per client? Top 10 by exposure')"><span class="icon">💰</span>Client Exposure</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="input-bar">
+  <input type="text" id="chatInput" placeholder="Ask about trade finance operations..." onkeydown="if(event.key==='Enter'&&!sending)send()">
+  <button id="sendBtn" onclick="send()">Send ➤</button>
+</div>
+</div>
+
+<!-- FAQs Tab -->
+<div id="tab-faq" class="tab-content">
+<div class="info">
+  <h2>❓ ATM Optimizer Query Library</h2>
+  <p class="subtitle">Copy any query or click "Try it" to send it to the AI Agent</p>
+
+  <div class="faq-group"><h3>📊 Portfolio Overview</h3>
+    <div class="faq-item"><div class="q">Give me a complete portfolio summary — how many Letters of Credit, Bank Guarantees, and Documentary Collections does the bank have? Show total amounts by instrument type and currency</div><div class="d">Full breakdown across all 3 product lines: LCs (UCP 600), BGs (URDG 758), DCs (URC 522)</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">What is the bank's total outstanding exposure per client? Show the top 10 clients ranked by exposure with their country and sector</div><div class="d">Client-level risk concentration analysis across Bahrain, Kuwait, UAE, Saudi, India & Turkey</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">How many instruments are expiring in the next 90 days? Break down by type — LC, BG, and Documentary Collection</div><div class="d">Expiry pipeline for proactive renewal management</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+
+  <div class="faq-group"><h3>🏦 Product Deep-Dive</h3>
+    <div class="faq-item"><div class="q">Show all active Bank Guarantees with their sub-type — I want to see Bid Bonds, Performance Bonds, Counter Guarantees, Retention Money Guarantees, and Shipping Guarantees separately</div><div class="d">All 7 guarantee types per URDG 758</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">Compare Irrevocable LCs vs Standby LCs — count, total amount, average tenor, and amendment rate for each</div><div class="d">Two LC product types head-to-head comparison</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">Show all Documentary Collections with their sub-type (D/P vs D/A), amount, currency, and current status</div><div class="d">Documentary Collection portfolio governed by URC 522</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">Which Bank Guarantees are Retention Money Guarantees or Counter Guarantees? Show beneficiary, amount, and expiry</div><div class="d">Specialized guarantee types used in contracting and construction sectors</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+
+  <div class="faq-group"><h3>🌍 International Banking — India & Turkey</h3>
+    <div class="faq-item"><div class="q">Show all trade instruments involving Indian or Turkish clients — include instrument type, amount, goods, and port details</div><div class="d">International banking presence: Tata Steel, Reliance Industries, Tosyali Holding</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">What goods are being shipped to or from India and Turkey? Show the ports, vessels, and shipment status</div><div class="d">Trade corridor analysis: Nhava Sheva, Mundra, Mersin, Istanbul routes</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+
+  <div class="faq-group"><h3>🏗️ Construction & Contracting</h3>
+    <div class="faq-item"><div class="q">Show all instruments for clients in the Contracting, Building Material, and Real Estate sectors — include instrument type, amount, and status</div><div class="d">Construction sector portfolio: Al Moayyed, Nass Corp, Diyar Al Muharraq, Tosyali</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">What construction materials are being traded? Show instruments involving cement, steel beams, marble, or steel rebar</div><div class="d">Goods analysis for building material trade finance</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+
+  <div class="faq-group"><h3>🏧 Shipments & Logistics</h3>
+    <div class="faq-item"><div class="q">Which shipments are currently in transit? Show vessel name, port of loading, ETA, goods, and insurance details</div><div class="d">Real-time shipment status with logistics and insurance coverage</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">Show all trade activity involving DP World — instruments, shipments through Jebel Ali, and any compliance screenings</div><div class="d">DP World partnership: trade finance + logistics integration</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+
+  <div class="faq-group"><h3>⚠️ Discrepancies & Compliance</h3>
+    <div class="faq-item"><div class="q">List all documents with discrepancies — show the instrument reference, document type, discrepancy type, and resolution status</div><div class="d">Discrepancy tracking per UCP 600 examination standards</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">What is the discrepancy rate by document type? Which document type causes the most issues?</div><div class="d">Document quality analytics for process improvement</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+    <div class="faq-item"><div class="q">Show all compliance screenings that resulted in a hit or escalation — include the instrument, screened entity, risk score, and analyst decision</div><div class="d">OFAC, EU, UN sanctions hit review with resolution details</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+
+  <div class="faq-group"><h3>📄 Document Intelligence</h3>
+    <div class="faq-item"><div class="q">Extract and show the content of any commercial invoice stored in the trade_documents table</div><div class="d">VARBINARY blob extraction — AI-powered document intelligence</div><button class="copy-btn" onclick="copyQ(this)">📋 Copy</button><button class="try-btn" onclick="tryQ(this)">▶ Try it</button></div>
+  </div>
+</div>
+</div>
+
+<!-- Database Tab -->
+<div id="tab-db" class="tab-content">
+<div class="info">
+  <h2>🗄️ TradeFinance Database</h2>
+  <p class="subtitle">MSSQL on RDS · me-south-1 (Bahrain) · 5 tables · 212 rows</p>
+
+  <div class="grid-2">
+    <div class="card"><div class="card-title">👥 clients — 17 rows</div><p>Corporate clients across Bahrain, Kuwait, UAE, Saudi, India & Turkey</p>
+    <table><tr><th>Column</th><th>Type</th></tr><tr><td>client_code</td><td>varchar</td></tr><tr><td>name, country, sector</td><td>varchar</td></tr><tr><td>risk_rating</td><td>Low/Medium/High</td></tr><tr><td>credit_limit_usd</td><td>decimal</td></tr></table></div>
+
+    <div class="card"><div class="card-title">📜 trade_instruments — 30 rows</div><p>LCs (15), Bank Guarantees (10), Documentary Collections (5)</p>
+    <table><tr><th>Column</th><th>Type</th></tr><tr><td>reference_no</td><td>LC-/BG-/DC-</td></tr><tr><td>instrument_type, sub_type</td><td>varchar</td></tr><tr><td>amount, currency</td><td>decimal/varchar</td></tr><tr><td>applicant_id, beneficiary_id</td><td>FK → clients</td></tr><tr><td>status</td><td>Active/Expired</td></tr></table></div>
+
+    <div class="card"><div class="card-title">🏧 trade_shipments — 17 rows</div><p>B/L details, vessels, ports, HS codes, Incoterms, insurance</p>
+    <table><tr><th>Column</th><th>Type</th></tr><tr><td>bl_number, vessel_name</td><td>varchar</td></tr><tr><td>port_of_loading/discharge</td><td>varchar</td></tr><tr><td>goods_description</td><td>varchar</td></tr><tr><td>shipment_status</td><td>In Transit/Delivered</td></tr></table></div>
+
+    <div class="card"><div class="card-title">📄 trade_documents — 88 rows</div><p>Document presentations, discrepancies, PDF blobs</p>
+    <table><tr><th>Column</th><th>Type</th></tr><tr><td>document_type</td><td>Invoice/B-L/Packing</td></tr><tr><td>compliance_status</td><td>Compliant/Discrepant</td></tr><tr><td>discrepancy_type</td><td>varchar</td></tr><tr><td>doc_content</td><td>varbinary (PDF)</td></tr></table></div>
+  </div>
+
+  <div class="card"><div class="card-title">🔍 trade_compliance — 60 rows</div><p>Pre-issuance screening: OFAC, EU, UN sanctions, PEP flags, dual-use goods</p>
+  <table><tr><th>Column</th><th>Type</th></tr><tr><td>ofac_result, eu_result, un_result</td><td>Clear/Potential Match</td></tr><tr><td>risk_score</td><td>0-100</td></tr><tr><td>analyst_decision</td><td>Approved/Conditions/Rejected</td></tr></table></div>
+
+  <h3>🔗 Relationships</h3>
+  <div class="card"><p><code>trade_instruments.applicant_id</code> → <code>clients.id</code><br><code>trade_instruments.beneficiary_id</code> → <code>clients.id</code><br><code>trade_shipments</code>, <code>trade_documents</code>, <code>trade_compliance</code> → <code>trade_instruments.id</code></p></div>
+</div>
+</div>
+
+<!-- Architecture Tab -->
+<div id="tab-arch" class="tab-content">
+<div class="info">
+  <h2>🏗️ Technical Architecture</h2>
+  <p class="subtitle">AI Bank ATM Optimizer — System Design & Components</p>
+
+  <h3>Component Overview</h3>
+  <table><tr><th>Component</th><th>Service</th><th>Region</th><th>Purpose</th></tr>
+  <tr><td><strong>AI Agent</strong></td><td>Bedrock AgentCore</td><td>eu-west-1</td><td>Strands Agent + Claude Sonnet 4</td></tr>
+  <tr><td><strong>MCP Gateway</strong></td><td>AgentCore Gateway</td><td>eu-west-1</td><td>Routes tool calls via MCP protocol</td></tr>
+  <tr><td><strong>MCP Server</strong></td><td>Lambda (Python)</td><td>me-south-1</td><td>SQL execution, schema, blob extraction</td></tr>
+  <tr><td><strong>Database</strong></td><td>RDS SQL Server</td><td>me-south-1</td><td>TradeFinance (5 tables, 212 rows)</td></tr>
+  <tr><td><strong>Proxy</strong></td><td>Lambda (async)</td><td>eu-west-1</td><td>Auth + async polling for RM portal</td></tr>
+  <tr><td><strong>Frontend</strong></td><td>S3 + CloudFront</td><td>Global</td><td>RM portal chat interface</td></tr></table>
+
+  <div class="grid-2">
+    <div class="card"><div class="card-title">🌍 Cross-Region Design</div>
+    <p>🏦 <strong>me-south-1 (Bahrain)</strong> — Data residency: banking data stays in-region<br>🧠 <strong>eu-west-1 (Ireland)</strong> — AI models: Claude Sonnet 4<br><br>Data never leaves Bahrain — only SQL results (JSON) cross the boundary. VARBINARY blobs decoded in me-south-1.</p></div>
+
+    <div class="card"><div class="card-title">⚡ Performance</div>
+    <table><tr><th>Hop</th><th>Latency</th></tr>
+    <tr><td>MCP Server (me-south-1)</td><td>~125-150ms</td></tr>
+    <tr><td>LLM Reasoning (Claude)</td><td>~12-18s</td></tr>
+    <tr><td><strong>Total E2E</strong></td><td><strong>~15-45s</strong></td></tr></table></div>
+  </div>
+
+  <h3>🔧 MCP Tools</h3>
+  <div class="grid-2">
+    <div class="card"><div class="card-title"><code>execute_sql_query</code></div><p>Run read-only SQL against TradeFinance DB. Blocks: DROP, DELETE, INSERT, UPDATE, ALTER, TRUNCATE.</p></div>
+    <div class="card"><div class="card-title"><code>get_schema_info</code></div><p>Discover tables and columns. No args → all tables. With table_name → column details.</p></div>
+  </div>
+  <div class="card"><div class="card-title"><code>analyze_blob_data</code></div><p>Extract VARBINARY content (PDF documents). Returns content_type, size, and text preview.</p></div>
+
+  <h3>🔐 Security Layers</h3>
+  <table><tr><th>Layer</th><th>Mechanism</th></tr>
+  <tr><td>Frontend → Proxy</td><td>Session cookie (employee auth)</td></tr>
+  <tr><td>Proxy → AgentCore</td><td>IAM Role (SigV4)</td></tr>
+  <tr><td>AgentCore → Gateway</td><td>IAM SigV4</td></tr>
+  <tr><td>Gateway → Lambda</td><td>IAM Resource Policy</td></tr>
+  <tr><td>Lambda → RDS</td><td>Secrets Manager</td></tr>
+  <tr><td>RDS Storage</td><td>KMS Encryption</td></tr></table>
+
+  <h3>🤖 How SQL Generation Works</h3>
+  <div class="card"><p>100% dynamic — zero hardcoded queries:<br>1. <strong>Discovers schema</strong> → <code>get_schema_info</code><br>2. <strong>Writes SQL</strong> → Claude generates SELECT<br>3. <strong>Executes</strong> → <code>execute_sql_query</code><br>4. <strong>Interprets</strong> → Claude formulates natural language answer</p></div>
+</div>
+</div>
+
+<script>
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelectorAll('.tab-btn')[0].classList.add('active');
+}
+
+function copyQ(btn) {
+  const q = btn.parentElement.querySelector('.q').textContent;
+  navigator.clipboard.writeText(q);
+  btn.textContent = '✅ Copied';
+  setTimeout(() => btn.textContent = '📋 Copy', 1500);
+}
+
+function tryQ(btn) {
+  const q = btn.parentElement.querySelector('.q').textContent;
+  switchTab('chat', document.querySelectorAll('.tab-btn')[0]);
+  send(q);
+}
+
+let sessionId = 'tf-' + crypto.randomUUID();
+let sending = false;
+
+function md(text) {
+  const lines = text.split('\n');
+  let html = '', inTable = false;
+  for (const line of lines) {
+    if (line.match(/^\|.+\|$/)) {
+      if (line.match(/^\|[\s-:|]+\|$/)) continue;
+      const cells = line.split('|').filter(c => c.trim());
+      if (!inTable) { html += '<table>'; inTable = true; html += '<tr>' + cells.map(c => '<th>'+c.trim()+'</th>').join('') + '</tr>'; }
+      else { html += '<tr>' + cells.map(c => '<td>'+c.trim()+'</td>').join('') + '</tr>'; }
+    } else {
+      if (inTable) { html += '</table>'; inTable = false; }
+      html += line + '\n';
+    }
+  }
+  if (inTable) html += '</table>';
+  return html.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/###\s+(.*?)(\n|<)/g,'<h4>$1</h4><').replace(/##\s+(.*?)(\n|<)/g,'<h3>$1</h3><').replace(/\n/g,'<br>');
+}
+
+function renderTrace(data) {
+  const trace=data.trace||[],timing=data.timing||{},wall=data.wall_time||timing.total_seconds||0,cycles=timing.cycles||0,model=data.model||'Claude Sonnet 4',tc=trace.filter(t=>t.step==='tool_call').length;
+  if(!trace.length&&!wall)return'';
+  let h=`<details class="trace"><summary>🔍 Agent Execution Details</summary><div class="trace-metrics">
+    <div class="trace-metric"><div class="label">Total Time</div><div class="val">${wall}s</div></div>
+    <div class="trace-metric"><div class="label">Cycles</div><div class="val">${cycles||'—'}</div></div>
+    <div class="trace-metric"><div class="label">Model</div><div class="val">${model}</div></div>
+    <div class="trace-metric"><div class="label">Tool Calls</div><div class="val">${tc}</div></div></div>`;
+  let s=0;
+  for(const i of trace){if(i.step==='tool_call'){s++;const ic={'execute_sql_query':'🗄️','get_schema_info':'📋','analyze_blob_data':'📄'}[i.tool]||'🔧';h+=`<div class="step"><span class="tool">${ic} Step ${s}: ${i.tool}</span>`;if(i.input?.query)h+=`<div class="sql">${i.input.query}</div>`;h+='</div>';}else if(i.step==='tool_result'){h+=`<div class="result">✅ ${(i.output||'').substring(0,200)}</div>`;}}
+  return h+'</details>';
+}
+
+async function send(text) {
+  const input=document.getElementById('chatInput'),msg=text||input.value.trim();
+  if(!msg||sending)return;input.value='';sending=true;document.getElementById('sendBtn').disabled=true;
+  const msgs=document.getElementById('messages');
+  msgs.innerHTML+=`<div class="msg user">${msg}</div>`;
+  msgs.innerHTML+=`<div class="typing" id="typing">Querying trade finance data...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  try{
+    const r=await fetch('/kyc/atm-optimizer/chat',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:msg,session_id:sessionId,actor_id:'rm_user'})});
+    const data=await r.json();
+    if(!r.ok||data.error){document.getElementById('typing')?.remove();msgs.innerHTML+=`<div class="msg bot" style="border-color:rgba(229,62,62,0.3)">❌ ${data.error||'Request failed'}</div>`;}
+    else if(data.request_id){
+      const poll=async()=>{try{const pr=await fetch('/kyc/atm-optimizer/status?id='+data.request_id,{credentials:'include'});const pd=await pr.json();
+        if(pd.status==='processing'){setTimeout(poll,1000);return;}
+        document.getElementById('typing')?.remove();
+        if(pd.status==='complete'){msgs.innerHTML+=`<div class="msg bot">${md(pd.response||'Done')}${renderTrace(pd)}</div>`;}
+        else{msgs.innerHTML+=`<div class="msg bot" style="border-color:rgba(229,62,62,0.3)">❌ ${pd.error||'Agent error'}</div>`;}
+      }catch(e){document.getElementById('typing')?.remove();msgs.innerHTML+=`<div class="msg bot" style="border-color:rgba(229,62,62,0.3)">❌ ${e.message}</div>`;}
+      msgs.scrollTop=msgs.scrollHeight;sending=false;document.getElementById('sendBtn').disabled=false;};
+      setTimeout(poll,1000);return;
+    }
+  }catch(e){document.getElementById('typing')?.remove();msgs.innerHTML+=`<div class="msg bot" style="border-color:rgba(229,62,62,0.3)">❌ ${e.message}</div>`;}
+  msgs.scrollTop=msgs.scrollHeight;sending=false;document.getElementById('sendBtn').disabled=false;
+}
+</script>
+</body>
+</html>

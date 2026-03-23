@@ -93,7 +93,7 @@ def _login(event):
         # Normalize group names to UI role keys (loan-officers -> loan-officer)
         ROLE_MAP = {"loan-officers": "loan-officer", "risk-analysts": "risk-analyst",
                     "branch-managers": "branch-manager", "admins": "admin",
-                    "relationship-managers": "rm"}
+                    "relationship-managers": "rm", "operations-managers": "operations"}
         role = ROLE_MAP.get(group_name, group_name.rstrip("s"))
     else:
         role = portal
