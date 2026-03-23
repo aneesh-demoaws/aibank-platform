@@ -76,9 +76,15 @@
 </div>
 
 <script>
-const API = '/loan-review/trade-finance/chat';
+const API = 'https://gbir4bdcfbw5h372yyablfceaq0mhgce.lambda-url.eu-west-1.on.aws';
 let sessionId = 'tf-' + crypto.randomUUID();
 let sending = false;
+
+// Get aibank_sid cookie for cross-domain auth
+function getSid() {
+  const m = document.cookie.match(/aibank_sid=([^;]+)/);
+  return m ? m[1] : '';
+}
 
 function md(text) {
   return text
@@ -136,8 +142,8 @@ async function send(text) {
 
   try {
     const r = await fetch(API, {
-      method: 'POST', credentials: 'include',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'x-session-id': getSid()},
       body: JSON.stringify({prompt: msg, session_id: sessionId, actor_id: 'rm_user'})
     });
     const data = await r.json();

@@ -36,7 +36,9 @@ def _cors(status, body):
 
 def _get_session(event):
     """Validate employee session cookie and return (email, role) or (None, None)."""
-    cookies = event.get("headers", {}).get("Cookie", "") or \
+    # Check cookie first (same-domain requests via CloudFront)
+    cookies = event.get("headers", {}).get("cookie", "") or \
+              event.get("headers", {}).get("Cookie", "") or \
               " ".join(event.get("multiValueHeaders", {}).get("Cookie", []))
     for part in cookies.split(";"):
         part = part.strip()
@@ -45,16 +47,23 @@ def _get_session(event):
             item = session_table.get_item(Key={"session_id": sid}).get("Item")
             if item and item.get("status") == "active" and item.get("portal") == "employee":
                 return item.get("user_email", ""), item.get("role", "employee")
+    # Fallback: check x-session-id header (cross-domain requests via Function URL)
+    sid = (event.get("headers") or {}).get("x-session-id", "")
+    if sid:
+        item = session_table.get_item(Key={"session_id": sid}).get("Item")
+        if item and item.get("status") == "active" and item.get("portal") == "employee":
+            return item.get("user_email", ""), item.get("role", "employee")
     return None, None
 
 
 def lambda_handler(event, context):
-    if event.get("httpMethod") == "OPTIONS":
+    method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    if method == "OPTIONS":
         return _cors(200, "{}")
 
-    path = event.get("path", "")
+    path = event.get("path") or event.get("rawPath", "")
 
-    if path.endswith("/chat"):
+    if path.endswith("/chat") or path == "/":
         return handle_chat(event)
     return _cors(404, {"error": "Not found"})
 
