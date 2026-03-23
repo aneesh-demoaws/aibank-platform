@@ -295,7 +295,7 @@ async function send(text) {
   if(!msg||sending)return;input.value='';sending=true;document.getElementById('sendBtn').disabled=true;
   const msgs=document.getElementById('messages');
   msgs.innerHTML+=`<div class="msg user">${msg}</div>`;
-  msgs.innerHTML+=`<div class="typing" id="typing">Querying trade finance data...</div>`;
+  msgs.innerHTML+=`<div class="typing" id="typing">Analyzing ATM data...</div>`;
   msgs.scrollTop=msgs.scrollHeight;
   try{
     const r=await fetch('/kyc/atm-optimizer/chat',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:msg,session_id:sessionId,actor_id:'rm_user'})});
