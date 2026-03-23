@@ -76,7 +76,7 @@
 </div>
 
 <script>
-const API = '/kyc/trade-finance/chat';
+// API paths: /kyc/trade-finance/chat (POST) and /kyc/trade-finance/status (GET)
 let sessionId = 'tf-' + crypto.randomUUID();
 let sending = false;
 
@@ -135,21 +135,37 @@ async function send(text) {
   msgs.scrollTop = msgs.scrollHeight;
 
   try {
-    const r = await fetch(API, {
+    const r = await fetch('/kyc/trade-finance/chat', {
       method: 'POST', credentials: 'include',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({prompt: msg, session_id: sessionId, actor_id: 'rm_user'})
     });
     const data = await r.json();
-    document.getElementById('typing')?.remove();
-    console.log('TF response:', JSON.stringify(data).substring(0, 500));
-
-    if (!r.ok) {
+    if (!r.ok || data.error) {
+      document.getElementById('typing')?.remove();
       msgs.innerHTML += `<div class="msg assistant" style="border-color:#e53e3e">❌ ${data.error || 'Request failed'}</div>`;
-    } else {
-      const response = data.response || data.error || 'No response';
-      const traceHtml = renderTrace(data);
-      msgs.innerHTML += `<div class="msg assistant">${md(response)}${traceHtml}</div>`;
+    } else if (data.request_id) {
+      const poll = async () => {
+        try {
+          const pr = await fetch('/kyc/trade-finance/status?id=' + data.request_id, {credentials:'include'});
+          const pd = await pr.json();
+          if (pd.status === 'processing') { setTimeout(poll, 3000); return; }
+          document.getElementById('typing')?.remove();
+          if (pd.status === 'complete') {
+            msgs.innerHTML += `<div class="msg assistant">${md(pd.response || 'Done')}${renderTrace(pd)}</div>`;
+          } else {
+            msgs.innerHTML += `<div class="msg assistant" style="border-color:#e53e3e">❌ ${pd.error || 'Agent error'}</div>`;
+          }
+        } catch(e) {
+          document.getElementById('typing')?.remove();
+          msgs.innerHTML += `<div class="msg assistant" style="border-color:#e53e3e">❌ ${e.message}</div>`;
+        }
+        msgs.scrollTop = msgs.scrollHeight;
+        sending = false;
+        document.getElementById('sendBtn').disabled = false;
+      };
+      setTimeout(poll, 3000);
+      return;
     }
   } catch (e) {
     document.getElementById('typing')?.remove();

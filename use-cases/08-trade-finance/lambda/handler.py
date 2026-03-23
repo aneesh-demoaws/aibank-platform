@@ -1,9 +1,10 @@
 """
-Trade Finance AI Agent — Lambda Proxy
-Authenticates employee sessions, proxies chat to AgentCore Trade Finance Agent.
-Modular: independent of other use cases (loan, C360, etc.)
+Trade Finance AI Agent — Async Lambda Proxy
+POST /chat → starts agent call async, returns requestId
+GET /status?id=xxx → polls for result
+Secure: employee session cookie auth, role-restricted to RM/admin.
 """
-import json, logging, os, uuid
+import json, logging, os, uuid, time, threading
 import boto3
 
 logger = logging.getLogger()
@@ -12,12 +13,14 @@ logger.setLevel(logging.INFO)
 # ── Config ──
 AGENT_ARN = os.environ.get("TF_AGENT_ARN", "arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/trade_finance_agent-c8Al0REGd1")
 SESSION_TABLE = os.environ.get("SESSION_TABLE", "aibank-session-routing")
+RESULTS_TABLE = os.environ.get("RESULTS_TABLE", "aibank-tf-async-results")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://aibank.demoaws.com")
 ALLOWED_ROLES = ("rm", "relationship-managers", "admin")
 
 ddb = boto3.resource("dynamodb", region_name="eu-west-1")
 agentcore = boto3.client("bedrock-agentcore", region_name="eu-west-1")
 session_table = ddb.Table(SESSION_TABLE)
+results_table = ddb.Table(RESULTS_TABLE)
 
 
 def _cors(status, body):
@@ -28,15 +31,14 @@ def _cors(status, body):
             "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Headers": "Content-Type",
-            "Access-Control-Allow-Methods": "POST,OPTIONS",
+            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
         },
         "body": body if isinstance(body, str) else json.dumps(body, default=str),
     }
 
 
 def _get_session(event):
-    """Validate employee session cookie and return (email, role) or (None, None)."""
-    # HTTP API v2 puts cookies in a separate array
+    """Validate employee session cookie."""
     cookies = "; ".join(event.get("cookies", []))
     if not cookies:
         cookies = event.get("headers", {}).get("cookie", "") or \
@@ -50,7 +52,6 @@ def _get_session(event):
             if item and item.get("status") == "active" and item.get("portal") == "employee":
                 return item.get("user_email", ""), item.get("role", "employee")
     return None, None
-    return None, None
 
 
 def lambda_handler(event, context):
@@ -60,45 +61,98 @@ def lambda_handler(event, context):
 
     path = event.get("path") or event.get("rawPath", "")
 
-    if path.endswith("/chat") or path == "/":
+    if method == "POST" and "chat" in path:
         return handle_chat(event)
+    elif method == "GET" and "status" in path:
+        return handle_status(event)
     return _cors(404, {"error": "Not found"})
 
 
 def handle_chat(event):
+    """Start async agent call, return requestId immediately."""
     email, role = _get_session(event)
     if not email:
-        return _cors(401, {"error": "Authentication required. Please log in."})
+        return _cors(401, {"error": "Authentication required."})
     if role not in ALLOWED_ROLES:
-        return _cors(403, {"error": "Access denied. Trade Finance is available to Relationship Managers and Admins only."})
+        return _cors(403, {"error": "Access denied."})
 
+    body = json.loads(event.get("body", "{}"))
+    prompt = body.get("prompt", "Hello")
+    session_id = body.get("session_id", f"tf-{uuid.uuid4()}")
+    actor_id = body.get("actor_id", email.split("@")[0])
+    request_id = str(uuid.uuid4())
+
+    # Store pending request
+    results_table.put_item(Item={
+        "request_id": request_id,
+        "status": "processing",
+        "prompt": prompt[:200],
+        "created_at": int(time.time()),
+        "ttl": int(time.time()) + 300,  # 5 min TTL
+    })
+
+    # Start agent call in background thread
+    t = threading.Thread(target=_invoke_agent, args=(request_id, prompt, session_id, actor_id))
+    t.daemon = True
+    t.start()
+
+    return _cors(200, {"request_id": request_id, "status": "processing"})
+
+
+def _invoke_agent(request_id, prompt, session_id, actor_id):
+    """Background: call agent and store result."""
     try:
-        body = json.loads(event.get("body", "{}"))
-        prompt = body.get("prompt", "Hello")
-        session_id = body.get("session_id", f"tf-{uuid.uuid4()}")
-        actor_id = body.get("actor_id", email.split("@")[0])
+        response = agentcore.invoke_agent_runtime(
+            agentRuntimeArn=AGENT_ARN,
+            runtimeSessionId=session_id,
+            payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id}),
+            qualifier="DEFAULT")
+        stream = response.get("response") or response.get("body")
+        raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
+        parsed = json.loads(raw)
 
-        # Retry on 502 (agent container health check race condition)
-        last_error = None
-        for attempt in range(3):
-            try:
-                response = agentcore.invoke_agent_runtime(
-                    agentRuntimeArn=AGENT_ARN,
-                    runtimeSessionId=session_id,
-                    payload=json.dumps({"prompt": prompt, "session_id": session_id, "actor_id": actor_id}),
-                    qualifier="DEFAULT")
-                stream = response.get("response") or response.get("body")
-                raw = stream.read().decode("utf-8") if hasattr(stream, "read") else str(stream)
-                parsed = json.loads(raw)
-                return _cors(200, parsed)
-            except Exception as e:
-                last_error = e
-                if "502" in str(e) and attempt < 2:
-                    import time
-                    time.sleep(2)
-                    continue
-                raise
-        return _cors(500, {"error": f"Agent error after retries: {str(last_error)}"})
+        results_table.update_item(
+            Key={"request_id": request_id},
+            UpdateExpression="SET #s = :s, #r = :r, completed_at = :t",
+            ExpressionAttributeNames={"#s": "status", "#r": "result"},
+            ExpressionAttributeValues={
+                ":s": "complete",
+                ":r": json.dumps(parsed, default=str),
+                ":t": int(time.time()),
+            })
     except Exception as e:
-        logger.exception("Trade finance chat error")
-        return _cors(500, {"error": f"Agent error: {str(e)}"})
+        logger.error(f"Agent error: {e}")
+        results_table.update_item(
+            Key={"request_id": request_id},
+            UpdateExpression="SET #s = :s, #r = :r",
+            ExpressionAttributeNames={"#s": "status", "#r": "result"},
+            ExpressionAttributeValues={
+                ":s": "error",
+                ":r": json.dumps({"error": str(e)}),
+            })
+
+
+def handle_status(event):
+    """Poll for async result."""
+    email, role = _get_session(event)
+    if not email:
+        return _cors(401, {"error": "Authentication required."})
+
+    qs = event.get("queryStringParameters") or {}
+    request_id = qs.get("id", "")
+    if not request_id:
+        return _cors(400, {"error": "id required"})
+
+    item = results_table.get_item(Key={"request_id": request_id}).get("Item")
+    if not item:
+        return _cors(404, {"error": "Request not found"})
+
+    status = item.get("status", "processing")
+    if status == "processing":
+        return _cors(200, {"status": "processing", "request_id": request_id})
+    elif status == "complete":
+        result = json.loads(item.get("result", "{}"))
+        return _cors(200, {"status": "complete", **result})
+    else:
+        result = json.loads(item.get("result", "{}"))
+        return _cors(200, {"status": "error", **result})
