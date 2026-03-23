@@ -39,6 +39,24 @@
   .faq-btn{background:#111b2e;border:1px solid rgba(255,255,255,0.08);border-left:3px solid #22d3ee;border-radius:0 10px 10px 0;padding:10px 14px;cursor:pointer;text-align:left;color:#e2e8f0;font-size:0.8rem;transition:all 0.2s}
   .faq-btn:hover{background:#1a2744;border-left-color:#00d4aa}
   .typing{color:#718096;font-style:italic;padding:8px 0}
+  .tab-btn{padding:8px 18px;border:none;border-radius:8px;font-size:0.82rem;font-weight:600;cursor:pointer;background:transparent;color:rgba(255,255,255,0.5);transition:all 0.2s;font-family:inherit}
+  .tab-btn:hover{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.8)}
+  .tab-btn.active{background:rgba(0,212,170,0.15);color:#00d4aa}
+  .tab-content{display:none;flex:1;flex-direction:column}
+  .tab-content.active{display:flex}
+  .info-container{max-width:1000px;width:100%;margin:0 auto;padding:20px;color:#e2e8f0;overflow-y:auto;flex:1}
+  .info-container h2{color:#00d4aa;font-size:1.2rem;margin:20px 0 10px}
+  .info-container h3{color:#22d3ee;font-size:1rem;margin:16px 0 8px}
+  .info-container table{width:100%;border-collapse:collapse;margin:10px 0;font-size:0.82rem}
+  .info-container th{text-align:left;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.15);color:#00d4aa;font-size:0.72rem;text-transform:uppercase}
+  .info-container td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.05)}
+  .info-container code{background:rgba(0,212,170,0.1);padding:1px 6px;border-radius:4px;font-size:0.82rem}
+  .faq-section{margin-bottom:20px}
+  .faq-section h3{color:#22d3ee;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:6px}
+  .faq-card{background:#111b2e;border:1px solid rgba(255,255,255,0.06);border-left:3px solid #22d3ee;border-radius:0 10px 10px 0;padding:12px 16px;margin:8px 0;cursor:pointer;transition:all 0.2s}
+  .faq-card:hover{background:#1a2744;border-left-color:#00d4aa}
+  .faq-card .q{color:#e2e8f0;font-size:0.85rem;font-weight:500}
+  .faq-card .d{color:#718096;font-size:0.75rem;margin-top:4px}
 </style>
 </head>
 <body>
@@ -52,7 +70,15 @@
   </div>
 </div>
 
-<div class="chat-container">
+<!-- Tab Bar -->
+<div style="background:#0d1a2d;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:center;gap:4px;padding:8px 16px">
+  <button class="tab-btn active" onclick="switchTab('chat',this)">💬 AI Agent</button>
+  <button class="tab-btn" onclick="switchTab('faq',this)">❓ FAQs</button>
+  <button class="tab-btn" onclick="switchTab('db',this)">🗄️ Database</button>
+  <button class="tab-btn" onclick="switchTab('arch',this)">🏗️ Architecture</button>
+</div>
+
+<div id="tab-chat" class="tab-content active">
   <div class="messages" id="messages">
     <div class="msg assistant">
       <strong>🚢 Trade Finance AI Agent</strong><br><br>
@@ -74,8 +100,164 @@
     <button id="sendBtn" onclick="send()">Send</button>
   </div>
 </div>
+</div><!-- end tab-chat -->
+
+<!-- FAQs Tab -->
+<div id="tab-faq" class="tab-content">
+<div class="info-container">
+  <h2>❓ Trade Finance Query Library</h2>
+  <p style="color:#718096;margin-bottom:16px">Click any query to send it to the AI Agent</p>
+
+  <div class="faq-section"><h3>📊 Portfolio Overview</h3>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Give me a complete portfolio summary — how many Letters of Credit, Bank Guarantees, and Documentary Collections does the bank have? Show total amounts by instrument type and currency')"><div class="q">Complete portfolio summary — LCs, BGs, DCs with amounts by type</div><div class="d">Full breakdown across all 3 product lines</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('What is the bank total outstanding exposure per client? Show the top 10 clients ranked by exposure with their country and sector')"><div class="q">Top 10 clients by outstanding exposure</div><div class="d">Client-level risk concentration analysis</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('How many instruments are expiring in the next 90 days? Break down by type')"><div class="q">Instruments expiring in next 90 days</div><div class="d">Expiry pipeline for proactive renewal</div></div>
+  </div>
+
+  <div class="faq-section"><h3>🏦 Product Deep-Dive</h3>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Show all active Bank Guarantees with their sub-type — Bid Bonds, Performance Bonds, Counter Guarantees, Retention Money Guarantees, and Shipping Guarantees separately')"><div class="q">Active Bank Guarantees by sub-type</div><div class="d">All 7 guarantee types per URDG 758</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Compare Irrevocable LCs vs Standby LCs — count, total amount, average tenor, and amendment rate')"><div class="q">Irrevocable LCs vs Standby LCs comparison</div><div class="d">Two LC product types head-to-head</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Show all Documentary Collections with their sub-type (D/P vs D/A), amount, currency, and current status')"><div class="q">Documentary Collections — D/P vs D/A</div><div class="d">URC 522 portfolio</div></div>
+  </div>
+
+  <div class="faq-section"><h3>🌍 International Banking</h3>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Show all trade instruments involving Indian or Turkish clients — include instrument type, amount, goods, and port details')"><div class="q">India & Turkey trade instruments</div><div class="d">International banking footprint</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('What goods are being shipped to or from India and Turkey? Show the ports, vessels, and shipment status')"><div class="q">India & Turkey shipment corridors</div><div class="d">Ports, vessels, and routes</div></div>
+  </div>
+
+  <div class="faq-section"><h3>🚢 Shipments & Logistics</h3>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Which shipments are currently in transit? Show vessel name, port of loading, ETA, goods, and insurance details')"><div class="q">Shipments in transit</div><div class="d">Real-time vessel tracking with insurance</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Show all trade activity involving DP World — instruments, shipments through Jebel Ali, and any compliance screenings')"><div class="q">DP World trade activity</div><div class="d">Trade finance + logistics integration</div></div>
+  </div>
+
+  <div class="faq-section"><h3>⚠️ Discrepancies & Compliance</h3>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('List all documents with discrepancies — show the instrument reference, document type, discrepancy type, and resolution status')"><div class="q">Document discrepancies</div><div class="d">UCP 600 examination standards</div></div>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Show all compliance screenings that resulted in a hit or escalation — include the instrument, screened entity, risk score, and analyst decision')"><div class="q">Compliance hits & escalations</div><div class="d">OFAC, EU, UN sanctions screening</div></div>
+  </div>
+
+  <div class="faq-section"><h3>📄 Document Intelligence</h3>
+    <div class="faq-card" onclick="switchTab('chat',document.querySelector('.tab-btn'));send('Extract and show the content of any commercial invoice stored in the trade_documents table')"><div class="q">Extract commercial invoice content</div><div class="d">VARBINARY blob extraction — AI document intelligence</div></div>
+  </div>
+</div>
+</div>
+
+<!-- Database Tab -->
+<div id="tab-db" class="tab-content">
+<div class="info-container">
+  <h2>🗄️ Database Schema — TradeFinance (MSSQL)</h2>
+  <p style="color:#718096">5 tables · 212 rows · RDS SQL Server Express (me-south-1 Bahrain)</p>
+
+  <h3>👥 clients — 17 rows</h3>
+  <p style="color:#718096;font-size:0.82rem">Corporate clients across Bahrain, Kuwait, UAE, Saudi, India & Turkey. Sectors: Contracting, Building Material, Manufacturing, Real Estate, Government, Oil & Gas, Petrochemicals, Logistics, Trading.</p>
+  <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>id</td><td>int PK</td><td>Client ID</td></tr>
+  <tr><td>client_code</td><td>varchar</td><td>e.g. TF004</td></tr>
+  <tr><td>name</td><td>varchar</td><td>Company name</td></tr>
+  <tr><td>country</td><td>varchar</td><td>Bahrain, Kuwait, UAE, India, Turkey</td></tr>
+  <tr><td>sector</td><td>varchar</td><td>Industry sector</td></tr>
+  <tr><td>risk_rating</td><td>varchar</td><td>Low / Medium / High</td></tr>
+  <tr><td>credit_limit_usd</td><td>decimal</td><td>Credit limit in USD</td></tr></table>
+
+  <h3>📜 trade_instruments — 30 rows</h3>
+  <p style="color:#718096;font-size:0.82rem">LCs (15), Bank Guarantees (10), Documentary Collections (5). Governed by UCP 600, URDG 758, URC 522.</p>
+  <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>reference_no</td><td>varchar</td><td>e.g. LC-2025-0001, BG-2025-0016</td></tr>
+  <tr><td>instrument_type</td><td>varchar</td><td>Letter of Credit / Bank Guarantee / Documentary Collection</td></tr>
+  <tr><td>sub_type</td><td>varchar</td><td>Irrevocable LC, Standby LC, Performance Bond, Bid Bond, D/P, D/A, etc.</td></tr>
+  <tr><td>amount / currency</td><td>decimal/varchar</td><td>Instrument value</td></tr>
+  <tr><td>outstanding_amount</td><td>decimal</td><td>Current outstanding</td></tr>
+  <tr><td>applicant_id / beneficiary_id</td><td>int FK</td><td>→ clients.id</td></tr>
+  <tr><td>status</td><td>varchar</td><td>Active / Expired / Cancelled</td></tr></table>
+
+  <h3>🚢 trade_shipments — 17 rows</h3>
+  <p style="color:#718096;font-size:0.82rem">B/L details, vessels, ports (incl. India & Turkey), HS codes, Incoterms, insurance.</p>
+  <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>bl_number</td><td>varchar</td><td>Bill of Lading number</td></tr>
+  <tr><td>vessel_name</td><td>varchar</td><td>e.g. MV Arabian Gulf</td></tr>
+  <tr><td>port_of_loading / discharge</td><td>varchar</td><td>Origin and destination ports</td></tr>
+  <tr><td>goods_description</td><td>varchar</td><td>Cargo details</td></tr>
+  <tr><td>shipment_status</td><td>varchar</td><td>In Transit / Delivered / At Port</td></tr></table>
+
+  <h3>📄 trade_documents — 88 rows</h3>
+  <p style="color:#718096;font-size:0.82rem">Document presentations per LC/DC. Types: Commercial Invoice, B/L, Packing List, Certificate of Origin, Insurance. PDF blobs in <code>doc_content</code>.</p>
+  <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>document_type</td><td>varchar</td><td>Invoice, B/L, Packing List, etc.</td></tr>
+  <tr><td>compliance_status</td><td>varchar</td><td>Compliant / Discrepant</td></tr>
+  <tr><td>discrepancy_type</td><td>varchar</td><td>Late presentation, amount mismatch, etc.</td></tr>
+  <tr><td>doc_content</td><td>varbinary</td><td>PDF binary content</td></tr></table>
+
+  <h3>🔍 trade_compliance — 60 rows</h3>
+  <p style="color:#718096;font-size:0.82rem">Pre-issuance screening: OFAC, EU, UN sanctions, PEP flags, dual-use goods.</p>
+  <table><tr><th>Column</th><th>Type</th><th>Description</th></tr>
+  <tr><td>screening_type</td><td>varchar</td><td>Pre-Issuance / Ongoing</td></tr>
+  <tr><td>ofac_result / eu_result / un_result</td><td>varchar</td><td>Clear / Potential Match</td></tr>
+  <tr><td>risk_score</td><td>decimal</td><td>0-100 risk score</td></tr>
+  <tr><td>analyst_decision</td><td>varchar</td><td>Approved / Approved with Conditions / Rejected</td></tr></table>
+
+  <h3>🔗 Relationships</h3>
+  <p style="color:#718096;font-size:0.82rem"><code>trade_instruments.applicant_id</code> and <code>beneficiary_id</code> → <code>clients.id</code><br>
+  <code>trade_shipments</code>, <code>trade_documents</code>, <code>trade_compliance</code> all reference <code>trade_instruments.id</code></p>
+</div>
+</div>
+
+<!-- Architecture Tab -->
+<div id="tab-arch" class="tab-content">
+<div class="info-container">
+  <h2>🏗️ Technical Architecture</h2>
+
+  <h3>Component Overview</h3>
+  <table>
+  <tr><th>Component</th><th>Service</th><th>Region</th><th>Purpose</th></tr>
+  <tr><td>AI Agent</td><td>Bedrock AgentCore Runtime</td><td>eu-west-1</td><td>Strands Agent with Claude Sonnet 4</td></tr>
+  <tr><td>MCP Gateway</td><td>AgentCore Gateway</td><td>eu-west-1</td><td>Routes tool calls to Lambda</td></tr>
+  <tr><td>MCP Server</td><td>Lambda (Python)</td><td>me-south-1</td><td>SQL execution, schema discovery, blob extraction</td></tr>
+  <tr><td>Database</td><td>RDS SQL Server Express</td><td>me-south-1</td><td>TradeFinance data (5 tables, 212 rows)</td></tr>
+  <tr><td>Proxy</td><td>Lambda (async)</td><td>eu-west-1</td><td>Auth + async polling for RM portal</td></tr>
+  <tr><td>Frontend</td><td>S3 + CloudFront</td><td>Global</td><td>RM portal chat interface</td></tr>
+  </table>
+
+  <h3>Cross-Region Design</h3>
+  <p>🏦 <strong>me-south-1 (Bahrain)</strong>: Data residency — banking data stays in-region<br>
+  🧠 <strong>eu-west-1 (Ireland)</strong>: AI models — Claude Sonnet 4 available here<br><br>
+  Data never leaves Bahrain — only SQL results (JSON) cross the region boundary. VARBINARY blobs are decoded in me-south-1 and only text previews are returned.</p>
+
+  <h3>MCP Tools</h3>
+  <table>
+  <tr><th>Tool</th><th>Purpose</th><th>Security</th></tr>
+  <tr><td><code>execute_sql_query</code></td><td>Run read-only SQL</td><td>Blocks DROP, DELETE, INSERT, UPDATE, ALTER</td></tr>
+  <tr><td><code>get_schema_info</code></td><td>Discover tables/columns</td><td>Read-only metadata</td></tr>
+  <tr><td><code>analyze_blob_data</code></td><td>Extract VARBINARY content</td><td>Decodes PDF → text preview</td></tr>
+  </table>
+
+  <h3>How SQL Generation Works</h3>
+  <p style="color:#718096;font-size:0.85rem">100% dynamic — zero hardcoded queries. The agent:<br>
+  1. <strong>Discovers schema</strong> → calls <code>get_schema_info</code><br>
+  2. <strong>Writes SQL</strong> → Claude generates a SELECT query<br>
+  3. <strong>Executes</strong> → calls <code>execute_sql_query</code><br>
+  4. <strong>Interprets</strong> → Claude reads results and formulates answer</p>
+
+  <h3>Security</h3>
+  <table>
+  <tr><th>Layer</th><th>Mechanism</th></tr>
+  <tr><td>Frontend → Proxy</td><td>Session cookie (employee auth)</td></tr>
+  <tr><td>Proxy → AgentCore</td><td>IAM Role (SigV4)</td></tr>
+  <tr><td>AgentCore → Gateway</td><td>IAM SigV4</td></tr>
+  <tr><td>Gateway → Lambda</td><td>IAM Resource Policy</td></tr>
+  <tr><td>Lambda → RDS</td><td>Secrets Manager</td></tr>
+  <tr><td>RDS Storage</td><td>KMS Encryption</td></tr>
+  </table>
+</div>
+</div>
 
 <script>
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.querySelector('.tab-btn').classList.add('active');
+}
+
 // API paths: /kyc/trade-finance/chat (POST) and /kyc/trade-finance/status (GET)
 let sessionId = 'tf-' + crypto.randomUUID();
 let sending = false;
