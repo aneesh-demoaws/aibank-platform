@@ -88,7 +88,7 @@
   <table>
     <thead>
       <tr>
-        <th onclick="sortBy('full_name')">Customer</th>
+        <th onclick="sortBy('customer_id')">Customer</th>
         <th onclick="sortBy('credit_score')">Credit Score</th>
         <th onclick="sortBy('kyc_status')">KYC</th>
         <th onclick="sortBy('risk_category')">Risk</th>
@@ -165,7 +165,7 @@ function sortBy(field) {
   else { sortField = field; sortDir = 'asc'; }
   // Update header styles
   document.querySelectorAll('th').forEach(th => th.classList.remove('sorted-asc','sorted-desc'));
-  const idx = ['full_name','credit_score','kyc_status','risk_category','total_accounts','total_balance','value_segment','transaction_count_90d','days_since_last_transaction'].indexOf(field);
+  const idx = ['customer_id','credit_score','kyc_status','risk_category','total_accounts','total_balance','value_segment','transaction_count_90d','days_since_last_transaction'].indexOf(field);
   if (idx >= 0) document.querySelectorAll('th')[idx].classList.add(sortDir === 'asc' ? 'sorted-asc' : 'sorted-desc');
   filterTable();
 }
