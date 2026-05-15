@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Health — AI Bank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
+  <script type="module" crossorigin src="/assets/index-CoiJKZVU.js"></script>
+  <style>
+    .fhs-hero { background:linear-gradient(135deg,#0a1628 0%,#1a2744 55%,#0d3320 100%); border-radius:var(--nb-radius); padding:28px 32px; color:white; margin-bottom:24px; position:relative; overflow:hidden; }
+    .fhs-hero::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 80% 30%,rgba(0,212,170,0.15),transparent 55%); pointer-events:none; }
+    .fhs-score-ring { width:120px; height:120px; border-radius:50%; border:6px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; flex-direction:column; position:relative; }
+    .fhs-score-ring .num { font-size:2.2rem; font-weight:800; line-height:1; }
+    .fhs-score-ring .label { font-size:0.7rem; opacity:0.7; margin-top:2px; }
+    .fhs-band { display:inline-block; padding:4px 12px; border-radius:99px; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; margin-top:8px; }
+    .band-excellent { background:#d1fae5; color:#065f46; }
+    .band-good { background:#dbeafe; color:#1e40af; }
+    .band-fair { background:#fef3c7; color:#92400e; }
+    .band-weak { background:#fee2e2; color:#991b1b; }
+    .fhs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; margin-bottom:24px; }
+    .fhs-subscore { background:var(--nb-card); border:1px solid var(--nb-border); border-radius:var(--nb-radius); padding:16px; }
+    .fhs-subscore h4 { margin:0 0 8px; font-size:0.88rem; font-weight:600; color:var(--nb-text-primary); }
+    .fhs-bar { height:8px; background:var(--nb-border); border-radius:4px; overflow:hidden; margin:8px 0; }
+    .fhs-bar-fill { height:100%; border-radius:4px; transition:width 0.6s ease; }
+    .fhs-subscore .score-val { font-size:1.1rem; font-weight:700; }
+    .fhs-peer { background:var(--nb-card); border:1px solid var(--nb-border); border-radius:var(--nb-radius); padding:20px; margin-bottom:24px; text-align:center; }
+    .fhs-actions { background:var(--nb-card); border:1px solid var(--nb-border); border-radius:var(--nb-radius); padding:20px; }
+    .fhs-actions h3 { margin:0 0 12px; font-size:1rem; font-weight:700; }
+    .fhs-action-item { padding:10px 0; border-bottom:1px solid var(--nb-border); display:flex; justify-content:space-between; align-items:center; }
+    .fhs-action-item:last-child { border-bottom:none; }
+    .fhs-action-item a { color:var(--nb-accent); text-decoration:none; font-weight:600; font-size:0.85rem; }
+  </style>
+</head>
+<body>
+<div class="nb-app">
+  <nav class="nb-sidebar" id="sidebar">
+    <div class="nb-sidebar-user" style="border-top:none;border-bottom:1px solid rgba(255,255,255,.1)">
+      <div class="avatar" id="avatarInitials" style="width:36px;height:36px;border-radius:50%;background:var(--nb-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:var(--nb-primary)">?</div>
+      <div>
+        <div class="name" id="sidebarName" style="font-size:.85rem;font-weight:600">Loading...</div>
+        <div class="role" style="font-size:.7rem;color:var(--nb-text-muted)">Customer</div>
+      </div>
+    </div>
+    <div class="nb-sidebar-nav">
+      <div class="nb-nav-section">
+        <div class="nb-nav-section-title">Menu</div>
+        <a class="nb-nav-item" href="/banking/dashboard.html">Dashboard</a>
+        <a class="nb-nav-item" href="/banking/accounts.html">Accounts</a>
+        <a class="nb-nav-item" href="/banking/for-you.html">For You</a>
+        <a class="nb-nav-item active" href="/banking/financial-health.html">Financial Health</a>
+        <a class="nb-nav-item" href="/banking/support.html">Support</a>
+      </div>
+    </div>
+    <div class="nb-sidebar-logo" style="border-bottom:none;border-top:1px solid rgba(255,255,255,.1)">
+      <div><h1><span class="bank-name">AI</span> Bank</h1><small>Online Banking</small></div>
+    </div>
+  </nav>
+
+  <main class="nb-main">
+    <header class="nb-header" style="border-bottom:1px solid var(--nb-border)">
+      <div class="nb-header-title">Financial Health</div>
+    </header>
+    <div class="nb-content" style="max-width:900px">
+      <div id="fhsContent"><p style="color:var(--nb-text-muted);padding:40px;text-align:center">Loading your Financial Health Score...</p></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SUBSCORE_META = {
+  debt:     { icon:'💳', label:'Debt & Obligations', weight:20 },
+  savings:  { icon:'🏦', label:'Savings & Capital', weight:20 },
+  spending: { icon:'🛒', label:'Spending Discipline', weight:20 },
+  income:   { icon:'💰', label:'Income Stability', weight:15 },
+  credit:   { icon:'📊', label:'Credit Discipline', weight:15 },
+  behavior: { icon:'📈', label:'Financial Behaviour', weight:10 },
+};
+
+function barColor(score) {
+  if (score >= 80) return '#10b981';
+  if (score >= 60) return '#3b82f6';
+  if (score >= 40) return '#f59e0b';
+  return '#ef4444';
+}
+
+async function loadFHS() {
+  try {
+    const r = await fetch('/sessions/me/financial-health', { credentials:'include' });
+    if (r.status === 401) { window.location = '/banking/login.html'; return; }
+    if (r.status === 404) { document.getElementById('fhsContent').innerHTML = '<p style="text-align:center;padding:40px;color:var(--nb-text-muted)">Your Financial Health Score has not been computed yet. Check back soon!</p>'; return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    render(d);
+  } catch(e) {
+    document.getElementById('fhsContent').innerHTML = `<p style="color:var(--nb-danger);text-align:center;padding:40px">Error: ${e.message}</p>`;
+  }
+}
+
+function render(d) {
+  const bandClass = 'band-' + (d.band || 'good');
+  let html = '';
+
+  // Hero
+  html += `<div class="fhs-hero">
+    <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;position:relative;z-index:1">
+      <div class="fhs-score-ring" style="border-color:${barColor(d.score)}">
+        <div class="num">${d.score}</div>
+        <div class="label">out of 100</div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <h2 style="margin:0 0 4px;font-size:1.4rem">Your Financial Health Score</h2>
+        <div class="fhs-band ${bandClass}">${d.band}</div>
+        <p style="color:rgba(255,255,255,0.6);font-size:0.82rem;margin:10px 0 0">
+          Computed ${d.calculated_at || 'recently'} · Peer average: ${d.peer_average}/100
+        </p>
+      </div>
+    </div>
+  </div>`;
+
+  // Subscores grid
+  html += '<div class="fhs-grid">';
+  for (const [key, meta] of Object.entries(SUBSCORE_META)) {
+    const val = d.subscores[key] || 0;
+    const isWeakest = d.weakest_area?.name === key;
+    html += `<div class="fhs-subscore" style="${isWeakest ? 'border-color:#f59e0b;border-width:2px' : ''}">
+      <h4>${meta.icon} ${meta.label} <span style="float:right;font-size:0.72rem;color:var(--nb-text-muted)">${meta.weight}% weight</span></h4>
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span class="score-val" style="color:${barColor(val)}">${val}/100</span>
+        ${isWeakest ? '<span style="font-size:0.72rem;color:#f59e0b;font-weight:600">⚠️ Area to improve</span>' : ''}
+      </div>
+      <div class="fhs-bar"><div class="fhs-bar-fill" style="width:${val}%;background:${barColor(val)}"></div></div>
+    </div>`;
+  }
+  html += '</div>';
+
+  // Peer comparison
+  const diff = d.score - d.peer_average;
+  const diffText = diff > 0 ? `${diff} points above` : diff < 0 ? `${Math.abs(diff)} points below` : 'at';
+  html += `<div class="fhs-peer">
+    <p style="margin:0;font-size:0.9rem;color:var(--nb-text-secondary)">
+      You are <strong style="color:${diff >= 0 ? '#10b981' : '#ef4444'}">${diffText}</strong> the average for AI Bank customers (${d.peer_average}/100)
+    </p>
+  </div>`;
+
+  // Improvement actions
+  if (d.improvement_actions?.length) {
+    html += '<div class="fhs-actions"><h3>🎯 Actions to improve your score</h3>';
+    d.improvement_actions.forEach(a => {
+      html += `<div class="fhs-action-item">
+        <span style="font-size:0.88rem">${a.title}</span>
+        <a href="/banking/for-you.html">View →</a>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Explanation
+  if (d.explanation) {
+    html += `<div style="margin-top:20px;padding:16px;background:var(--nb-bg);border-radius:var(--nb-radius);font-size:0.85rem;color:var(--nb-text-secondary);line-height:1.6">
+      <strong>AI Summary:</strong> ${d.explanation}
+    </div>`;
+  }
+
+  document.getElementById('fhsContent').innerHTML = html;
+}
+
+// Session bootstrap
+async function init() {
+  try {
+    const r = await fetch('/sessions/me', { credentials:'include' });
+    if (r.status === 401) { window.location = '/banking/login.html'; return; }
+    const p = await r.json();
+    document.getElementById('sidebarName').textContent = p.name || 'Customer';
+    document.getElementById('avatarInitials').textContent = (p.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2);
+  } catch(e) {}
+  loadFHS();
+}
+init();
+</script>
+</body>
+</html>
