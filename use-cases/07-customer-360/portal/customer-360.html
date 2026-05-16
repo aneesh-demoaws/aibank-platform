@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer 360 — AI Bank RM Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    :root { --accent: #2563eb; --accent-light: #eff6ff; --green: #16a34a; --amber: #d97706; --red: #dc2626; --border: #e5e7eb; --bg: #f8fafc; --text: #1e293b; --muted: #64748b; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+    .header { background: white; border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+    .header h1 { font-size: 1.1rem; font-weight: 600; }
+    .header .back { text-decoration: none; color: var(--accent); font-size: 0.85rem; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .full-width { grid-column: 1 / -1; }
+    .card { background: white; border-radius: 12px; border: 1px solid var(--border); padding: 20px; }
+    .card h3 { font-size: 0.85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+    .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 600; }
+    .profile-name { font-size: 1.3rem; font-weight: 700; }
+    .profile-meta { font-size: 0.8rem; color: var(--muted); }
+    .stat-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; }
+    /* FHS Ring */
+    .fhs-container { display: flex; align-items: center; gap: 24px; }
+    .fhs-ring { position: relative; width: 100px; height: 100px; }
+    .fhs-ring svg { transform: rotate(-90deg); }
+    .fhs-score { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5rem; font-weight: 700; }
+    .fhs-band { font-size: 0.75rem; color: var(--muted); text-align: center; margin-top: 4px; }
+    .subscores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: 1; }
+    .subscore { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 4px 8px; border-radius: 6px; background: var(--bg); }
+    .subscore-bar { height: 4px; border-radius: 2px; background: #e2e8f0; flex: 1; margin-left: 8px; max-width: 60px; }
+    .subscore-fill { height: 100%; border-radius: 2px; }
+    /* NBA Cards */
+    .nba-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+    .nba-item { padding: 10px 12px; border-radius: 8px; background: var(--bg); border-left: 3px solid var(--accent); font-size: 0.82rem; }
+    .nba-item .title { font-weight: 600; }
+    .nba-item .meta { color: var(--muted); font-size: 0.72rem; margin-top: 2px; }
+    /* Timeline */
+    .timeline { display: flex; flex-direction: column; gap: 10px; }
+    .timeline-item { display: flex; gap: 10px; font-size: 0.82rem; }
+    .timeline-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 5px; flex-shrink: 0; }
+    .timeline-date { color: var(--muted); font-size: 0.72rem; }
+    /* Graph */
+    #graph-container { width: 100%; height: 350px; border-radius: 8px; background: var(--bg); }
+    #graph-container svg { width: 100%; height: 100%; }
+    .node-customer { fill: var(--accent); }
+    .node-merchant { fill: var(--amber); }
+    .node-product { fill: var(--green); }
+    .node-peer { fill: #8b5cf6; }
+    .node-household { fill: var(--red); }
+    .link { stroke: #cbd5e1; stroke-width: 1.5; }
+    .node-label { font-size: 9px; fill: var(--muted); text-anchor: middle; }
+    /* Spending */
+    .spend-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.8rem; }
+    .spend-bar-fill { height: 18px; border-radius: 4px; background: var(--accent); opacity: 0.7; }
+    .spend-bar-label { min-width: 100px; }
+    .spend-bar-amount { color: var(--muted); font-size: 0.75rem; }
+    /* Peer Panel */
+    .peer-stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; }
+    .peer-stat:last-child { border-bottom: none; }
+    .peer-stat-value { font-weight: 600; color: var(--accent); }
+    /* Embeds */
+    .embed-placeholder { background: var(--bg); border: 2px dashed var(--border); border-radius: 12px; padding: 40px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+    .embed-placeholder .icon { font-size: 2rem; margin-bottom: 8px; }
+    /* Chat */
+    .chat-panel { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-row input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; }
+    .chat-input-row button { padding: 10px 16px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .loading { text-align: center; padding: 40px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="/employee/rm/customers.html" class="back">← Portfolio</a>
+    <h1>Customer 360</h1>
+    <span id="customer-name" style="font-weight:600;margin-left:auto"></span>
+  </div>
+  <div class="container">
+    <div id="loading" class="loading">Loading customer data...</div>
+    <div id="content" style="display:none">
+
+      <!-- Row 1: Profile + FHS -->
+      <div class="grid" style="margin-bottom:16px">
+        <div class="card" id="profile-card"></div>
+        <div class="card" id="fhs-card"></div>
+      </div>
+
+      <!-- Row 2: NBAs + Graph -->
+      <div class="grid" style="margin-bottom:16px">
+        <div class="card">
+          <h3>📋 Active Recommendations</h3>
+          <div id="nba-list" class="nba-list"></div>
+        </div>
+        <div class="card">
+          <h3>🔗 Relationship Graph</h3>
+          <div id="graph-container"></div>
+        </div>
+      </div>
+
+      <!-- Row 3: Life Events + Spending -->
+      <div class="grid" style="margin-bottom:16px">
+        <div class="card">
+          <h3>📅 Life Events</h3>
+          <div id="timeline"></div>
+        </div>
+        <div class="card">
+          <h3>💰 Spending (90 days)</h3>
+          <div id="spending"></div>
+        </div>
+      </div>
+
+      <!-- Row 4: Peer Comparison + Products -->
+      <div class="grid" style="margin-bottom:16px">
+        <div class="card">
+          <h3>👥 Peer Comparison</h3>
+          <div id="peer-panel"></div>
+        </div>
+        <div class="card">
+          <h3>🛒 Products & Goals</h3>
+          <div id="products-goals"></div>
+        </div>
+      </div>
+
+      <!-- Row 5: QuickSight Dashboard Embed -->
+      <div class="card full-width" style="margin-bottom:16px">
+        <h3>📊 QuickSight Analytics</h3>
+        <div class="embed-placeholder" id="quicksight-embed">
+          <div class="icon">📊</div>
+          <div>QuickSight Embedded Dashboard</div>
+          <div style="font-size:0.75rem;margin-top:4px">Portfolio KPIs • Spending Trends • Cohort Comparison • What-If Analysis</div>
+          <div style="font-size:0.7rem;margin-top:8px;color:var(--accent)">Connected via IAM Identity Center (same SSO session)</div>
+        </div>
+      </div>
+
+      <!-- Row 6: Quick Chat Agent Embed -->
+      <div class="card full-width">
+        <h3>💬 AI Advisor (Amazon Quick Suite Chat Agent)</h3>
+        <div class="embed-placeholder" id="chat-agent-embed">
+          <div class="icon">🤖</div>
+          <div>Quick Suite Chat Agent — "C360 Advisor"</div>
+          <div style="font-size:0.75rem;margin-top:4px">Ask about this customer • Peer comparisons • Product recommendations • What-if scenarios</div>
+          <div style="font-size:0.7rem;margin-top:8px;color:var(--accent)">Connected via IAM Identity Center (same SSO session)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/c360';
+    const params = new URLSearchParams(window.location.search);
+    const customerId = params.get('id') || 'CUST20250100';
+
+    async function loadData() {
+      try {
+        const [detailResp, graphResp] = await Promise.all([
+          fetch(`${API_BASE}/detail?id=${customerId}`, {credentials:'include'}),
+          fetch(`${API_BASE}/graph?id=${customerId}`, {credentials:'include'})
+        ]);
+        const detail = await detailResp.json();
+        const graph = await graphResp.json();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+
+        renderProfile(detail);
+        renderFHS(detail.financial_health);
+        renderNBAs(detail.next_best_actions);
+        renderGraph(graph);
+        renderTimeline(detail.life_events);
+        renderSpending(detail.spending_by_category);
+        renderPeerPanel(detail.peer_stats);
+        renderProductsGoals(detail.products, detail.goals);
+      } catch (e) {
+        document.getElementById('loading').textContent = 'Error loading data: ' + e.message;
+      }
+    }
+
+    function renderProfile(data) {
+      const p = data.profile || {};
+      const name = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+      document.getElementById('customer-name').textContent = name;
+      document.getElementById('profile-card').innerHTML = `
+        <div class="profile-header">
+          <div class="avatar">${(p.first_name||'?')[0]}${(p.last_name||'?')[0]}</div>
+          <div>
+            <div class="profile-name">${name}</div>
+            <div class="profile-meta">${p.customer_id} • ${p.email || ''} • ${p.nationality || ''}</div>
+            <div class="profile-meta">KYC: ${p.kyc_status || '?'} • City: ${p.city || '?'}</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat"><div class="stat-value">BHD ${(data.total_balance||0).toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0})}</div><div class="stat-label">Total Balance</div></div>
+          <div class="stat"><div class="stat-value">${data.accounts?.length||0}</div><div class="stat-label">Accounts</div></div>
+          <div class="stat"><div class="stat-value">${data.products?.length||0}</div><div class="stat-label">Products</div></div>
+          <div class="stat"><div class="stat-value">${data.next_best_actions?.length||0}</div><div class="stat-label">Active NBAs</div></div>
+        </div>`;
+    }
+
+    function renderFHS(fhs) {
+      if (!fhs) { document.getElementById('fhs-card').innerHTML = '<h3>Financial Health</h3><p>No FHS data</p>'; return; }
+      const score = fhs.score || 0;
+      const pct = score / 100;
+      const color = score >= 80 ? '#16a34a' : score >= 60 ? '#2563eb' : score >= 40 ? '#d97706' : '#dc2626';
+      const circumference = 2 * Math.PI * 40;
+      const offset = circumference * (1 - pct);
+
+      const subscores = [
+        {name:'Debt', val:fhs.subscore_debt}, {name:'Savings', val:fhs.subscore_savings},
+        {name:'Spending', val:fhs.subscore_spending}, {name:'Income', val:fhs.subscore_income},
+        {name:'Credit', val:fhs.subscore_credit}, {name:'Behavior', val:fhs.subscore_behavior}
+      ];
+
+      document.getElementById('fhs-card').innerHTML = `
+        <h3>💪 Financial Health Score</h3>
+        <div class="fhs-container">
+          <div class="fhs-ring">
+            <svg width="100" height="100">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+              <circle cx="50" cy="50" r="40" fill="none" stroke="${color}" stroke-width="8"
+                stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"/>
+            </svg>
+            <div class="fhs-score" style="color:${color}">${score}</div>
+          </div>
+          <div class="subscores">
+            ${subscores.map(s => `
+              <div class="subscore">
+                <span>${s.name}</span>
+                <span style="font-weight:600">${s.val||0}</span>
+                <div class="subscore-bar"><div class="subscore-fill" style="width:${s.val||0}%;background:${(s.val||0)>=70?'#16a34a':(s.val||0)>=50?'#2563eb':'#dc2626'}"></div></div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        <div style="margin-top:12px;font-size:0.75rem;color:var(--muted)">
+          Peer percentile: ${fhs.peer_percentile||'?'}th • Trend (30d): ${fhs.trend_30d>0?'+':''}${fhs.trend_30d||0} • Band: ${fhs.band||'?'}
+        </div>`;
+    }
+
+    function renderNBAs(nbas) {
+      const el = document.getElementById('nba-list');
+      if (!nbas?.length) { el.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No active recommendations</p>'; return; }
+      el.innerHTML = nbas.map(n => `
+        <div class="nba-item" style="border-left-color:${n.category==='opportunity'?'#2563eb':n.category==='wellness'?'#16a34a':'#d97706'}">
+          <div class="title">${n.title}</div>
+          <div class="meta">${n.category} • P${n.priority} • ${n.source} • ${n.generated_at?.slice(0,10)||''}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderGraph(data) {
+      const container = document.getElementById('graph-container');
+      const width = container.clientWidth || 500;
+      const height = 350;
+
+      const svg = d3.select(container).append('svg').attr('width', width).attr('height', height);
+      const nodes = data.nodes || [];
+      const links = (data.edges || []).map(e => ({source: e.source, target: e.target, type: e.type}));
+
+      const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(80))
+        .force('charge', d3.forceManyBody().strength(-200))
+        .force('center', d3.forceCenter(width/2, height/2));
+
+      const link = svg.selectAll('.link').data(links).join('line').attr('class', 'link');
+      const node = svg.selectAll('.node').data(nodes).join('circle')
+        .attr('r', d => d.type === 'customer' ? 16 : 10)
+        .attr('class', d => `node-${d.type}`)
+        .call(d3.drag().on('start', dragstarted).on('drag', dragged).on('end', dragended));
+
+      const label = svg.selectAll('.node-label').data(nodes).join('text')
+        .attr('class', 'node-label').attr('dy', 20)
+        .text(d => d.label?.replace('CUST2025','C')?.slice(0,12) || '');
+
+      simulation.on('tick', () => {
+        link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+        node.attr('cx',d=>d.x).attr('cy',d=>d.y);
+        label.attr('x',d=>d.x).attr('y',d=>d.y);
+      });
+
+      function dragstarted(event,d){if(!event.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;}
+      function dragged(event,d){d.fx=event.x;d.fy=event.y;}
+      function dragended(event,d){if(!event.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;}
+
+      // Legend
+      svg.append('text').attr('x',10).attr('y',height-40).attr('font-size','9px').attr('fill','var(--muted)').text('● Customer  ● Merchant  ● Product  ● Peer');
+    }
+
+    function renderTimeline(events) {
+      const el = document.getElementById('timeline');
+      if (!events?.length) { el.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No life events detected</p>'; return; }
+      const icons = {travel:'✈️',new_baby:'👶',job_change:'💼',income_change:'💰',marriage:'💍',relocation:'🏠'};
+      el.innerHTML = '<div class="timeline">' + events.slice(0,6).map(e => `
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div>
+            <div>${icons[e.event_type]||'📌'} ${e.event_type?.replace('_',' ')} <span class="timeline-date">${e.detected_at?.slice(0,10)||''}</span></div>
+            <div style="font-size:0.72rem;color:var(--muted)">${e.attributes ? JSON.parse(e.attributes).destination || JSON.parse(e.attributes).date || '' : ''}</div>
+          </div>
+        </div>
+      `).join('') + '</div>';
+    }
+
+    function renderSpending(categories) {
+      const el = document.getElementById('spending');
+      if (!categories?.length) { el.innerHTML = '<p style="color:var(--muted)">No spending data</p>'; return; }
+      const max = Math.max(...categories.map(c => c.total_amount || 0));
+      el.innerHTML = categories.slice(0,8).map(c => `
+        <div class="spend-bar">
+          <span class="spend-bar-label">${c.category_name}</span>
+          <div class="spend-bar-fill" style="width:${((c.total_amount||0)/max*200)}px"></div>
+          <span class="spend-bar-amount">BHD ${(c.total_amount||0).toFixed(0)}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderPeerPanel(ps) {
+      const el = document.getElementById('peer-panel');
+      if (!ps || !ps.peer_count) { el.innerHTML = '<p style="color:var(--muted)">No peer data</p>'; return; }
+      el.innerHTML = `
+        <div class="peer-stat"><span>Similar peers</span><span class="peer-stat-value">${ps.peer_count}</span></div>
+        <div class="peer-stat"><span>Community</span><span class="peer-stat-value">#${ps.community_id} (${ps.income_band} income, ${ps.fhs_band} FHS)</span></div>
+        <div class="peer-stat"><span>Peers with products</span><span class="peer-stat-value">${ps.peer_pct_products||0}%</span></div>
+        <div class="peer-stat"><span>Peers with home loans</span><span class="peer-stat-value">${ps.peer_pct_home_loan||0}%</span></div>
+        <div class="peer-stat"><span>Avg merchants (peers)</span><span class="peer-stat-value">${ps.peer_avg_merchants||0}</span></div>
+        <div class="peer-stat"><span>Peers with high balance</span><span class="peer-stat-value">${ps.peer_pct_high_balance||0}%</span></div>
+        <div class="peer-stat"><span>Peers with goals</span><span class="peer-stat-value">${ps.peer_pct_goals||0}%</span></div>
+      `;
+    }
+
+    function renderProductsGoals(products, goals) {
+      const el = document.getElementById('products-goals');
+      let html = '';
+      if (products?.length) {
+        html += '<div style="margin-bottom:12px"><strong style="font-size:0.8rem">Products Owned</strong></div>';
+        html += products.map(p => `<div style="font-size:0.8rem;padding:4px 0;border-bottom:1px solid var(--border)">✅ ${p.product_name||p.product_type} <span style="color:var(--muted)">• BHD ${p.amount_bhd||0} • ${p.purchased_at?.slice(0,10)||''}</span></div>`).join('');
+      }
+      if (goals?.length) {
+        html += '<div style="margin-top:12px;margin-bottom:8px"><strong style="font-size:0.8rem">Goals</strong></div>';
+        html += goals.map(g => `<div style="font-size:0.8rem;padding:4px 0">🎯 ${g.goal_title} <span style="color:var(--muted)">• ${g.status} • BHD ${g.current_amount||0}/${g.target_amount||0}</span></div>`).join('');
+      }
+      if (!html) html = '<p style="color:var(--muted);font-size:0.82rem">No products or goals</p>';
+      el.innerHTML = html;
+    }
+
+    // Load on page ready
+    loadData();
+  </script>
+</body>
+</html>
