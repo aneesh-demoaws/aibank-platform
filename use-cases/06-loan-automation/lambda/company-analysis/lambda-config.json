@@ -1,0 +1,12 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "neobank_pl_automation_company_analysis.lambda_handler",
+    "MemorySize": 1024,
+    "Timeout": 900,
+    "Environment": {
+        "CORE_BANKING_SECRET_ARN": "arn:aws:secretsmanager:eu-west-1:519124228967:secret:aibank-core-banking-CQeAg6",
+        "DOCUMENT_BUCKET": "aibank-loan-documents-519124228967",
+        "CONTRACT_BUCKET": "aibank-loan-contracts-519124228967"
+    },
+    "Description": ""
+}

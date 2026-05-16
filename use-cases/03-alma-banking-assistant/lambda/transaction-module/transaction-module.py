@@ -204,21 +204,179 @@ def purchase_product(customer_id, product_type, product_name, amount, details=No
 
 
 def disburse_loan(customer_id, loan_amount, application_id, loan_type):
-    """Disburse approved loan — credit customer account."""
-    credit_result = execute_credit(
+    """Disburse approved loan — credit customer account.
+
+    Idempotent: if a disbursement transaction for this application_id already
+    exists in the transactions table (matched via reference_number), returns
+    that prior result instead of creating a duplicate credit.
+    """
+    # Idempotency: check for existing disbursement on this application
+    existing = _sql(
+        "SELECT t.transaction_id, t.amount, t.balance_after, t.account_id "
+        "FROM transactions t "
+        "WHERE t.reference_number = :ref AND t.transaction_type = 'credit' "
+        "ORDER BY t.transaction_date DESC LIMIT 1",
+        [{'name': 'ref', 'value': {'stringValue': f'LOAN-{application_id}'}}]
+    )
+    if existing.get('records'):
+        r = existing['records'][0]
+        prior_txn = _val(r[0])
+        prior_amt = _val(r[1])
+        prior_bal = _val(r[2])
+        return {
+            'success': True,
+            'transaction_id': prior_txn,
+            'amount_disbursed': float(prior_amt) if prior_amt else loan_amount,
+            'new_balance': float(prior_bal) if prior_bal else None,
+            'application_id': application_id,
+            'idempotent': True,
+            'message': 'Disbursement already executed for this application',
+        }
+
+    credit_result = execute_credit_with_ref(
         customer_id, loan_amount,
         description=f"Loan Disbursement - {loan_type} ({application_id})",
-        merchant_name="AI Bank Lending"
+        merchant_name="AI Bank Lending",
+        reference_number=f"LOAN-{application_id}"
     )
     if not credit_result['success']:
         return credit_result
 
+    txn_id = credit_result['transaction_id']
+
+    # Stamp loan_applications row with disbursement details (best-effort)
+    try:
+        _sql(
+            "UPDATE loan_applications "
+            "SET disbursement_txn_id = :tid, disbursed_at = NOW(), disbursement_status = 'success' "
+            "WHERE application_id = :aid",
+            [
+                {'name': 'tid', 'value': {'stringValue': txn_id}},
+                {'name': 'aid', 'value': {'stringValue': application_id}},
+            ]
+        )
+    except Exception as e:
+        # Don't fail the disbursement if the stamp fails — money is already in account
+        import logging
+        logging.getLogger().warning(f"Failed to stamp loan_applications for {application_id}: {e}")
+
     return {
         'success': True,
-        'transaction_id': credit_result['transaction_id'],
+        'transaction_id': txn_id,
         'amount_disbursed': loan_amount,
         'new_balance': credit_result['new_balance'],
         'application_id': application_id,
+        'idempotent': False,
+    }
+
+
+def execute_credit_with_ref(customer_id, amount, description, merchant_name, reference_number):
+    """Credit with a reference_number for idempotency tracking."""
+    account_id, balance = get_primary_account(customer_id)
+    if not account_id:
+        return {'success': False, 'error': 'No active account found'}
+
+    txn_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+
+    _sql(
+        "INSERT INTO transactions (transaction_id, account_id, transaction_type, amount, "
+        "description, merchant_name, reference_number, transaction_date, balance_after, value_date, status) "
+        "VALUES (:tid, :aid, 'credit', :amt, :desc, :merch, :ref, NOW(), :bal, CURDATE(), 'completed')",
+        [
+            {'name': 'tid', 'value': {'stringValue': txn_id}},
+            {'name': 'aid', 'value': {'stringValue': account_id}},
+            {'name': 'amt', 'value': {'doubleValue': amount}},
+            {'name': 'desc', 'value': {'stringValue': description}},
+            {'name': 'merch', 'value': {'stringValue': merchant_name}},
+            {'name': 'ref', 'value': {'stringValue': reference_number}},
+            {'name': 'bal', 'value': {'doubleValue': balance + amount}},
+        ]
+    )
+
+    _sql(
+        "UPDATE accounts SET balance = balance + :amt WHERE account_id = :aid",
+        [
+            {'name': 'amt', 'value': {'doubleValue': amount}},
+            {'name': 'aid', 'value': {'stringValue': account_id}},
+        ]
+    )
+
+    return {
+        'success': True,
+        'transaction_id': txn_id,
+        'account_id': account_id,
+        'amount_credited': amount,
+        'new_balance': round(balance + amount, 3),
+    }
+
+
+def reverse_disbursement(customer_id, application_id):
+    """Reverse a loan disbursement by DELETING the original credit transaction
+    and adjusting the account balance back. Per product decision: cleaner UI,
+    no audit trail (Reset Loans is a developer/test feature).
+
+    Returns success even if no prior disbursement found (idempotent reversal).
+    """
+    # Find the original disbursement
+    existing = _sql(
+        "SELECT t.transaction_id, t.amount, t.account_id "
+        "FROM transactions t "
+        "WHERE t.reference_number = :ref AND t.transaction_type = 'credit'",
+        [{'name': 'ref', 'value': {'stringValue': f'LOAN-{application_id}'}}]
+    )
+    records = existing.get('records', [])
+    if not records:
+        return {
+            'success': True,
+            'reversed': False,
+            'application_id': application_id,
+            'message': 'No prior disbursement found — nothing to reverse',
+        }
+
+    deleted_txns = []
+    total_reversed = 0.0
+    account_id = None
+    for r in records:
+        txn_id = _val(r[0])
+        amount = float(_val(r[1]) or 0)
+        account_id = _val(r[2])
+
+        # Delete the original credit transaction
+        _sql(
+            "DELETE FROM transactions WHERE transaction_id = :tid",
+            [{'name': 'tid', 'value': {'stringValue': txn_id}}]
+        )
+
+        # Adjust account balance back down
+        _sql(
+            "UPDATE accounts SET balance = balance - :amt WHERE account_id = :aid",
+            [
+                {'name': 'amt', 'value': {'doubleValue': amount}},
+                {'name': 'aid', 'value': {'stringValue': account_id}},
+            ]
+        )
+        deleted_txns.append(txn_id)
+        total_reversed += amount
+
+    # Clear disbursement stamp on loan_applications (best-effort)
+    try:
+        _sql(
+            "UPDATE loan_applications "
+            "SET disbursement_txn_id = NULL, disbursed_at = NULL, disbursement_status = 'reversed' "
+            "WHERE application_id = :aid",
+            [{'name': 'aid', 'value': {'stringValue': application_id}}]
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger().warning(f"Failed to clear loan_applications stamp for {application_id}: {e}")
+
+    return {
+        'success': True,
+        'reversed': True,
+        'application_id': application_id,
+        'deleted_transaction_ids': deleted_txns,
+        'amount_reversed': round(total_reversed, 3),
+        'account_id': account_id,
     }
 
 
@@ -246,6 +404,11 @@ def handler(event, context):
             loan_amount=float(event.get('amount', 0)),
             application_id=event.get('application_id', ''),
             loan_type=event.get('loan_type', 'Personal'),
+        )
+    elif action == 'reverse_disbursement':
+        return reverse_disbursement(
+            customer_id=customer_id,
+            application_id=event.get('application_id', ''),
         )
     elif action == 'debit':
         return execute_debit(

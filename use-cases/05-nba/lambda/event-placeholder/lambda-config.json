@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "cashflow-scanner.handler",
+    "MemorySize": 256,
+    "Timeout": 120,
+    "Environment": null,
+    "Description": "NBA Cash-flow Scanner — detects upcoming debit shortfalls, emits events"
+}

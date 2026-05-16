@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NBA Insights — AI Bank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #1e293b; }
+    .header { background: white; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+    .header h1 { font-size: 1.2rem; font-weight: 700; }
+    .header .home { padding: 8px 14px; background: #eff6ff; border: 1px solid #2563eb; border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; color: #2563eb; }
+    .container { padding: 20px; max-width: 1600px; margin: 0 auto; }
+    .loading { text-align: center; padding: 40px; color: #64748b; }
+    .embed-frame { width: 100%; height: calc(100vh - 120px); border: none; border-radius: 12px; background: white; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="/employee/dashboard.html" class="home">🏠 Home</a>
+    <h1>📊 NBA Insights</h1>
+  </div>
+  <div class="container">
+    <div id="loading" class="loading">Loading dashboard...</div>
+    <iframe id="qsFrame" class="embed-frame" style="display:none"></iframe>
+  </div>
+  <script>
+    (async () => {
+      try {
+        const meResp = await fetch('/sessions/me', { credentials: 'include' });
+        if (!meResp.ok) {
+          document.getElementById('loading').innerHTML = 'Please <a href="/login.html?portal=employee">sign in</a> to view the dashboard.';
+          return;
+        }
+        const me = await meResp.json();
+
+        const resp = await fetch('/sessions/me/quicksight-embed', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: me.email || '' })
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data.embedUrl) {
+            document.getElementById('qsFrame').src = data.embedUrl;
+            document.getElementById('qsFrame').style.display = 'block';
+            document.getElementById('loading').style.display = 'none';
+          } else {
+            document.getElementById('loading').textContent = 'Unable to load dashboard. ' + (data.error || '');
+          }
+        } else {
+          document.getElementById('loading').textContent = 'Dashboard unavailable (HTTP ' + resp.status + ').';
+        }
+      } catch (e) {
+        document.getElementById('loading').textContent = 'Error: ' + e.message;
+      }
+    })();
+  </script>
+</body>
+</html>

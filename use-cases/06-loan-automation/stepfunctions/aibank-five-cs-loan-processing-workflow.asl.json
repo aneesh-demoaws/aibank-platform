@@ -1,0 +1,1016 @@
+{
+    "Comment": "Personal Loan Processing Workflow - Complete 12-Stage Processing Pipeline",
+    "StartAt": "Initialize_Processing_Context",
+    "States": {
+        "Initialize_Processing_Context": {
+            "Type": "Pass",
+            "Comment": "Initialize processing context for DynamoDB stream input",
+            "Parameters": {
+                "executionContext": {
+                    "correlationId.$": "$$.Execution.Name",
+                    "executionArn.$": "$$.Execution.Name",
+                    "startTime.$": "$$.State.EnteredTime"
+                },
+                "processingContext": {
+                    "customer_id.$": "$.applicationData.customer_id",
+                    "application_id.$": "$.applicationData.application_id",
+                    "stage": "initialization"
+                },
+                "customer_data": {
+                    "customer_id.$": "$.applicationData.customer_id",
+                    "name": "DynamoDB Stream Customer",
+                    "email": "stream.customer@example.com",
+                    "phone": "+1-555-0100",
+                    "annual_income.$": "$.applicationData.basic_salary",
+                    "employment_status": "employed",
+                    "employer_name.$": "$.applicationData.employer_name",
+                    "bank_name.$": "$.applicationData.bank_name"
+                },
+                "loan_data": {
+                    "application_id.$": "$.applicationData.application_id",
+                    "amount.$": "$.applicationData.amount",
+                    "duration.$": "$.applicationData.duration",
+                    "purpose": "personal_loan",
+                    "status.$": "$.applicationData.status",
+                    "loan_type.$": "$.applicationData.loan_type"
+                },
+                "financial_data": {
+                    "basic_salary.$": "$.applicationData.basic_salary",
+                    "salary_transfer.$": "$.applicationData.salary_transfer",
+                    "average_balance.$": "$.applicationData.average_balance",
+                    "ending_balance.$": "$.applicationData.ending_balance"
+                },
+                "documents": {
+                    "salary_document_received.$": "$.applicationData.loan_salary_document_received",
+                    "statement_document_received.$": "$.applicationData.loan_statement_document_received"
+                },
+                "manual_processing_enabled": true,
+                "triggerContext.$": "$.triggerContext",
+                "originalApplicationData.$": "$.applicationData"
+            },
+            "ResultPath": "$",
+            "Next": "Stage0_Document_Validation"
+        },
+        "Stage0_Document_Validation": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Document validation and OCR processing",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-document-validation",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.documentValidation",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Stage0_Fraud_Screening"
+        },
+        "Stage0_Fraud_Screening": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Initial fraud detection and screening",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-fraud-screening",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.fraudScreening",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Stage0_Customer_Profile"
+        },
+        "Stage0_Customer_Profile": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Customer profile and KYC data retrieval",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-customer-profile",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.customerProfile",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Stage1_Customer_Segmentation"
+        },
+        "Stage1_Customer_Segmentation": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Customer segment classification",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-customer-segmentation",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.customerSegmentation",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Stage1_Segment_Config"
+        },
+        "Stage1_Segment_Config": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Segment configuration loader",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-segment-config",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.segmentConfig",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Stage2_Parallel_Data_Collection"
+        },
+        "Stage2_Parallel_Data_Collection": {
+            "Type": "Parallel",
+            "Comment": "Parallel execution of data collection components including Five Cs of Credit analysis and KYC data analysis",
+            "Branches": [
+                {
+                    "StartAt": "Credit_Bureau_Query",
+                    "States": {
+                        "Credit_Bureau_Query": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Parameters": {
+                                "FunctionName": "aibank-pl-automation-credit-bureau",
+                                "Payload.$": "$"
+                            },
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Financial_Behaviour_Analysis",
+                    "States": {
+                        "Financial_Behaviour_Analysis": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Comment": "Financial behavior analysis using Strands agent with core banking data",
+                            "Parameters": {
+                                "FunctionName": "aibank-pl-automation-financial-profile-analysis-summary",
+                                "Payload.$": "$"
+                            },
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "KYC_Data_Analysis",
+                    "States": {
+                        "KYC_Data_Analysis": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Comment": "KYC data analysis - gather customer KYC details and update loan application",
+                            "Parameters": {
+                                "FunctionName": "aibank-pl-automation-kyc-data-analysis",
+                                "Payload.$": "$"
+                            },
+                            "ResultPath": "$.kycResult",
+                            "Next": "Social_Media_Analysis"
+                        },
+                        "Social_Media_Analysis": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Comment": "Enhanced social media analysis with Strands agent - runs after KYC analysis",
+                            "Parameters": {
+                                "FunctionName": "aibank-pl-automation-social-media-analysis",
+                                "Payload.$": "$"
+                            },
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Debt_To_Income_Analysis_Summary",
+                    "States": {
+                        "Debt_To_Income_Analysis_Summary": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Comment": "DTI analysis using Strands agent for capacity assessment",
+                            "Parameters": {
+                                "FunctionName": "aibank-pl-automation-debt-to-income-analysis-summary",
+                                "Payload.$": "$"
+                            },
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "End": true
+                        }
+                    }
+                },
+                {
+                    "StartAt": "Company_Analysis_Group",
+                    "States": {
+                        "Company_Analysis_Group": {
+                            "Type": "Parallel",
+                            "Comment": "Group Employer Analysis and Company Data Gathering, then run AI Summary",
+                            "Branches": [
+                                {
+                                    "StartAt": "Company_Analysis_Data_Gathering",
+                                    "States": {
+                                        "Company_Analysis_Data_Gathering": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Comment": "Company data gathering using yfinance for employer analysis",
+                                            "Parameters": {
+                                                "FunctionName": "aibank-pl-automation-company-analysis",
+                                                "Payload": {
+                                                    "company_name.$": "$.customer_data.employer_name",
+                                                    "ticker.$": "$.customer_data.employer_name",
+                                                    "processingContext.$": "$.processingContext",
+                                                    "executionContext.$": "$.executionContext"
+                                                }
+                                            },
+                                            "ResultPath": "$.companyDataResult",
+                                            "Retry": [
+                                                {
+                                                    "ErrorEquals": [
+                                                        "Lambda.ServiceException",
+                                                        "Lambda.AWSLambdaException",
+                                                        "Lambda.SdkClientException"
+                                                    ],
+                                                    "IntervalSeconds": 2,
+                                                    "MaxAttempts": 3,
+                                                    "BackoffRate": 2
+                                                }
+                                            ],
+                                            "Next": "Employer_Analysis"
+                                        },
+                                        "Employer_Analysis": {
+                                            "Type": "Task",
+                                            "Resource": "arn:aws:states:::lambda:invoke",
+                                            "Comment": "Five Cs of Credit: Character, Capacity, and Conditions analysis through employer verification",
+                                            "Parameters": {
+                                                "FunctionName": "aibank-pl-automation-employer-analysis",
+                                                "Payload.$": "$"
+                                            },
+                                            "End": true
+                                        }
+                                    }
+                                }
+                            ],
+                            "ResultPath": "$.companyAnalysisGroupResults",
+                            "Next": "Company_Analysis_AI_Summary"
+                        },
+                        "Company_Analysis_AI_Summary": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Comment": "AI-powered company analysis summary using Strands agents - runs after both Employer Analysis and Company Data Gathering complete",
+                            "Parameters": {
+                                "FunctionName": "aibank-pl-automation-company-analysis-summary",
+                                "Payload": {
+                                    "processingContext.$": "$.processingContext",
+                                    "executionContext.$": "$.executionContext"
+                                }
+                            },
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "ResultPath": "$.parallelResults",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Stage3_Loan_Underwriting"
+        },
+        "Error_Handler": {
+            "Type": "Pass",
+            "Comment": "Handle processing errors",
+            "Parameters": {
+                "status": "ERROR",
+                "errorTime.$": "$$.State.EnteredTime",
+                "error.$": "$.error",
+                "processingResults.$": "$"
+            },
+            "End": true
+        },
+        "Stage3_Loan_Underwriting": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Loan underwriting analysis with manual processing flag support",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-loan-underwriting-summary",
+                "Payload.$": "$"
+            },
+            "ResultPath": "$.loanUnderwriting",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Error_Handler",
+                    "ResultPath": "$.error"
+                }
+            ],
+            "Next": "Check_Manual_Processing_Flag"
+        },
+        "Check_Manual_Processing_Flag": {
+            "Type": "Choice",
+            "Comment": "Instant money = auto-decision, personal loans = manual review",
+            "Choices": [
+                {
+                    "Variable": "$.loan_data.loan_type",
+                    "StringEquals": "instant_money",
+                    "Next": "Processing_Complete_Automated"
+                },
+                {
+                    "Variable": "$.manual_processing_enabled",
+                    "BooleanEquals": false,
+                    "Next": "Check_Automated_Decision"
+                }
+            ],
+            "Default": "Force_Manual_Review"
+        },
+        "Force_Manual_Review": {
+            "Type": "Pass",
+            "Comment": "Force manual review when manual processing flag is enabled",
+            "Parameters": {
+                "manual_review_required": true,
+                "reason": "Manual processing flag enabled - all loans require human review",
+                "forced_manual_review": true,
+                "underwriting_results.$": "$.loanUnderwriting"
+            },
+            "ResultPath": "$.forcedManualReview",
+            "Next": "Trigger_Manual_Review"
+        },
+        "Check_Automated_Decision": {
+            "Type": "Choice",
+            "Comment": "Check automated underwriting decision \u2014 handles missing paths gracefully",
+            "Choices": [
+                {
+                    "And": [
+                        {
+                            "Variable": "$.loanUnderwriting.Payload.underwriting_decision.manual_review_required",
+                            "IsPresent": true
+                        },
+                        {
+                            "Variable": "$.loanUnderwriting.Payload.underwriting_decision.manual_review_required",
+                            "BooleanEquals": true
+                        }
+                    ],
+                    "Next": "Trigger_Manual_Review"
+                },
+                {
+                    "And": [
+                        {
+                            "Variable": "$.loanUnderwriting.Payload.underwriting_decision.decision",
+                            "IsPresent": true
+                        },
+                        {
+                            "Variable": "$.loanUnderwriting.Payload.underwriting_decision.decision",
+                            "StringEquals": "MANUAL_REVIEW_REQUIRED"
+                        }
+                    ],
+                    "Next": "Trigger_Manual_Review"
+                }
+            ],
+            "Default": "Processing_Complete_Automated"
+        },
+        "Trigger_Manual_Review": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Trigger manual review process",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-notification-dispatcher",
+                "Payload": {
+                    "customer_id.$": "$.processingContext.customer_id",
+                    "application_id.$": "$.processingContext.application_id",
+                    "forced_manual_review": true,
+                    "review_priority": "STANDARD"
+                }
+            },
+            "ResultPath": "$.manualReviewTrigger",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Manual_Review_Error",
+                    "ResultPath": "$.manualReviewError"
+                }
+            ],
+            "Next": "Manual_Review_Initiated"
+        },
+        "Manual_Review_Initiated": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+            "Comment": "Wait for manual review completion via callback",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-notification-dispatcher",
+                "Payload": {
+                    "customer_id.$": "$.processingContext.customer_id",
+                    "application_id.$": "$.processingContext.application_id",
+                    "forced_manual_review": true,
+                    "review_priority": "STANDARD",
+                    "task_token.$": "$$.Task.Token",
+                    "execution_arn.$": "$$.Execution.Name",
+                    "wait_for_callback": true
+                }
+            },
+            "ResultPath": "$.manualReviewResult",
+            "TimeoutSeconds": 86400,
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 3,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Manual_Review_Error",
+                    "ResultPath": "$.manualReviewError"
+                }
+            ],
+            "Next": "PostDecisionRouter"
+        },
+        "Manual_Review_Error": {
+            "Type": "Pass",
+            "Comment": "Handle manual review trigger errors",
+            "Parameters": {
+                "status": "MANUAL_REVIEW_ERROR",
+                "errorTime.$": "$$.State.EnteredTime",
+                "error.$": "$.manualReviewError",
+                "customer_id.$": "$.processingContext.customer_id",
+                "application_id.$": "$.processingContext.application_id",
+                "message": "Failed to trigger manual review process",
+                "processingResults.$": "$"
+            },
+            "End": true
+        },
+        "Processing_Complete_Automated": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Auto-decision completed \u2014 notify customer via email",
+            "Parameters": {
+                "FunctionName": "aibank-pl-automation-notification-dispatcher",
+                "Payload": {
+                    "customer_id.$": "$.processingContext.customer_id",
+                    "application_id.$": "$.processingContext.application_id",
+                    "auto_decision": true,
+                    "decision.$": "$.loanUnderwriting.Payload.underwriting_decision.decision",
+                    "decision_reason.$": "$.loanUnderwriting.Payload.underwriting_decision.reason",
+                    "notify_customer": true
+                }
+            },
+            "ResultPath": "$.autoNotification",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Check_Auto_Disbursement",
+                    "ResultPath": "$.notificationError"
+                }
+            ],
+            "Next": "Check_Auto_Disbursement"
+        },
+        "PostDecisionRouter": {
+            "Type": "Choice",
+            "Comment": "Route to approval or rejection path based on manual review decision",
+            "Choices": [
+                {
+                    "Variable": "$.manualReviewResult.decision",
+                    "StringEquals": "APPROVED",
+                    "Next": "ApprovalPath"
+                },
+                {
+                    "Variable": "$.manualReviewResult.decision",
+                    "StringEquals": "REJECTED",
+                    "Next": "RejectionPath"
+                }
+            ],
+            "Default": "ProcessingError"
+        },
+        "ProcessingError": {
+            "Type": "Pass",
+            "Comment": "Unknown decision from manual review",
+            "Parameters": {
+                "status": "PROCESSING_ERROR",
+                "errorTime.$": "$$.State.EnteredTime",
+                "manual_review_result.$": "$.manualReviewResult",
+                "message": "Unknown or invalid decision from manual review"
+            },
+            "End": true
+        },
+        "ApprovalPath": {
+            "Type": "Parallel",
+            "Comment": "Process approved loan applications",
+            "Branches": [
+                {
+                    "StartAt": "GenerateLoanTerms",
+                    "States": {
+                        "GenerateLoanTerms": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-pl-automation-loan-terms-calculator",
+                            "Comment": "Generate final loan terms and documentation",
+                            "Parameters": {
+                                "application_id.$": "$.processingContext.application_id",
+                                "customer_id.$": "$.processingContext.customer_id",
+                                "customer_name.$": "$.customer_data.name",
+                                "customer_email.$": "$.customer_data.email",
+                                "approved_amount.$": "$.loan_data.amount",
+                                "loan_duration.$": "$.loan_data.duration",
+                                "risk_assessment_results.$": "$.loanUnderwriting.Payload.underwriting_recommendations",
+                                "manual_review_result.$": "$.manualReviewResult.manual_review_result"
+                            },
+                            "ResultPath": "$.loanTermsResult",
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "Catch": [
+                                {
+                                    "ErrorEquals": [
+                                        "States.ALL"
+                                    ],
+                                    "Next": "LoanTermsGenerationFailed",
+                                    "ResultPath": "$.error"
+                                }
+                            ],
+                            "Next": "Manual_Disburse_Loan"
+                        },
+                        "SendApprovalNotification": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-pl-automation-notification-dispatcher",
+                            "Comment": "Send approval notification email to customer",
+                            "Parameters": {
+                                "application_id.$": "$.processingContext.application_id",
+                                "customer_id.$": "$.processingContext.customer_id",
+                                "terms_summary.$": "$.loanTermsResult.terms_summary",
+                                "loan_agreement.$": "$.loanTermsResult.loan_agreement",
+                                "manual_review_result.$": "$.manualReviewResult.manual_review_result"
+                            },
+                            "ResultPath": "$.approvalNotificationResult",
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "Catch": [
+                                {
+                                    "ErrorEquals": [
+                                        "States.ALL"
+                                    ],
+                                    "Next": "ApprovalNotificationFailed",
+                                    "ResultPath": "$.error"
+                                }
+                            ],
+                            "Next": "ApprovalProcessComplete"
+                        },
+                        "ApprovalProcessComplete": {
+                            "Type": "Pass",
+                            "Comment": "Approval process completed successfully",
+                            "Parameters": {
+                                "status": "APPROVED_AND_NOTIFIED",
+                                "completedAt.$": "$$.State.EnteredTime",
+                                "customer_id.$": "$.processingContext.customer_id",
+                                "application_id.$": "$.processingContext.application_id",
+                                "final_decision": "approved",
+                                "loan_terms.$": "$.loanTermsResult.terms_summary",
+                                "notification_sent": true,
+                                "message": "Loan approved and customer notified with terms",
+                                "processingResults.$": "$"
+                            },
+                            "End": true
+                        },
+                        "LoanTermsGenerationFailed": {
+                            "Type": "Pass",
+                            "Comment": "Loan terms generation failed",
+                            "Parameters": {
+                                "status": "LOAN_TERMS_GENERATION_FAILED",
+                                "errorTime.$": "$$.State.EnteredTime",
+                                "error.$": "$.error",
+                                "message": "Failed to generate loan terms after approval"
+                            },
+                            "End": true
+                        },
+                        "ApprovalNotificationFailed": {
+                            "Type": "Pass",
+                            "Comment": "Approval notification failed",
+                            "Parameters": {
+                                "status": "APPROVAL_NOTIFICATION_FAILED",
+                                "errorTime.$": "$$.State.EnteredTime",
+                                "error.$": "$.error",
+                                "loan_terms.$": "$.loanTermsResult.terms_summary",
+                                "message": "Loan terms generated but customer notification failed"
+                            },
+                            "End": true
+                        },
+                        "Manual_Disburse_Loan": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:states:::lambda:invoke",
+                            "Comment": "Disburse approved loan amount via transaction module (idempotent)",
+                            "Parameters": {
+                                "FunctionName": "aibank-transaction-module",
+                                "Payload": {
+                                    "action": "disburse_loan",
+                                    "customer_id.$": "$.processingContext.customer_id",
+                                    "application_id.$": "$.processingContext.application_id",
+                                    "amount.$": "$.loan_data.amount",
+                                    "loan_type.$": "$.loan_data.loan_type"
+                                }
+                            },
+                            "ResultPath": "$.disbursementResult",
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 2,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "Catch": [
+                                {
+                                    "ErrorEquals": [
+                                        "States.ALL"
+                                    ],
+                                    "Next": "SendApprovalNotification",
+                                    "ResultPath": "$.disbursementError"
+                                }
+                            ],
+                            "Next": "SendApprovalNotification"
+                        }
+                    }
+                }
+            ],
+            "End": true
+        },
+        "RejectionPath": {
+            "Type": "Parallel",
+            "Comment": "Process rejected loan applications",
+            "Branches": [
+                {
+                    "StartAt": "AnalyzeRejectionReasons",
+                    "States": {
+                        "AnalyzeRejectionReasons": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-pl-automation-decision-engine",
+                            "Comment": "Analyze rejection reasons and generate recommendations",
+                            "Parameters": {
+                                "application_id.$": "$.processingContext.application_id",
+                                "customer_id.$": "$.processingContext.customer_id",
+                                "five_cs_results.$": "$.loanUnderwriting.Payload.five_cs_analysis",
+                                "risk_assessment_results.$": "$.loanUnderwriting.Payload.underwriting_recommendations",
+                                "decision_factors.$": "$.loanUnderwriting.Payload.underwriting_decision",
+                                "manual_review_result.$": "$.manualReviewResult.manual_review_result"
+                            },
+                            "ResultPath": "$.rejectionAnalysisResult",
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "Catch": [
+                                {
+                                    "ErrorEquals": [
+                                        "States.ALL"
+                                    ],
+                                    "Next": "RejectionAnalysisFailed",
+                                    "ResultPath": "$.error"
+                                }
+                            ],
+                            "Next": "SendRejectionNotification"
+                        },
+                        "SendRejectionNotification": {
+                            "Type": "Task",
+                            "Resource": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-pl-automation-notification-dispatcher",
+                            "Comment": "Send professional rejection notification to customer",
+                            "Parameters": {
+                                "application_id.$": "$.processingContext.application_id",
+                                "customer_id.$": "$.processingContext.customer_id",
+                                "rejection_analysis.$": "$.rejectionAnalysisResult",
+                                "primary_rejection_reasons.$": "$.rejectionAnalysisResult.primary_rejection_reasons",
+                                "improvement_recommendations.$": "$.rejectionAnalysisResult.improvement_recommendations",
+                                "reapplication_guidance.$": "$.rejectionAnalysisResult.reapplication_guidance",
+                                "manual_review_result.$": "$.manualReviewResult.manual_review_result"
+                            },
+                            "ResultPath": "$.rejectionNotificationResult",
+                            "Retry": [
+                                {
+                                    "ErrorEquals": [
+                                        "Lambda.ServiceException",
+                                        "Lambda.AWSLambdaException",
+                                        "Lambda.SdkClientException"
+                                    ],
+                                    "IntervalSeconds": 2,
+                                    "MaxAttempts": 3,
+                                    "BackoffRate": 2
+                                }
+                            ],
+                            "Catch": [
+                                {
+                                    "ErrorEquals": [
+                                        "States.ALL"
+                                    ],
+                                    "Next": "RejectionNotificationFailed",
+                                    "ResultPath": "$.error"
+                                }
+                            ],
+                            "Next": "RejectionProcessComplete"
+                        },
+                        "RejectionProcessComplete": {
+                            "Type": "Pass",
+                            "Comment": "Rejection process completed successfully",
+                            "Parameters": {
+                                "status": "REJECTED_AND_NOTIFIED",
+                                "completedAt.$": "$$.State.EnteredTime",
+                                "customer_id.$": "$.processingContext.customer_id",
+                                "application_id.$": "$.processingContext.application_id",
+                                "final_decision": "rejected",
+                                "rejection_reasons.$": "$.rejectionAnalysisResult.primary_rejection_reasons",
+                                "notification_sent": true,
+                                "message": "Loan rejected and customer notified with constructive feedback",
+                                "processingResults.$": "$"
+                            },
+                            "End": true
+                        },
+                        "RejectionAnalysisFailed": {
+                            "Type": "Pass",
+                            "Comment": "Rejection analysis failed",
+                            "Parameters": {
+                                "status": "REJECTION_ANALYSIS_FAILED",
+                                "errorTime.$": "$$.State.EnteredTime",
+                                "error.$": "$.error",
+                                "message": "Failed to analyze rejection reasons"
+                            },
+                            "End": true
+                        },
+                        "RejectionNotificationFailed": {
+                            "Type": "Pass",
+                            "Comment": "Rejection notification failed",
+                            "Parameters": {
+                                "status": "REJECTION_NOTIFICATION_FAILED",
+                                "errorTime.$": "$$.State.EnteredTime",
+                                "error.$": "$.error",
+                                "rejection_analysis.$": "$.rejectionAnalysisResult",
+                                "message": "Rejection analyzed but customer notification failed"
+                            },
+                            "End": true
+                        }
+                    }
+                }
+            ],
+            "End": true
+        },
+        "Auto_Decision_Complete": {
+            "Type": "Pass",
+            "Comment": "Auto-decision processing complete",
+            "Parameters": {
+                "status": "COMPLETED_AUTO_DECISION",
+                "completedAt.$": "$$.State.EnteredTime",
+                "message": "Loan auto-approved and customer notified"
+            },
+            "End": true
+        },
+        "Check_Auto_Disbursement": {
+            "Type": "Choice",
+            "Comment": "Disburse only if auto-decision was APPROVE (skip for AUTO_REJECT)",
+            "Choices": [
+                {
+                    "Variable": "$.loanUnderwriting.Payload.underwriting_decision.decision",
+                    "StringEquals": "APPROVE",
+                    "Next": "Auto_Disburse_Loan"
+                }
+            ],
+            "Default": "Auto_Decision_Complete"
+        },
+        "Auto_Disburse_Loan": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Comment": "Disburse approved loan amount via transaction module (idempotent)",
+            "Parameters": {
+                "FunctionName": "aibank-transaction-module",
+                "Payload": {
+                    "action": "disburse_loan",
+                    "customer_id.$": "$.processingContext.customer_id",
+                    "application_id.$": "$.processingContext.application_id",
+                    "amount.$": "$.loan_data.amount",
+                    "loan_type.$": "$.loan_data.loan_type"
+                }
+            },
+            "ResultPath": "$.disbursementResult",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "Lambda.ServiceException",
+                        "Lambda.AWSLambdaException",
+                        "Lambda.SdkClientException"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                }
+            ],
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Auto_Decision_Complete",
+                    "ResultPath": "$.disbursementError"
+                }
+            ],
+            "Next": "Auto_Decision_Complete"
+        }
+    }
+}

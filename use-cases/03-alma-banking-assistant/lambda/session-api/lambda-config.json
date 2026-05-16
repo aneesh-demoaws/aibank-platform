@@ -1,0 +1,11 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.handler",
+    "MemorySize": 256,
+    "Timeout": 30,
+    "Environment": {
+        "SESSION_TABLE": "aibank-session-routing",
+        "DEPLOY_VERSION": "multigroup-fix-1"
+    },
+    "Description": ""
+}

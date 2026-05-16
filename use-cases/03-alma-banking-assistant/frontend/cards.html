@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cards — AI Bank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
+  <script type="module" crossorigin src="/assets/index-CoiJKZVU.js"></script>
+  <style>
+    .nb-content { max-width: 1200px; }
+
+    .nba-hero {
+      background: linear-gradient(135deg, var(--nb-primary) 0%, #0f2040 55%, #0a2a1e 100%);
+      border-radius: var(--nb-radius); padding: var(--nb-space-lg) var(--nb-space-xl);
+      color: white; margin-bottom: var(--nb-space-lg); position: relative; overflow: hidden;
+    }
+    .nba-hero::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 85% 20%, rgba(0,212,170,0.18), transparent 55%);
+      pointer-events: none;
+    }
+    .nba-hero-content { position: relative; z-index: 1; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .nba-hero .icon {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--nb-accent) 0%, #00b894 100%);
+      display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+      flex-shrink: 0; color: var(--nb-primary);
+      box-shadow: 0 4px 20px rgba(0,212,170,0.35);
+    }
+    .nba-hero h2 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+    .nba-hero .sub { color: rgba(255,255,255,0.65); font-size: 0.85rem; margin: 0; }
+    .nba-hero .attribution {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 10px;
+      padding: 4px 12px; background: rgba(0,212,170,0.15); border: 1px solid rgba(0,212,170,0.35);
+      border-radius: 99px; font-size: 0.72rem; color: rgba(255,255,255,0.85); font-weight: 500;
+    }
+    .nba-hero .attribution .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--nb-accent); box-shadow: 0 0 6px var(--nb-accent); animation: nba-pulse 2s infinite; }
+    @keyframes nba-pulse { 0%,100% { opacity:1 } 50% { opacity: 0.4 } }
+
+    .nba-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--nb-space-md); }
+    .nba-chip {
+      padding: 7px 14px; border-radius: 99px; font-size: 0.78rem; font-weight: 600;
+      background: white; border: 1px solid var(--nb-border); color: var(--nb-text-secondary);
+      cursor: pointer; transition: all 0.15s; user-select: none;
+    }
+    .nba-chip:hover { border-color: var(--nb-accent); color: var(--nb-accent); }
+    .nba-chip.active { background: var(--nb-primary); border-color: var(--nb-primary); color: white; }
+    .nba-chip .count { margin-left: 6px; opacity: 0.65; font-weight: 500; }
+    .nba-chip.active .count { color: rgba(255,255,255,0.85); }
+
+    .nba-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--nb-space-md); }
+    .nba-tile {
+      background: var(--nb-card); border: 1px solid var(--nb-border); border-radius: var(--nb-radius);
+      padding: var(--nb-space-lg); display: flex; flex-direction: column; gap: 12px;
+      position: relative; transition: all 0.2s; overflow: hidden;
+    }
+    .nba-tile::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--cat-color, var(--nb-accent));
+    }
+    .nba-tile:hover { box-shadow: var(--nb-shadow-lg); transform: translateY(-1px); }
+    .nba-tile-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .nba-cat-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; border-radius: 99px; font-size: 0.68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      background: var(--cat-bg, #e5e7eb); color: var(--cat-color, #374151);
+    }
+    .nba-confidence {
+      font-size: 0.68rem; color: var(--nb-text-muted); display: flex; align-items: center; gap: 4px;
+    }
+    .nba-tile h3 { font-size: 1.05rem; font-weight: 700; color: var(--nb-text-primary); margin: 0; line-height: 1.3; }
+    .nba-reasoning {
+      font-size: 0.82rem; color: var(--nb-text-secondary); line-height: 1.55; margin: 0;
+      padding: 10px 12px; background: var(--nb-bg); border-radius: var(--nb-radius-sm);
+      border-left: 2px solid var(--cat-color, var(--nb-accent));
+    }
+    .nba-reasoning::before { content: '💡 '; font-style: normal; }
+    .nba-metrics {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 4px;
+    }
+    .nba-metric {
+      padding: 10px 12px; background: var(--nb-bg); border-radius: var(--nb-radius-sm);
+    }
+    .nba-metric .label { font-size: 0.66rem; color: var(--nb-text-muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .nba-metric .value { font-size: 1rem; font-weight: 700; color: var(--nb-text-primary); font-family: var(--nb-font-mono); margin-top: 2px; }
+    .nba-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 8px; }
+    .nba-btn {
+      flex: 1; padding: 10px 14px; border-radius: var(--nb-radius-sm); font-size: 0.82rem; font-weight: 600;
+      text-decoration: none; text-align: center; cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .nba-btn.primary { background: var(--nb-primary); color: white; }
+    .nba-btn.primary:hover { background: #0d2137; transform: translateY(-1px); }
+    .nba-btn.secondary { background: transparent; color: var(--nb-text-secondary); border: 1px solid var(--nb-border); }
+    .nba-btn.secondary:hover { border-color: var(--nb-accent); color: var(--nb-accent); }
+
+    /* Category color mapping — set as CSS vars for the tile */
+    .cat-opportunity { --cat-color: #059669; --cat-bg: #d1fae5; }
+    .cat-wellness    { --cat-color: #2563eb; --cat-bg: #dbeafe; }
+    .cat-security    { --cat-color: #dc2626; --cat-bg: #fee2e2; }
+    .cat-profile     { --cat-color: #7c3aed; --cat-bg: #ede9fe; }
+    .cat-loyalty     { --cat-color: #d97706; --cat-bg: #fef3c7; }
+    .cat-cross_sell  { --cat-color: #0891b2; --cat-bg: #cffafe; }
+
+    .nba-empty { text-align: center; padding: 60px 20px; color: var(--nb-text-muted); grid-column: 1 / -1; }
+    .nba-empty .icon-lg { font-size: 3rem; margin-bottom: 12px; }
+    .nba-loading { grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--nb-text-muted); }
+
+    @media (max-width: 600px) {
+      .nba-hero-content { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+  <style>
+    /* === Premium Banking Design Tokens === */
+    :root {
+      --pb-space-3xs: 4px;
+      --pb-space-2xs: 8px;
+      --pb-space-xs: 12px;
+      --pb-space-sm: 16px;
+      --pb-space-md: 22px;
+      --pb-space-lg: 32px;
+      --pb-space-xl: 48px;
+      --pb-radius-sm: 8px;
+      --pb-radius-md: 12px;
+      --pb-radius-lg: 18px;
+      --pb-radius-pill: 999px;
+      --pb-shadow-xs: 0 1px 2px rgba(0,0,0,.05);
+      --pb-shadow-sm: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --pb-shadow-md: 0 8px 24px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04);
+      --pb-shadow-lg: 0 18px 40px rgba(0,0,0,.10), 0 6px 12px rgba(0,0,0,.06);
+      --pb-shadow-glow: 0 0 0 1px rgba(0,212,170,.15), 0 8px 28px rgba(0,212,170,.18);
+      --pb-ease: cubic-bezier(.22,.61,.36,1);
+      --pb-easing-spring: cubic-bezier(.34,1.56,.64,1);
+      --pb-green: #16a34a; --pb-green-bg: rgba(22,163,74,.10); --pb-green-soft: rgba(22,163,74,.06);
+      --pb-red: #dc2626; --pb-red-bg: rgba(220,38,38,.10); --pb-red-soft: rgba(220,38,38,.06);
+      --pb-amber: #d97706; --pb-amber-bg: rgba(217,119,6,.10); --pb-amber-soft: rgba(217,119,6,.06);
+      --pb-blue: #2563eb; --pb-blue-bg: rgba(37,99,235,.10); --pb-blue-soft: rgba(37,99,235,.06);
+      --pb-purple: #7c3aed; --pb-purple-bg: rgba(124,58,237,.10);
+      --pb-mono: 'JetBrains Mono','Fira Code','SF Mono',Menlo,monospace;
+    }
+
+    /* Page wrapper */
+    .pb-page { width: 100%; max-width: 1600px; padding: 0 var(--pb-space-md) var(--pb-space-xl); }
+    .pb-page-head { display:flex; justify-content:space-between; align-items:flex-end; gap:var(--pb-space-md); flex-wrap:wrap; margin-bottom:var(--pb-space-lg); }
+    .pb-page-title { font-size: 1.75rem; font-weight: 800; letter-spacing:-0.02em; line-height:1.1; margin:6px 0 4px; color: var(--nb-text); }
+    .pb-page-subtitle { font-size: 0.92rem; color: var(--nb-text-muted); margin: 0; font-weight:500; }
+
+    /* Premium card */
+    .pb-card { background: var(--nb-card); border: 1px solid var(--nb-border); border-radius: var(--pb-radius-md); box-shadow: var(--pb-shadow-xs); transition: box-shadow .25s var(--pb-ease), transform .25s var(--pb-ease); }
+    .pb-card.pb-elevated { box-shadow: var(--pb-shadow-sm); }
+    .pb-card.pb-hoverable:hover { box-shadow: var(--pb-shadow-md); transform: translateY(-2px); }
+    .pb-card-pad { padding: var(--pb-space-md) var(--pb-space-md); }
+
+    /* Hero (gradient banner) */
+    .pb-hero { background: linear-gradient(135deg, #0A1628 0%, #0d2235 50%, #102d44 100%); color:#fff; padding: var(--pb-space-lg); border-radius: var(--pb-radius-lg); box-shadow: var(--pb-shadow-md); position:relative; overflow:hidden; }
+    .pb-hero::before { content:''; position:absolute; top:-30%; right:-10%; width:300px; height:300px; background: radial-gradient(circle, rgba(0,212,170,.18) 0%, transparent 70%); pointer-events:none; }
+    .pb-hero-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.7; font-weight: 700; margin-bottom: var(--pb-space-2xs); position:relative; }
+    .pb-hero-value { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.025em; line-height:1; font-family: var(--pb-mono); position:relative; }
+    .pb-hero-meta { display:flex; gap:var(--pb-space-md); margin-top:var(--pb-space-md); flex-wrap:wrap; font-size: 0.78rem; opacity: 0.85; position:relative; }
+    .pb-hero-meta-item { display:flex; flex-direction:column; gap:2px; }
+    .pb-hero-meta-item .v { font-weight:700; }
+
+    /* KPI grid */
+    .pb-kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:var(--pb-space-xs); margin-bottom: var(--pb-space-md); }
+    .pb-kpi { background: var(--nb-card); border: 1px solid var(--nb-border); border-radius: var(--pb-radius-md); padding: var(--pb-space-sm); position: relative; overflow:hidden; }
+    .pb-kpi-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nb-text-muted); font-weight: 700; margin-bottom: 4px; }
+    .pb-kpi-value { font-size: 1.4rem; font-weight: 800; font-family: var(--pb-mono); letter-spacing: -0.01em; }
+    .pb-kpi-trend { font-size: 0.74rem; margin-top: 6px; display:inline-flex; align-items:center; gap:4px; font-weight:600; }
+    .pb-kpi.green .pb-kpi-value { color: var(--pb-green); }
+    .pb-kpi.red .pb-kpi-value { color: var(--pb-red); }
+    .pb-kpi.amber .pb-kpi-value { color: var(--pb-amber); }
+    .pb-kpi.blue .pb-kpi-value { color: var(--pb-blue); }
+    .pb-kpi.purple .pb-kpi-value { color: var(--pb-purple); }
+    .pb-kpi-icon { position:absolute; top:14px; right:14px; opacity:.55; font-size: 1rem; }
+
+    /* Section heading */
+    .pb-section-head { display:flex; justify-content:space-between; align-items:center; margin: var(--pb-space-lg) 0 var(--pb-space-sm); gap:var(--pb-space-sm); flex-wrap:wrap; }
+    .pb-section-title { font-size: 1.05rem; font-weight: 700; margin:0; }
+    .pb-section-subtitle { font-size: 0.78rem; color: var(--nb-text-muted); margin: 2px 0 0; }
+    .pb-section-link { color: var(--nb-accent); font-size: 0.82rem; font-weight: 600; text-decoration: none; }
+    .pb-section-link:hover { text-decoration: underline; }
+
+    /* Buttons */
+    .pb-btn { display:inline-flex; align-items:center; justify-content:center; gap: 6px; padding: 10px 18px; border-radius: var(--pb-radius-sm); font-size: 0.85rem; font-weight: 700; font-family: inherit; cursor: pointer; border: 1px solid transparent; transition: all .15s var(--pb-ease); text-decoration: none; }
+    .pb-btn-primary { background: var(--nb-accent); color: #0A1628; box-shadow: 0 1px 3px rgba(0,212,170,.25); }
+    .pb-btn-primary:hover { background: #00bf99; box-shadow: 0 6px 16px rgba(0,212,170,.35); transform: translateY(-1px); }
+    .pb-btn-secondary { background: rgba(255,255,255,.05); color: var(--nb-text); border-color: var(--nb-border); }
+    .pb-btn-secondary:hover { background: rgba(255,255,255,.08); }
+    .pb-btn-ghost { background: transparent; color: var(--nb-text-muted); }
+    .pb-btn-ghost:hover { color: var(--nb-text); background: rgba(255,255,255,.04); }
+    .pb-btn-danger { background: var(--pb-red); color: #fff; }
+    .pb-btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
+
+    /* Status chip */
+    .pb-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius: var(--pb-radius-pill); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform:uppercase; }
+    .pb-chip.green { background: var(--pb-green-bg); color: var(--pb-green); }
+    .pb-chip.red { background: var(--pb-red-bg); color: var(--pb-red); }
+    .pb-chip.amber { background: var(--pb-amber-bg); color: var(--pb-amber); }
+    .pb-chip.blue { background: var(--pb-blue-bg); color: var(--pb-blue); }
+    .pb-chip.neutral { background: rgba(255,255,255,.06); color: var(--nb-text-muted); }
+
+    /* Form inputs */
+    .pb-field { margin-bottom: var(--pb-space-sm); }
+    .pb-field label { display:block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--nb-text-muted); margin-bottom: 6px; font-weight: 700; }
+    .pb-input, .pb-select { width:100%; background: rgba(255,255,255,.04); border: 1px solid var(--nb-border); border-radius: var(--pb-radius-sm); padding: 11px 14px; color: var(--nb-text); font-size: 0.92rem; font-family: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .pb-input:focus, .pb-select:focus { border-color: var(--nb-accent); box-shadow: 0 0 0 3px rgba(0,212,170,.15); }
+    .pb-input.pb-amount { font-family: var(--pb-mono); font-size: 1.05rem; font-weight: 700; }
+
+    /* Skeleton loader */
+    @keyframes pb-shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+    .pb-skel { background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 100%); background-size: 600px 100%; animation: pb-shimmer 1.6s linear infinite; border-radius: 6px; height: 14px; }
+
+    /* Account/transaction list rows */
+    .pb-row { display:flex; align-items:center; justify-content:space-between; padding: 14px var(--pb-space-md); border-bottom: 1px solid var(--nb-border); gap: var(--pb-space-sm); transition: background .15s; }
+    .pb-row:last-child { border-bottom: none; }
+    .pb-row:hover { background: rgba(255,255,255,.025); }
+    .pb-row-icon { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size: 1.05rem; flex-shrink:0; }
+    .pb-row-icon.green { background: var(--pb-green-bg); color: var(--pb-green); }
+    .pb-row-icon.red { background: var(--pb-red-bg); color: var(--pb-red); }
+    .pb-row-icon.amber { background: var(--pb-amber-bg); color: var(--pb-amber); }
+    .pb-row-icon.blue { background: var(--pb-blue-bg); color: var(--pb-blue); }
+    .pb-row-icon.neutral { background: rgba(255,255,255,.05); color: var(--nb-text); }
+    .pb-row-main { flex:1; min-width:0; }
+    .pb-row-title { font-size: 0.92rem; font-weight: 600; color: var(--nb-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pb-row-meta { font-size: 0.72rem; color: var(--nb-text-muted); margin-top: 2px; }
+    .pb-row-amt { font-size: 1rem; font-weight: 700; font-family: var(--pb-mono); white-space:nowrap; flex-shrink:0; }
+
+    /* Empty state */
+    .pb-empty { padding: var(--pb-space-xl) var(--pb-space-md); text-align:center; color: var(--nb-text-muted); }
+    .pb-empty-icon { font-size: 2.4rem; margin-bottom: var(--pb-space-2xs); opacity: 0.6; }
+    .pb-empty-title { font-size: 0.95rem; font-weight: 700; color: var(--nb-text); margin-bottom: 4px; }
+    .pb-empty-sub { font-size: 0.82rem; }
+
+    /* Tabs */
+    .pb-tabs { display:flex; gap: 0; border-bottom: 1px solid var(--nb-border); margin-bottom: var(--pb-space-md); }
+    .pb-tab { background: none; border: none; padding: 12px 18px; font-size: 0.85rem; font-weight: 600; color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; }
+    .pb-tab.active { color: var(--nb-text); border-bottom-color: var(--nb-accent); }
+    .pb-tab:hover:not(.active) { color: var(--nb-text); }
+
+    /* Toast */
+    @keyframes pb-toast-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .pb-toast { position: fixed; top: 20px; right: 20px; padding: 14px 22px; border-radius: var(--pb-radius-sm); color:#fff; font-weight: 600; z-index: 9999; box-shadow: var(--pb-shadow-lg); animation: pb-toast-in .3s var(--pb-easing-spring); font-size: 0.88rem; max-width: 340px; }
+    .pb-toast.success { background: var(--pb-green); }
+    .pb-toast.error { background: var(--pb-red); }
+  </style>
+
+</head>
+<body>
+<div class="nb-app">
+  <!-- Sidebar -->
+  <nav class="nb-sidebar" id="sidebar">
+    <div class="nb-sidebar-user" style="border-top:none;border-bottom:1px solid rgba(255,255,255,.1)">
+      <div class="avatar" id="avatarInitials" style="width:36px;height:36px;border-radius:50%;background:var(--nb-accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:var(--nb-primary)">?</div>
+      <div>
+        <div class="name" id="sidebarName" style="font-size:.85rem;font-weight:600">Loading...</div>
+        <div class="role" style="font-size:.7rem;color:var(--nb-text-muted)">Customer</div>
+      </div>
+      <button class="logout-btn" onclick="logout()" title="Sign out" style="margin-left:auto;background:none;border:none;color:var(--nb-text-muted);cursor:pointer;font-size:1.1rem;padding:4px">⏻</button>
+    </div>
+    <div class="nb-sidebar-nav">
+      <div class="nb-nav-section">
+        <div class="nb-nav-section-title">Menu</div>
+        <a class="nb-nav-item " href="/banking/dashboard.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Dashboard</a>
+ <a class="nb-nav-item " href="/banking/accounts.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span> Accounts</a>
+ <a class="nb-nav-item " href="/banking/transfers.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span> Transfers</a>
+ <a class="nb-nav-item " href="/banking/transactions.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span> Transactions</a>
+ <a class="nb-nav-item " href="/banking/loans.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> Loans</a>
+ <a class="nb-nav-item active" href="/banking/cards.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Cards</a>
+ <a class="nb-nav-item " href="/banking/for-you.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> For You</a>
+ <a class="nb-nav-item " href="/banking/financial-health.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Financial Health</a>
+ <a class="nb-nav-item " href="/banking/support.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Support</a>
+      </div>
+    </div>
+    <div class="nb-sidebar-logo" style="border-bottom:none;border-top:1px solid rgba(255,255,255,.1)">
+      <div>
+        <h1><span class="bank-name">AI</span> Bank</h1>
+        <small>Online Banking</small>
+      </div>
+    </div>
+  </nav>
+
+  <main class="nb-main">
+    <div class="pb-page">
+      <div class="pb-page-head">
+        <div>
+          <h1 class="pb-page-title">My Cards</h1>
+          <p class="pb-page-subtitle">Manage your debit cards, view recent activity, and control card features</p>
+        </div>
+        <button id="reqCardBtn" class="pb-btn pb-btn-primary">+ Request New Card</button>
+      </div>
+
+      <!-- Cards grid using dashboard's card-visual style -->
+      <div id="cardsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--pb-space-md);margin-bottom:var(--pb-space-lg)">
+        <div class="pb-card pb-card-pad"><div class="pb-skel" style="height:230px"></div></div>
+        <div class="pb-card pb-card-pad"><div class="pb-skel" style="height:230px"></div></div>
+      </div>
+
+      <!-- 2-col layout: spending + KPIs -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:var(--pb-space-md);margin-bottom:var(--pb-space-md)" class="pb-cards-grid">
+        <div class="pb-card pb-elevated pb-card-pad">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div class="pb-section-title">Spending by Category</div>
+              <div class="pb-section-subtitle">Last 30 days · combined across all cards</div>
+            </div>
+            <a href="/banking/transactions.html" class="pb-section-link">View all transactions →</a>
+          </div>
+          <div id="categoryBreakdown"><div class="pb-skel" style="height:14px;margin-bottom:8px"></div><div class="pb-skel" style="height:14px;width:80%"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--pb-space-xs)">
+          <div class="pb-kpi red">
+            <div class="pb-kpi-label">Total Spent (30d)</div>
+            <div class="pb-kpi-value" id="totalSpent">BHD —</div>
+            <div class="pb-kpi-trend" id="spentChange"></div>
+            <div class="pb-kpi-icon">💸</div>
+          </div>
+          <div class="pb-kpi blue">
+            <div class="pb-kpi-label">Transactions</div>
+            <div class="pb-kpi-value" id="totalTxns">—</div>
+            <div class="pb-kpi-trend" id="avgTxn"></div>
+            <div class="pb-kpi-icon">#</div>
+          </div>
+          <div class="pb-kpi amber">
+            <div class="pb-kpi-label">Top Category</div>
+            <div class="pb-kpi-value" id="topCat" style="font-size:1rem">—</div>
+            <div class="pb-kpi-trend" id="topCatAmt"></div>
+            <div class="pb-kpi-icon">🏆</div>
+          </div>
+          <div class="pb-kpi green">
+            <div class="pb-kpi-label">Largest Spend</div>
+            <div class="pb-kpi-value" id="largestSpend" style="font-size:1.1rem">BHD —</div>
+            <div class="pb-kpi-trend" id="largestSpendDesc" style="font-size:0.7rem"></div>
+            <div class="pb-kpi-icon">⭐</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card Controls -->
+      <div class="pb-section-head"><div class="pb-section-title">Card Controls</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--pb-space-sm)">
+        <div class="pb-card pb-card-pad pb-hoverable" style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
+          <div style="font-size:1.5rem">🔒</div>
+          <div><div style="font-size:0.92rem;font-weight:700;margin-bottom:3px">Freeze / Unfreeze</div><div style="font-size:0.78rem;color:var(--nb-text-muted)">Temporarily lock if lost</div></div>
+        </div>
+        <div class="pb-card pb-card-pad pb-hoverable" style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
+          <div style="font-size:1.5rem">🌍</div>
+          <div><div style="font-size:0.92rem;font-weight:700;margin-bottom:3px">International Use</div><div style="font-size:0.78rem;color:var(--nb-text-muted)">Enable for travel</div></div>
+        </div>
+        <div class="pb-card pb-card-pad pb-hoverable" style="display:flex;align-items:flex-start;gap:12px;cursor:pointer">
+          <div style="font-size:1.5rem">💸</div>
+          <div><div style="font-size:0.92rem;font-weight:700;margin-bottom:3px">Spending Limits</div><div style="font-size:0.78rem;color:var(--nb-text-muted)">Daily / monthly caps</div></div>
+        </div>
+        <a href="tel:+97380009999" class="pb-card pb-card-pad pb-hoverable" style="display:flex;align-items:flex-start;gap:12px;background:var(--pb-red-soft);border-color:rgba(220,38,38,0.25);text-decoration:none;color:inherit">
+          <div style="font-size:1.5rem">🚨</div>
+          <div><div style="font-size:0.92rem;font-weight:700;margin-bottom:3px;color:var(--pb-red)">Lost / Stolen?</div><div style="font-size:0.78rem;color:var(--nb-text-muted)">Call <span style="color:var(--pb-red);font-family:var(--pb-mono);font-weight:700">+973 8000 9999</span></div></div>
+        </a>
+      </div>
+      <p style="font-size:0.74rem;color:var(--nb-text-muted);margin-top:14px;font-style:italic">Self-service card controls coming soon. For now, contact your branch or the Support page.</p>
+    </div>
+
+    <style>
+      @media(max-width:980px){ .pb-cards-grid { grid-template-columns: 1fr !important; } }
+
+      /* === Dashboard-style card visual === */
+      .card-visual-pro {
+        border-radius: 16px;
+        padding: 28px 28px 24px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 12px 36px rgba(0,0,0,0.28), 0 4px 8px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.16);
+        aspect-ratio: 1.586 / 1;
+        min-height: 220px;
+        display: flex; flex-direction: column; justify-content: space-between;
+        transition: transform 0.35s var(--pb-ease), box-shadow 0.35s var(--pb-ease);
+        cursor: default;
+      }
+      .card-visual-pro:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 18px 44px rgba(0,0,0,0.32), 0 6px 12px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.20);
+      }
+
+      /* Variants — same gradient style as dashboard, color-shifted by account type */
+      .cv-savings  { background: linear-gradient(135deg, #1a3a5c 0%, #0a1628 60%, #0d2a1a 100%); }
+      .cv-premium  { background: linear-gradient(135deg, #2a2419 0%, #0d0a05 60%, #1a1208 100%); }
+      .cv-joint    { background: linear-gradient(135deg, #0d4a3d 0%, #051a14 60%, #0a3528 100%); }
+      .cv-current  { background: linear-gradient(135deg, #3d2865 0%, #1a0a30 60%, #2a0d4a 100%); }
+      .cv-salary   { background: linear-gradient(135deg, #5c2a1a 0%, #28100a 60%, #4a1a0d 100%); }
+
+      /* Accent circles — like dashboard */
+      .card-visual-pro::before {
+        content: ''; position: absolute; top: -40px; right: -40px;
+        width: 160px; height: 160px; border-radius: 50%;
+        background: rgba(0,212,170,0.13); pointer-events: none;
+      }
+      .card-visual-pro::after {
+        content: ''; position: absolute; bottom: -30px; right: 30px;
+        width: 110px; height: 110px; border-radius: 50%;
+        background: rgba(0,212,170,0.07); pointer-events: none;
+      }
+      /* Premium gets gold accents instead of mint */
+      .cv-premium::before { background: rgba(201,168,76,0.16); }
+      .cv-premium::after  { background: rgba(201,168,76,0.09); }
+
+      /* Inner content above accent circles */
+      .card-visual-pro > * { position: relative; z-index: 1; }
+
+      .cv-top { display: flex; justify-content: space-between; align-items: flex-start; }
+      .cv-meta { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.14em; opacity: 0.7; font-weight: 700; }
+      .cv-type { font-size: 1rem; font-weight: 700; margin-top: 4px; text-transform: capitalize; }
+      .cv-status { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; background: rgba(255,255,255,0.13); backdrop-filter: blur(4px); }
+
+      /* Chip — gold */
+      .cv-chip svg { width: 38px; height: 28px; display: block; }
+
+      /* Card number */
+      .cv-number { font-family: var(--pb-mono); font-size: 1.1rem; letter-spacing: 0.18em; color: rgba(255,255,255,0.85); font-weight: 600; }
+
+      /* Bottom row */
+      .cv-bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 12px; }
+      .cv-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.55; font-weight: 700; margin-bottom: 2px; }
+      .cv-value { font-size: 0.92rem; font-weight: 700; font-family: var(--pb-mono); }
+
+      /* Network logo (Mastercard-like) */
+      .cv-network { opacity: 0.92; }
+      .cv-network svg { width: 44px; height: 28px; display: block; }
+
+      /* Cardholder name */
+      .cv-cardholder { margin-top: 14px; margin-bottom: 6px; }
+      .cv-name { font-size: 0.92rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.95); margin-top: 2px; }
+    </style>
+
+    <script>
+      function fmtBhd(n){ return (parseFloat(n)||0).toLocaleString('en',{minimumFractionDigits:3,maximumFractionDigits:3}); }
+
+      function pickVariant(accountType, idx) {
+        const t = (accountType||'').toLowerCase();
+        if (t === 'savings') return 'cv-savings';
+        if (t === 'premium') return 'cv-premium';
+        if (t === 'joint') return 'cv-joint';
+        if (t === 'current' || t === 'checking') return 'cv-current';
+        if (t === 'salary') return 'cv-salary';
+        return ['cv-savings','cv-premium','cv-joint','cv-current','cv-salary'][idx % 5];
+      }
+
+      function chipSVG() {
+        return `<svg viewBox="0 0 32 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="30" height="22" rx="3" fill="#c8a84b" opacity="0.95"/>
+          <rect x="1" y="8" width="30" height="8" fill="#b8943b" opacity="0.55"/>
+          <rect x="8" y="1" width="1.5" height="22" fill="#b8943b" opacity="0.45"/>
+          <rect x="22.5" y="1" width="1.5" height="22" fill="#b8943b" opacity="0.45"/>
+        </svg>`;
+      }
+
+      function networkSVG(brand) {
+        if (brand === 'VISA') {
+          return `<svg viewBox="0 0 60 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <text x="30" y="18" font-family="Arial Black,sans-serif" font-style="italic" font-weight="900" font-size="18" fill="white" text-anchor="middle" letter-spacing="0.5">VISA</text>
+          </svg>`;
+        }
+        // Mastercard-style overlapping circles
+        return `<svg viewBox="0 0 44 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="14" r="11" fill="#eb001b" opacity="0.92"/>
+          <circle cx="28" cy="14" r="11" fill="#f79e1b" opacity="0.92"/>
+          <path d="M22 5.5a11 11 0 0 1 0 17 11 11 0 0 1 0-17z" fill="#ff5f00" opacity="0.95"/>
+        </svg>`;
+      }
+
+      function renderCardsFromAccounts(accounts) {
+        const cards = accounts.map((a, i) => {
+          const acctNum = a.account_number || a.account_id || '';
+          return {
+            variant: pickVariant(a.account_type, i),
+            type: a.account_type || 'Account',
+            brand: (() => {
+              const t = (a.account_type || '').toLowerCase();
+              if (t === 'premium') return 'Mastercard';
+              if (t === 'savings') return 'VISA';
+              if (t === 'joint') return 'Mastercard';
+              if (t === 'current' || t === 'checking') return 'VISA';
+              if (t === 'salary') return 'Mastercard';
+              return i % 2 === 0 ? 'Mastercard' : 'VISA';
+            })(),
+            last4: acctNum.slice(-4),
+            num: acctNum,
+            balance: parseFloat(a.balance) || 0,
+            currency: a.currency || 'BHD',
+            expires: '12/' + (new Date().getFullYear()+3).toString().slice(-2),
+            holderName: window._customerName || 'AI Bank Card',
+          };
+        });
+
+        if (!cards.length) {
+          document.getElementById('cardsList').innerHTML = `<div class="pb-card pb-card-pad pb-empty"><div class="pb-empty-icon">💳</div><div class="pb-empty-title">No cards on file</div><div class="pb-empty-sub">Click "Request New Card" to apply</div></div>`;
+          return;
+        }
+
+        document.getElementById('cardsList').innerHTML = cards.map(c => `
+          <div class="card-visual-pro ${c.variant}">
+            <div class="cv-top">
+              <div>
+                <div class="cv-meta">AI Bank · Debit</div>
+                <div class="cv-type">${c.type}</div>
+              </div>
+              <div class="cv-status">● Active</div>
+            </div>
+
+            <div class="cv-chip">${chipSVG()}</div>
+
+            <div>
+              <div class="cv-number">•••• •••• •••• ${c.last4}</div>
+              <div class="cv-cardholder">
+                <div class="cv-label">Cardholder</div>
+                <div class="cv-name">${(c.holderName || 'AI BANK CARD').toUpperCase()}</div>
+              </div>
+              <div class="cv-bottom">
+                <div>
+                  <div class="cv-label">Valid Thru</div>
+                  <div class="cv-value">${c.expires}</div>
+                </div>
+                <div class="cv-network">${networkSVG(c.brand)}</div>
+              </div>
+              <div style="position:absolute;top:24px;left:120px;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.12em;opacity:0.55;font-weight:700">Available</div>
+              <div style="position:absolute;top:38px;left:120px;font-family:var(--pb-mono);font-weight:700;font-size:0.95rem">${c.currency} ${fmtBhd(c.balance)}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      function categorize(desc) {
+        const d = (desc||'').toLowerCase();
+        if (/grocer|lulu|carrefour|spinney/.test(d))   return { name:'Groceries',     icon:'🛒', color:'var(--pb-green)' };
+        if (/shop|zara|h&m|city centre|mall/.test(d)) return { name:'Shopping',      icon:'🛍️', color:'var(--pb-purple)' };
+        if (/uber|taxi|fuel|petrol/.test(d))          return { name:'Transport',     icon:'🚗', color:'var(--pb-blue)' };
+        if (/food|restaurant|cafe|kfc|mcdonalds/.test(d)) return { name:'Dining',     icon:'🍽️', color:'var(--pb-amber)' };
+        if (/insurance/.test(d))                       return { name:'Insurance',    icon:'🛡️', color:'var(--pb-blue)' };
+        if (/transfer/.test(d))                        return { name:'Transfers',    icon:'🔄', color:'var(--pb-blue)' };
+        if (/loan|disbursement/.test(d))               return { name:'Loans',        icon:'📋', color:'var(--pb-amber)' };
+        if (/funland|entertain/.test(d))               return { name:'Entertainment',icon:'🎉', color:'var(--pb-purple)' };
+        if (/salary|payroll/.test(d))                  return { name:'Salary',       icon:'💼', color:'var(--pb-green)' };
+        return { name:'Other', icon:'•', color:'var(--nb-text-muted)' };
+      }
+
+      async function load() {
+        try {
+          const [meR, acctR, txnR] = await Promise.all([
+            fetch('/sessions/me',{credentials:'include'}),
+            fetch('/sessions/me/accounts',{credentials:'include'}),
+            fetch('/sessions/me/transactions?limit=300',{credentials:'include'}),
+          ]);
+          if (meR.ok) {
+            const me = await meR.json();
+            window._customerName = me.name || me.full_name || me.first_name || 'AI Bank Card';
+          }
+          if (acctR.status === 401) { location.href='/login.html'; return; }
+          const acctD = await acctR.json();
+          renderCardsFromAccounts(acctD.accounts || []);
+
+          if (txnR.ok) {
+            const txnD = await txnR.json();
+            const monthAgo = new Date(); monthAgo.setDate(monthAgo.getDate()-30);
+            const recent = (txnD.transactions||[]).filter(t => {
+              if (t.type === 'credit') return false;
+              const d = t.date ? new Date(t.date+'T00:00:00') : null;
+              return d && d >= monthAgo;
+            });
+            const totalSpent = recent.reduce((s,t) => s + Math.abs(parseFloat(t.amount)||0), 0);
+            document.getElementById('totalSpent').textContent = 'BHD ' + fmtBhd(totalSpent);
+            document.getElementById('totalTxns').textContent = recent.length;
+            document.getElementById('avgTxn').textContent = recent.length ? `Avg BHD ${fmtBhd(totalSpent/recent.length)}` : '';
+
+            const cats = {};
+            recent.forEach(t => {
+              const c = categorize(t.description);
+              if (!cats[c.name]) cats[c.name] = { total:0, count:0, icon:c.icon, color:c.color };
+              cats[c.name].total += Math.abs(parseFloat(t.amount)||0);
+              cats[c.name].count++;
+            });
+            const sorted = Object.entries(cats).sort((a,b) => b[1].total - a[1].total);
+
+            if (sorted.length) {
+              const [topName, topData] = sorted[0];
+              document.getElementById('topCat').textContent = topData.icon + ' ' + topName;
+              document.getElementById('topCatAmt').textContent = 'BHD ' + fmtBhd(topData.total);
+              const maxTotal = sorted[0][1].total;
+              document.getElementById('categoryBreakdown').innerHTML = sorted.slice(0,8).map(([name, data]) => {
+                const pct = maxTotal > 0 ? (data.total / maxTotal) * 100 : 0;
+                return `
+                  <div style="margin-bottom:14px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                      <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:600"><span style="font-size:1rem">${data.icon}</span>${name}</div>
+                      <div style="font-size:0.85rem;font-weight:700;font-family:var(--pb-mono)">BHD ${fmtBhd(data.total)} <span style="color:var(--nb-text-muted);font-weight:500;font-size:0.74rem">· ${data.count} txn${data.count>1?'s':''}</span></div>
+                    </div>
+                    <div style="height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden">
+                      <div style="height:100%;width:${pct}%;background:${data.color};border-radius:3px;transition:width 0.5s"></div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            } else {
+              document.getElementById('categoryBreakdown').innerHTML = `<div class="pb-empty"><div class="pb-empty-sub">No spending in the last 30 days</div></div>`;
+            }
+
+            const largest = recent.sort((a,b) => Math.abs(parseFloat(b.amount)||0) - Math.abs(parseFloat(a.amount)||0))[0];
+            if (largest) {
+              document.getElementById('largestSpend').textContent = 'BHD ' + fmtBhd(Math.abs(parseFloat(largest.amount)||0));
+              document.getElementById('largestSpendDesc').textContent = (largest.description||'').slice(0,30);
+            }
+          }
+        } catch(e){
+          document.getElementById('cardsList').innerHTML = `<div class="pb-card pb-card-pad" style="color:var(--pb-red)">Error: ${e.message}</div>`;
+        }
+      }
+
+      document.getElementById('reqCardBtn').addEventListener('click', () => {
+        alert('Card request feature coming soon.\n\nFor immediate card requests, please visit your branch or call 24/7 support: +973 8000 1234.');
+      });
+
+      load();
+    </script>
+</main>
+</div>
+
+<script>
+  // ── Rendering primitives ────────────────────────────────────────────────
+
+  const fmtBHD = (v) => {
+    const n = typeof v === 'number' ? v : parseFloat(v || 0);
+    if (!n || isNaN(n)) return null;
+    return 'BHD ' + n.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  };
+
+  const CAT_LABEL = {
+    opportunity: 'Opportunity',
+    wellness: 'Wellness',
+    security: 'Security',
+    profile: 'Profile',
+    loyalty: 'Loyalty',
+    cross_sell: 'Product',
+  };
+
+  function renderTile(a) {
+    const cat = a.category || 'opportunity';
+    const metricsHtml = (a.metrics || []).filter(m => m.value != null && m.value !== '').map(m =>
+      `<div class="nba-metric"><div class="label">${m.label}</div><div class="value">${m.value}</div></div>`
+    ).join('');
+    const confidenceHtml = a.confidence != null
+      ? `<div class="nba-confidence">✨ ${Math.round(a.confidence * 100)}% match</div>` : '';
+    const actionedHtml = a.actioned
+      ? `<div class="nba-actioned-badge">✅ Action Completed</div>` : '';
+    const primaryCta = a.cta_primary || { label: 'Chat with Alma', action: 'alma', prompt: `Tell me more about ${a.title}` };
+    const secondaryCta = a.cta_secondary;
+    return `
+      <div class="nba-tile cat-${cat}" data-cat="${cat}" data-action-id="${a.id || ''}">
+        <div class="nba-tile-head">
+          <span class="nba-cat-badge">${CAT_LABEL[cat] || cat}</span>
+          ${confidenceHtml}
+          ${actionedHtml}
+        </div>
+        <h3>${a.title}</h3>
+        ${a.reasoning ? `<p class="nba-reasoning">${a.reasoning}</p>` : ''}
+        ${metricsHtml ? `<div class="nba-metrics">${metricsHtml}</div>` : ''}
+        <div style="text-align:right;margin-bottom:4px"><a href="#" class="nba-why-link" onclick="showExplain('${a.id}', event)" style="display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;font-weight:600;color:var(--nb-accent);text-decoration:none;padding:4px 10px;border:1px solid var(--nb-accent);border-radius:99px;transition:all 0.15s" onmouseover="this.style.background='var(--nb-accent)';this.style.color='white'" onmouseout="this.style.background='transparent';this.style.color='var(--nb-accent)'">💡 Why this?</a></div>
+        <div class="nba-actions">
+          <button class="nba-btn primary" onclick='handleCta(${JSON.stringify(primaryCta).replace(/'/g, "&apos;")})'>
+            ${primaryCta.label}
+          </button>
+          ${secondaryCta ? `<button class="nba-btn secondary" onclick='handleCta(${JSON.stringify(secondaryCta).replace(/'/g, "&apos;")})'>${secondaryCta.label}</button>` : ''}
+        </div>
+      </div>`;
+  }
+
+  window.handleCta = (cta) => {
+    if (!cta) return;
+    if (cta.action === 'alma') {
+      const prompt = encodeURIComponent(cta.prompt || '');
+      window.location.href = '/banking/alma-chat.html?prompt=' + prompt;
+    } else if (cta.action === 'navigate' && cta.url) {
+      window.location.href = cta.url;
+    } else if (cta.action === 'dismiss') {
+      // Client-side dismiss (backend-backed later)
+      alert('Thanks for your feedback — we\'ll refine future recommendations.');
+    }
+  };
+
+  function applyFilter(activeCat) {
+    document.querySelectorAll('.nba-chip').forEach(c => {
+      c.classList.toggle('active', c.dataset.cat === activeCat);
+    });
+    const tiles = document.querySelectorAll('.nba-tile');
+    let visible = 0;
+    tiles.forEach(t => {
+      const show = activeCat === 'all' || t.dataset.cat === activeCat;
+      t.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const grid = document.getElementById('nbaGrid');
+    let empty = grid.querySelector('.nba-empty');
+    if (visible === 0 && !empty) {
+      empty = document.createElement('div');
+      empty.className = 'nba-empty';
+      empty.innerHTML = `<div class="icon-lg">📭</div><div>No actions in this category right now.</div>`;
+      grid.appendChild(empty);
+    } else if (empty) {
+      empty.remove();
+    }
+  }
+
+  document.querySelectorAll('.nba-chip').forEach(chip => {
+    chip.addEventListener('click', () => applyFilter(chip.dataset.cat));
+  });
+
+  // ── Data adapters — swap this function when the NBA backend is ready ─────
+
+  /**
+   * Forward-compatible loader.
+   *
+   * Future state: call GET /sessions/me/actions and return the response's
+   * `actions[]` array directly (each item already in NBA shape).
+   *
+   * Current state: pull offers + accounts + loans and synthesise NBAs
+   * client-side so the page is usable before the proper NBA engine exists.
+   */
+  async function loadActions(profile) {
+    // Call the real NBA API endpoint (backed by next_best_actions table)
+    try {
+      const resp = await fetch('/sessions/me/actions', { credentials: 'include' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      const actions = (data.actions || []).map(a => ({
+        id: a.action_id,
+        category: a.category || 'opportunity',
+        title: a.title || 'Recommendation',
+        reasoning: a.reasoning || '',
+        confidence: a.confidence || 0.8,
+        metrics: a.metrics || [],
+        cta_primary: a.cta_primary || { label: 'Learn More', action: 'alma', prompt: `Tell me about ${a.title}` },
+        cta_secondary: a.cta_secondary || { label: 'Not now', action: 'dismiss' },
+        actioned: a.actioned || false,
+        template_id: a.template_id || '',
+      }));
+      return actions;
+    } catch (e) {
+      console.warn('NBA API unavailable:', e.message);
+      return []; // No fallback — show empty state if API fails
+    }
+  }
+
+
+  
+
+  // TEMPORARY: generate NBAs from the customer's real data.
+  // Remove this when GET /sessions/me/actions returns a full NBA list.
+  
+
+  // ── Page bootstrap ───────────────────────────────────────────────────────
+
+  window.logout = async () => {
+    try { await fetch('/sessions/me', { method: 'DELETE', credentials: 'include' }); } catch {}
+    window.location.href = '/login.html';
+  };
+
+  (async () => {
+    let profile = { name: 'Customer', accounts: [], loans: [], kyc_status: '' };
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch('/sessions/me', { credentials: 'include' }),
+        fetch('/sessions/me/accounts', { credentials: 'include' }),
+      ]);
+      if (r1.status === 401) { window.location.href = '/login.html'; return; }
+      const s = await r1.json();
+      profile.name = s.given_name || s.name || 'Customer';
+      const initials = profile.name.split(/\s+/).map(x => x[0]).join('').slice(0, 2).toUpperCase();
+      document.getElementById('avatarInitials').textContent = initials;
+      document.getElementById('sidebarName').textContent = profile.name;
+      document.getElementById('headerGreeting').textContent = `Hi, ${profile.name.split(' ')[0]}`;
+      document.getElementById('nbaHeroSub').textContent = `Recommended actions for ${profile.name.split(' ')[0]}, refined by your activity`;
+
+      if (r2.ok) {
+        const d = await r2.json();
+        profile.accounts = d.accounts || [];
+        profile.loans = d.loans || [];
+        profile.kyc_status = d.kyc_status || '';
+      }
+    } catch (e) {
+      console.warn('profile fetch failed', e);
+    }
+
+    try {
+      const actions = await loadActions(profile);
+      const grid = document.getElementById('nbaGrid');
+
+      if (actions.length === 0) {
+        grid.innerHTML = `<div class="nba-empty">
+          <div class="icon-lg">✨</div>
+          <div>No recommendations right now. Check back soon.</div>
+        </div>`;
+      } else {
+        grid.innerHTML = actions.map(renderTile).join('');
+      }
+
+      // Update category counts
+      const counts = { all: actions.length };
+      actions.forEach(a => { counts[a.category] = (counts[a.category] || 0) + 1; });
+      Object.entries(counts).forEach(([k, v]) => {
+        const el = document.getElementById(`cnt-${k}`);
+        if (el) el.textContent = v;
+      });
+
+      // Hide chips for empty categories
+      document.querySelectorAll('.nba-chip').forEach(c => {
+        const cat = c.dataset.cat;
+        if (cat !== 'all' && !counts[cat]) c.style.display = 'none';
+      });
+
+      document.getElementById('nbaUpdated').textContent = 'Updated just now';
+    } catch (e) {
+      document.getElementById('nbaGrid').innerHTML =
+        `<div class="nba-empty"><div class="icon-lg">⚠️</div><div>Failed to load recommendations: ${e.message}</div></div>`;
+    }
+  })();
+
+  // === NBA Event Tracking (view/click/dismiss) ===
+  function trackEvent(actionId, event, extra = {}) {
+    fetch('/sessions/me/actions/' + actionId + '/event', {
+      method: 'POST', credentials: 'include',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({event, channel: 'in_app', ...extra})
+    }).catch(() => {});
+  }
+
+  // Track views via IntersectionObserver
+  const viewObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = e.target.dataset.actionId;
+        if (id && !e.target.dataset.viewed) {
+          e.target.dataset.viewed = '1';
+          trackEvent(id, 'viewed');
+        }
+      }
+    });
+  }, {threshold: 0.5});
+
+  // Observe all NBA tiles after render
+  setTimeout(() => {
+    document.querySelectorAll('.nba-tile[data-action-id]').forEach(t => viewObserver.observe(t));
+  }, 1000);
+
+  // Override handleCta to track clicks
+  const _origHandleCta = window.handleCta;
+  window.handleCta = (cta) => {
+    const tile = event?.target?.closest?.('.nba-tile');
+    const actionId = tile?.dataset?.actionId;
+    if (actionId) {
+      if (cta?.action === 'dismiss') {
+        trackEvent(actionId, 'dismissed', {dismiss_reason: 'not_now'});
+        // Mark as dismissed via API then remove from DOM
+        fetch(`/sessions/me/actions/${actionId}/event`, {
+          method: 'POST', credentials: 'include',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({event: 'dismissed', dismiss_reason: 'not_now'})
+        });
+        tile.style.opacity = '0';
+        setTimeout(() => tile.remove(), 300);
+      } else {
+        trackEvent(actionId, 'clicked');
+      }
+    }
+    if (_origHandleCta) _origHandleCta(cta);
+  };
+
+</script>
+
+  <!-- Explain panel styles -->
+  <style>
+    .explain-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:300; }
+    .explain-overlay.open { display:flex; align-items:flex-end; justify-content:center; }
+    .explain-panel {
+      background:white; border-radius:16px 16px 0 0; max-width:500px; width:100%;
+      max-height:80vh; overflow-y:auto; padding:24px; box-shadow:0 -4px 20px rgba(0,0,0,0.15);
+    }
+    .explain-panel h3 { margin:0 0 16px; font-size:1.1rem; color:var(--nb-primary); }
+    .explain-section { background:var(--nb-bg); border-radius:8px; padding:14px; margin-bottom:12px; }
+    .explain-section h4 { margin:0 0 8px; font-size:0.82rem; color:var(--nb-text-secondary); text-transform:uppercase; letter-spacing:0.05em; }
+    .explain-section p, .explain-section li { font-size:0.85rem; color:var(--nb-text-primary); line-height:1.5; margin:4px 0; }
+    .explain-section ul { padding-left:16px; margin:0; }
+    .explain-activity { border-left:2px solid var(--nb-accent); padding-left:12px; }
+    .explain-activity .evt { font-size:0.78rem; color:var(--nb-text-muted); margin:6px 0; }
+    .explain-controls { display:flex; gap:8px; margin-top:16px; }
+    .explain-controls button { flex:1; padding:10px; border-radius:8px; font-size:0.82rem; font-weight:600; cursor:pointer; border:1px solid var(--nb-border); background:white; color:var(--nb-text-secondary); }
+    .explain-controls button:hover { border-color:var(--nb-accent); color:var(--nb-accent); }
+    .supp-btn { padding:8px 14px; border-radius:20px; border:1px solid var(--nb-border); background:white; color:var(--nb-text-secondary); font-size:0.8rem; font-weight:600; cursor:pointer; transition:all 0.15s; }
+    .supp-btn:hover { border-color:var(--nb-accent); color:var(--nb-accent); background:#fafafa; }
+    .explain-close { position:absolute; top:16px; right:16px; background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--nb-text-muted); }
+  .nba-actioned-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #d4edda; color: #155724; font-size: 0.7rem; font-weight: 600;
+      padding: 2px 8px; border-radius: 12px; margin-left: 8px;
+    }
+    </style>
+
+  <!-- Explain overlay -->
+  <div class="explain-overlay" id="explainOverlay" onclick="if(event.target===this)closeExplain()">
+    <div class="explain-panel" id="explainPanel">
+      <button class="explain-close" onclick="closeExplain()">✕</button>
+      <h3 id="explainTitle">Why we recommended this</h3>
+      <div id="explainContent">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+  async function showExplain(actionId, evt) {
+    evt.preventDefault();
+    const overlay = document.getElementById('explainOverlay');
+    const content = document.getElementById('explainContent');
+    overlay.classList.add('open');
+    content.innerHTML = '<p style="color:var(--nb-text-muted)">Loading explanation...</p>';
+
+    try {
+      const resp = await fetch(`/sessions/me/actions/${actionId}/explain`, {credentials:'include'});
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+
+      document.getElementById('explainTitle').textContent = `Why: ${data.title}`;
+
+      let html = '';
+
+      // Layer 2: Your profile
+      // Template-specific reasoning (unique per NBA)
+      html += `<div class="explain-section"><h4>💡 Why did we recommend this?</h4>`;
+      html += `<p style="line-height:1.6;color:var(--nb-text-primary)">${data.reasoning}</p>`;
+      if (data.metrics && data.metrics.length > 0) {
+        html += `<ul style="margin-top:8px">`;
+        data.metrics.forEach(m => { html += `<li>${m.label}: <strong>${m.value}</strong></li>`; });
+        html += `</ul>`;
+      }
+      html += `</div>`;
+
+      // Peer insights section (from Neptune graph)
+      const peerInsights = [];
+      const rText = data.reasoning || '';
+      const m1 = rText.match(/Among the (\d+) customers? with similar[^]*?(?:products|coverage|insurance|loans|features)[^.]*\./i);
+      if (m1) peerInsights.push(m1[0]);
+      const m2 = rText.match(/community of (\d+) customers[^.]*\./i);
+      if (m2) peerInsights.push(m2[0]);
+      const m3 = rText.match(/([\d.]+)% (?:of similar|have explored|of customers)[^.]*\./i);
+      if (m3 && !m1) peerInsights.push(m3[0]);
+      if (data.metrics) {
+        data.metrics.forEach(m => {
+          const l = (m.label||'').toLowerCase();
+          if ((l.includes('peer') || l.includes('community') || l.includes('adoption')) && m.value)
+            peerInsights.push(m.label + ': ' + m.value);
+        });
+      }
+      if (peerInsights.length > 0) {
+        html += `<div class="explain-section"><h4>👥 Customers like you</h4><ul style="margin:0;padding-left:16px">`;
+        peerInsights.forEach(p => { html += `<li style="margin:4px 0;font-size:0.85rem;line-height:1.5">${p}</li>`; });
+        html += `</ul></div>`;
+      }
+
+      // FHS context (secondary)
+      if (data.financial_health?.score) {
+        const ss = data.financial_health.subscores || {};
+        const entries = Object.entries(ss).filter(e => typeof e[1] === 'number');
+        const weakest = entries.length ? entries.sort((a,b)=>a[1]-b[1])[0] : ['?',0];
+        html += `<div class="explain-section"><h4>💪 Your Financial Health</h4>`;
+        html += `<p>Score: <strong>${data.financial_health.score}/100</strong> (${data.financial_health.band})</p>`;
+        html += `<p style="font-size:0.8rem;color:var(--nb-text-muted)">Tip: improving <strong>${weakest[0]}</strong> (${weakest[1]}/100) would unlock more recommendations.</p>`;
+        html += `</div>`;
+      }
+
+      // Eligibility rules that matched — handle ALL rule types
+      if (data.eligibility_rules) {
+        const rules = data.eligibility_rules;
+        const reasons = [];
+        if (rules.min_income_bhd) reasons.push(`Your income meets the BHD ${rules.min_income_bhd} threshold`);
+        if (rules.min_fhs) reasons.push(`Your Financial Health Score (${data.financial_health?.score || '?'}) meets the ≥${rules.min_fhs} requirement`);
+        if (rules.min_tenure_months) reasons.push(`You've been banking with us for ≥${rules.min_tenure_months} months`);
+        if (rules.min_balance_bhd) reasons.push(`Your balance exceeds BHD ${rules.min_balance_bhd}`);
+        if (rules.requires_preference_false) reasons.push(`You haven't enabled ${rules.requires_preference_false.replace(/_/g, ' ')} yet`);
+        if (rules.min_recurring_subscriptions) reasons.push(`You have ${rules.min_recurring_subscriptions}+ recurring subscriptions detected`);
+        if (rules.requires_life_event) reasons.push(`Triggered by a detected life event: ${rules.requires_life_event}`);
+        if (rules.trigger) reasons.push(`Triggered by: ${rules.trigger.replace(/_/g, ' ').replace('txn.', '')}`);
+        if (rules.exclude_if_has_product) reasons.push(`You don't already have a ${rules.exclude_if_has_product.replace(/_/g, ' ')}`);
+        if (rules.exclude_if_has_goal) reasons.push(`No existing ${rules.exclude_if_has_goal.replace(/_/g, ' ')} goal found`);
+        if (rules.suppress_after_dismiss_days) reasons.push(`Not previously dismissed in the last ${rules.suppress_after_dismiss_days} days`);
+        // If no specific rules matched, show a generic reason
+        if (reasons.length === 0) reasons.push('This recommendation is relevant based on your overall financial profile');
+
+        html += `<div class="explain-section"><h4>✅ Why you qualify</h4><ul>`;
+        reasons.forEach(r => { html += `<li>${r}</li>`; });
+        html += `</ul></div>`;
+      }
+
+      // Generation info
+      html += `<div class="explain-section"><h4>⏱️ How & when</h4>`;
+      html += `<p>Generated: ${data.generation?.generated_at || 'Recently'}</p>`;
+      html += `<p>Method: ${data.generation?.source === 'rule' ? 'Batch analysis (refreshed every 6 hours)' : 'Real-time (triggered by your activity)'}</p>`;
+      html += `<p>AI model: ${data.generation?.model || 'AI Bank Alma'}</p>`;
+      html += `</div>`;
+
+      // Activity log
+      if (data.activity_log?.length > 0) {
+        html += `<div class="explain-section"><h4>📋 Activity</h4><div class="explain-activity">`;
+        data.activity_log.forEach(a => {
+          html += `<div class="evt">${a.timestamp} — ${a.event}${a.reason ? ' ('+a.reason+')' : ''}</div>`;
+        });
+        html += `</div></div>`;
+      }
+
+      // Controls — duration-based suppression (REAL, not an alert)
+      html += `<div class="explain-section"><h4>⚙️ Your controls</h4>`;
+      html += `<p style="font-size:0.82rem;color:var(--nb-text-muted);margin:0 0 10px">Don't show ${data.category} recommendations for:</p>`;
+      html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+                 <button class="supp-btn" onclick="suppressCategory('${data.category}', 30, 'not_interested')">30 days</button>
+                 <button class="supp-btn" onclick="suppressCategory('${data.category}', 180, 'not_interested')">6 months</button>
+                 <button class="supp-btn" onclick="suppressCategory('${data.category}', null, 'not_interested')">Indefinitely</button>
+               </div>`;
+      html += `<p style="font-size:0.78rem;color:var(--nb-text-muted);margin:0">
+                 You can re-enable them anytime from <a href="/banking/preferences.html" style="color:var(--nb-accent)">Manage preferences</a>.
+               </p>`;
+      html += `</div>`;
+
+      content.innerHTML = html;
+
+      // Track that user viewed the explanation
+      trackEvent(actionId, 'viewed');
+    } catch(e) {
+      content.innerHTML = `<p style="color:var(--nb-danger)">Could not load explanation: ${e.message}</p>`;
+    }
+  }
+
+  function closeExplain() {
+    document.getElementById('explainOverlay').classList.remove('open');
+  }
+
+  function suppressCategory(category, durationDays, reason) {
+    // Real suppression via session API. duration_days=null means indefinite.
+    const body = { scope_type: 'category', scope_value: category, reason: reason || 'not_interested', source: 'explain_panel' };
+    if (durationDays) body.duration_days = durationDays;
+
+    fetch('/sessions/me/nba-preferences', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(async r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      closeExplain();
+      // Remove NBA cards of this category from the DOM immediately
+      document.querySelectorAll(`.nba-tile[data-cat="${category}"]`).forEach(el => el.remove());
+      // Refresh the banner
+      loadSuppressions();
+      // Lightweight toast
+      const toast = document.createElement('div');
+      toast.textContent = durationDays
+        ? `${category} recommendations hidden for ${durationDays} days`
+        : `${category} recommendations hidden indefinitely`;
+      toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#323232;color:#fff;padding:10px 18px;border-radius:22px;z-index:500;font-size:0.85rem;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3500);
+    }).catch(e => {
+      alert('Could not update preferences: ' + e.message);
+    });
+  }
+
+  // Suppression banner bootstrap — runs on page load, shows banner if any active
+  async function loadSuppressions() {
+    try {
+      const r = await fetch('/sessions/me/nba-preferences', { credentials: 'include' });
+      if (!r.ok) return;
+      const data = await r.json();
+      const active = data.active_suppressions || [];
+      const banner = document.getElementById('suppressionBanner');
+      const summary = document.getElementById('suppBannerSummary');
+      if (!banner || !summary) return;
+      if (active.length === 0) {
+        banner.style.display = 'none';
+        return;
+      }
+      const cats = active.filter(s => s.scope_type === 'category').map(s => s.scope_value);
+      const tmpls = active.filter(s => s.scope_type === 'template').map(s => s.scope_value);
+      const parts = [];
+      if (cats.length) parts.push(`${cats.length} ${cats.length === 1 ? 'category' : 'categories'} (${cats.join(', ')})`);
+      if (tmpls.length) parts.push(`${tmpls.length} ${tmpls.length === 1 ? 'specific recommendation' : 'specific recommendations'}`);
+      summary.textContent = `You've hidden ${parts.join(' and ')}.`;
+      banner.style.display = 'block';
+    } catch(e) { /* silent */ }
+  }
+  // Kick off the suppression check after the main page has loaded
+  window.addEventListener('DOMContentLoaded', loadSuppressions);
+  </script>
+
+</body>
+</html>

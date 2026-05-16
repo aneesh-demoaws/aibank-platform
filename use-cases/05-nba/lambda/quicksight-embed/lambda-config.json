@@ -1,0 +1,11 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "qs-embed-lambda-v4.handler",
+    "MemorySize": 256,
+    "Timeout": 30,
+    "Environment": {
+        "DASHBOARD_ID": "08e4366c-8586-4758-ba28-fd63be63d0cd",
+        "ALLOWED_DOMAIN": "https://d1pfo41ge1bxh5.cloudfront.net"
+    },
+    "Description": "QuickSight embed URL generator for NBA Insights (employee portal)"
+}

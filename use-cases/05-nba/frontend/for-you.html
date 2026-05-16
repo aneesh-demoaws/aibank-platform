@@ -111,6 +111,141 @@
       .nba-hero-content { flex-direction: column; align-items: flex-start; }
     }
   </style>
+  <style>
+    /* === Premium Banking Design Tokens === */
+    :root {
+      --pb-space-3xs: 4px;
+      --pb-space-2xs: 8px;
+      --pb-space-xs: 12px;
+      --pb-space-sm: 16px;
+      --pb-space-md: 22px;
+      --pb-space-lg: 32px;
+      --pb-space-xl: 48px;
+      --pb-radius-sm: 8px;
+      --pb-radius-md: 12px;
+      --pb-radius-lg: 18px;
+      --pb-radius-pill: 999px;
+      --pb-shadow-xs: 0 1px 2px rgba(0,0,0,.05);
+      --pb-shadow-sm: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --pb-shadow-md: 0 8px 24px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04);
+      --pb-shadow-lg: 0 18px 40px rgba(0,0,0,.10), 0 6px 12px rgba(0,0,0,.06);
+      --pb-shadow-glow: 0 0 0 1px rgba(0,212,170,.15), 0 8px 28px rgba(0,212,170,.18);
+      --pb-ease: cubic-bezier(.22,.61,.36,1);
+      --pb-easing-spring: cubic-bezier(.34,1.56,.64,1);
+      --pb-green: #16a34a; --pb-green-bg: rgba(22,163,74,.10); --pb-green-soft: rgba(22,163,74,.06);
+      --pb-red: #dc2626; --pb-red-bg: rgba(220,38,38,.10); --pb-red-soft: rgba(220,38,38,.06);
+      --pb-amber: #d97706; --pb-amber-bg: rgba(217,119,6,.10); --pb-amber-soft: rgba(217,119,6,.06);
+      --pb-blue: #2563eb; --pb-blue-bg: rgba(37,99,235,.10); --pb-blue-soft: rgba(37,99,235,.06);
+      --pb-purple: #7c3aed; --pb-purple-bg: rgba(124,58,237,.10);
+      --pb-mono: 'JetBrains Mono','Fira Code','SF Mono',Menlo,monospace;
+    }
+
+    /* Page wrapper */
+    .pb-page { max-width: 1400px; margin: 0 auto; padding: 0 var(--pb-space-sm) var(--pb-space-xl); }
+    .pb-page-head { display:flex; justify-content:space-between; align-items:flex-end; gap:var(--pb-space-md); flex-wrap:wrap; margin-bottom:var(--pb-space-lg); }
+    .pb-page-title { font-size: 1.75rem; font-weight: 800; letter-spacing:-0.02em; line-height:1.1; margin:6px 0 4px; color: var(--nb-text); }
+    .pb-page-subtitle { font-size: 0.92rem; color: var(--nb-text-muted); margin: 0; font-weight:500; }
+
+    /* Premium card */
+    .pb-card { background: var(--nb-card); border: 1px solid var(--nb-border); border-radius: var(--pb-radius-md); box-shadow: var(--pb-shadow-xs); transition: box-shadow .25s var(--pb-ease), transform .25s var(--pb-ease); }
+    .pb-card.pb-elevated { box-shadow: var(--pb-shadow-sm); }
+    .pb-card.pb-hoverable:hover { box-shadow: var(--pb-shadow-md); transform: translateY(-2px); }
+    .pb-card-pad { padding: var(--pb-space-md) var(--pb-space-md); }
+
+    /* Hero (gradient banner) */
+    .pb-hero { background: linear-gradient(135deg, #0A1628 0%, #0d2235 50%, #102d44 100%); color:#fff; padding: var(--pb-space-lg); border-radius: var(--pb-radius-lg); box-shadow: var(--pb-shadow-md); position:relative; overflow:hidden; }
+    .pb-hero::before { content:''; position:absolute; top:-30%; right:-10%; width:300px; height:300px; background: radial-gradient(circle, rgba(0,212,170,.18) 0%, transparent 70%); pointer-events:none; }
+    .pb-hero-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.7; font-weight: 700; margin-bottom: var(--pb-space-2xs); position:relative; }
+    .pb-hero-value { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.025em; line-height:1; font-family: var(--pb-mono); position:relative; }
+    .pb-hero-meta { display:flex; gap:var(--pb-space-md); margin-top:var(--pb-space-md); flex-wrap:wrap; font-size: 0.78rem; opacity: 0.85; position:relative; }
+    .pb-hero-meta-item { display:flex; flex-direction:column; gap:2px; }
+    .pb-hero-meta-item .v { font-weight:700; }
+
+    /* KPI grid */
+    .pb-kpi-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:var(--pb-space-xs); margin-bottom: var(--pb-space-md); }
+    .pb-kpi { background: var(--nb-card); border: 1px solid var(--nb-border); border-radius: var(--pb-radius-md); padding: var(--pb-space-sm); position: relative; overflow:hidden; }
+    .pb-kpi-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--nb-text-muted); font-weight: 700; margin-bottom: 4px; }
+    .pb-kpi-value { font-size: 1.4rem; font-weight: 800; font-family: var(--pb-mono); letter-spacing: -0.01em; }
+    .pb-kpi-trend { font-size: 0.74rem; margin-top: 6px; display:inline-flex; align-items:center; gap:4px; font-weight:600; }
+    .pb-kpi.green .pb-kpi-value { color: var(--pb-green); }
+    .pb-kpi.red .pb-kpi-value { color: var(--pb-red); }
+    .pb-kpi.amber .pb-kpi-value { color: var(--pb-amber); }
+    .pb-kpi.blue .pb-kpi-value { color: var(--pb-blue); }
+    .pb-kpi.purple .pb-kpi-value { color: var(--pb-purple); }
+    .pb-kpi-icon { position:absolute; top:14px; right:14px; opacity:.55; font-size: 1rem; }
+
+    /* Section heading */
+    .pb-section-head { display:flex; justify-content:space-between; align-items:center; margin: var(--pb-space-lg) 0 var(--pb-space-sm); gap:var(--pb-space-sm); flex-wrap:wrap; }
+    .pb-section-title { font-size: 1.05rem; font-weight: 700; margin:0; }
+    .pb-section-subtitle { font-size: 0.78rem; color: var(--nb-text-muted); margin: 2px 0 0; }
+    .pb-section-link { color: var(--nb-accent); font-size: 0.82rem; font-weight: 600; text-decoration: none; }
+    .pb-section-link:hover { text-decoration: underline; }
+
+    /* Buttons */
+    .pb-btn { display:inline-flex; align-items:center; justify-content:center; gap: 6px; padding: 10px 18px; border-radius: var(--pb-radius-sm); font-size: 0.85rem; font-weight: 700; font-family: inherit; cursor: pointer; border: 1px solid transparent; transition: all .15s var(--pb-ease); text-decoration: none; }
+    .pb-btn-primary { background: var(--nb-accent); color: #0A1628; box-shadow: 0 1px 3px rgba(0,212,170,.25); }
+    .pb-btn-primary:hover { background: #00bf99; box-shadow: 0 6px 16px rgba(0,212,170,.35); transform: translateY(-1px); }
+    .pb-btn-secondary { background: rgba(255,255,255,.05); color: var(--nb-text); border-color: var(--nb-border); }
+    .pb-btn-secondary:hover { background: rgba(255,255,255,.08); }
+    .pb-btn-ghost { background: transparent; color: var(--nb-text-muted); }
+    .pb-btn-ghost:hover { color: var(--nb-text); background: rgba(255,255,255,.04); }
+    .pb-btn-danger { background: var(--pb-red); color: #fff; }
+    .pb-btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
+
+    /* Status chip */
+    .pb-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius: var(--pb-radius-pill); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; text-transform:uppercase; }
+    .pb-chip.green { background: var(--pb-green-bg); color: var(--pb-green); }
+    .pb-chip.red { background: var(--pb-red-bg); color: var(--pb-red); }
+    .pb-chip.amber { background: var(--pb-amber-bg); color: var(--pb-amber); }
+    .pb-chip.blue { background: var(--pb-blue-bg); color: var(--pb-blue); }
+    .pb-chip.neutral { background: rgba(255,255,255,.06); color: var(--nb-text-muted); }
+
+    /* Form inputs */
+    .pb-field { margin-bottom: var(--pb-space-sm); }
+    .pb-field label { display:block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--nb-text-muted); margin-bottom: 6px; font-weight: 700; }
+    .pb-input, .pb-select { width:100%; background: rgba(255,255,255,.04); border: 1px solid var(--nb-border); border-radius: var(--pb-radius-sm); padding: 11px 14px; color: var(--nb-text); font-size: 0.92rem; font-family: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
+    .pb-input:focus, .pb-select:focus { border-color: var(--nb-accent); box-shadow: 0 0 0 3px rgba(0,212,170,.15); }
+    .pb-input.pb-amount { font-family: var(--pb-mono); font-size: 1.05rem; font-weight: 700; }
+
+    /* Skeleton loader */
+    @keyframes pb-shimmer { 0% { background-position: -300px 0; } 100% { background-position: 300px 0; } }
+    .pb-skel { background: linear-gradient(90deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 100%); background-size: 600px 100%; animation: pb-shimmer 1.6s linear infinite; border-radius: 6px; height: 14px; }
+
+    /* Account/transaction list rows */
+    .pb-row { display:flex; align-items:center; justify-content:space-between; padding: 14px var(--pb-space-md); border-bottom: 1px solid var(--nb-border); gap: var(--pb-space-sm); transition: background .15s; }
+    .pb-row:last-child { border-bottom: none; }
+    .pb-row:hover { background: rgba(255,255,255,.025); }
+    .pb-row-icon { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size: 1.05rem; flex-shrink:0; }
+    .pb-row-icon.green { background: var(--pb-green-bg); color: var(--pb-green); }
+    .pb-row-icon.red { background: var(--pb-red-bg); color: var(--pb-red); }
+    .pb-row-icon.amber { background: var(--pb-amber-bg); color: var(--pb-amber); }
+    .pb-row-icon.blue { background: var(--pb-blue-bg); color: var(--pb-blue); }
+    .pb-row-icon.neutral { background: rgba(255,255,255,.05); color: var(--nb-text); }
+    .pb-row-main { flex:1; min-width:0; }
+    .pb-row-title { font-size: 0.92rem; font-weight: 600; color: var(--nb-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pb-row-meta { font-size: 0.72rem; color: var(--nb-text-muted); margin-top: 2px; }
+    .pb-row-amt { font-size: 1rem; font-weight: 700; font-family: var(--pb-mono); white-space:nowrap; flex-shrink:0; }
+
+    /* Empty state */
+    .pb-empty { padding: var(--pb-space-xl) var(--pb-space-md); text-align:center; color: var(--nb-text-muted); }
+    .pb-empty-icon { font-size: 2.4rem; margin-bottom: var(--pb-space-2xs); opacity: 0.6; }
+    .pb-empty-title { font-size: 0.95rem; font-weight: 700; color: var(--nb-text); margin-bottom: 4px; }
+    .pb-empty-sub { font-size: 0.82rem; }
+
+    /* Tabs */
+    .pb-tabs { display:flex; gap: 0; border-bottom: 1px solid var(--nb-border); margin-bottom: var(--pb-space-md); }
+    .pb-tab { background: none; border: none; padding: 12px 18px; font-size: 0.85rem; font-weight: 600; color: var(--nb-text-muted); cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; transition: all .15s; }
+    .pb-tab.active { color: var(--nb-text); border-bottom-color: var(--nb-accent); }
+    .pb-tab:hover:not(.active) { color: var(--nb-text); }
+
+    /* Toast */
+    @keyframes pb-toast-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .pb-toast { position: fixed; top: 20px; right: 20px; padding: 14px 22px; border-radius: var(--pb-radius-sm); color:#fff; font-weight: 600; z-index: 9999; box-shadow: var(--pb-shadow-lg); animation: pb-toast-in .3s var(--pb-easing-spring); font-size: 0.88rem; max-width: 340px; }
+    .pb-toast.success { background: var(--pb-green); }
+    .pb-toast.error { background: var(--pb-red); }
+  </style>
+
+<style>/* pb-tokens-injected */</style>
 </head>
 <body>
 <div class="nb-app">
@@ -127,14 +262,15 @@
     <div class="nb-sidebar-nav">
       <div class="nb-nav-section">
         <div class="nb-nav-section-title">Menu</div>
-        <a class="nb-nav-item" href="/banking/dashboard.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Dashboard</a>
-        <a class="nb-nav-item" href="/banking/accounts.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span> Accounts</a>
-        <a class="nb-nav-item" href="/banking/transfers.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span> Transfers</a>
-        <a class="nb-nav-item" href="/banking/loans.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> Loans</a>
-        <a class="nb-nav-item" href="/banking/cards.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Cards</a>
-        <a class="nb-nav-item active" href="/banking/for-you.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> For You</a>
-        <a class="nb-nav-item" href="/banking/financial-health.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Financial Health</a>
-        <a class="nb-nav-item" href="/banking/support.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Support</a>
+        <a class="nb-nav-item " href="/banking/dashboard.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span> Dashboard</a>
+ <a class="nb-nav-item " href="/banking/accounts.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span> Accounts</a>
+ <a class="nb-nav-item " href="/banking/transfers.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></span> Transfers</a>
+ <a class="nb-nav-item " href="/banking/transactions.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span> Transactions</a>
+ <a class="nb-nav-item " href="/banking/loans.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span> Loans</a>
+ <a class="nb-nav-item " href="/banking/cards.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span> Cards</a>
+ <a class="nb-nav-item active" href="/banking/for-you.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span> For You</a>
+ <a class="nb-nav-item " href="/banking/financial-health.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span> Financial Health</a>
+ <a class="nb-nav-item " href="/banking/support.html"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Support</a>
       </div>
     </div>
     <div class="nb-sidebar-logo" style="border-bottom:none;border-top:1px solid rgba(255,255,255,.1)">

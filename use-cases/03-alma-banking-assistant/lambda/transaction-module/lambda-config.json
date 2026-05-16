@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "transaction-module.handler",
+    "MemorySize": 256,
+    "Timeout": 30,
+    "Environment": null,
+    "Description": "Transaction execution module — purchases, loan disbursements, transfers"
+}

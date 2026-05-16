@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "nba-kpi-export.handler",
+    "MemorySize": 256,
+    "Timeout": 60,
+    "Environment": null,
+    "Description": "NBA KPI Export — daily CSV to S3 for QuickSight SPICE"
+}

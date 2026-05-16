@@ -110,7 +110,58 @@ def step1_sync():
             MERGE (c)-[:HAS_GOAL]->(:Goal {{`~id`:'goal_{cid}_{gtype}', type: '{gtype}'}})
         """)
 
-    logger.info(f"Step 1 complete: {updated} customers synced")
+    # 1d. Sync full customer profile to Neptune nodes
+    profile_rows = _sql(
+        "SELECT c.customer_id, c.first_name, c.last_name, c.email, c.phone_number, "
+        "c.nationality, c.city, c.kyc_status, c.credit_score, "
+        "(SELECT COUNT(*) FROM loan_applications WHERE customer_id=c.customer_id) as total_loans, "
+        "(SELECT COUNT(*) FROM loan_applications WHERE customer_id=c.customer_id AND status='approved') as approved_loans, "
+        "(SELECT COALESCE(SUM(amount),0) FROM loan_applications WHERE customer_id=c.customer_id AND status='approved') as loan_amount "
+        "FROM customers c WHERE c.status='ACTIVE'")
+    for k in profile_rows:
+        cid = _val(k[0])
+        fname = (_val(k[1]) or '').replace("'", "")
+        lname = (_val(k[2]) or '').replace("'", "")
+        email = (_val(k[3]) or '').replace("'", "")
+        phone = (_val(k[4]) or '').replace("'", "")
+        nationality = (_val(k[5]) or '').replace("'", "")
+        city = (_val(k[6]) or '').replace("'", "")
+        kyc = _val(k[7]) or 'unknown'
+        credit = int(_val(k[8]) or 0)
+        total_loans = int(_val(k[9]) or 0)
+        approved_loans = int(_val(k[10]) or 0)
+        loan_amount = float(_val(k[11]) or 0)
+        _gq(f"""
+            MATCH (c:Customer {{`~id`:'{cid}'}})
+            SET c.first_name = '{fname}', c.last_name = '{lname}',
+                c.email = '{email}', c.phone_number = '{phone}',
+                c.nationality = '{nationality}', c.city = '{city}',
+                c.kyc_status = '{kyc}', c.credit_score = {credit},
+                c.total_loans = {total_loans}, c.approved_loans = {approved_loans},
+                c.total_loan_amount = {loan_amount}
+        """)
+
+    # 1e. Sync loan_applications → LoanApplication nodes + HAS_LOAN edges
+    loan_rows = _sql("SELECT application_id, customer_id, loan_type, amount, status, monthly_payment FROM loan_applications")
+    loan_count = 0
+    for l in loan_rows:
+        app_id = _val(l[0])
+        cid = _val(l[1])
+        ltype = (_val(l[2]) or 'personal').replace("'", "")
+        amount = float(_val(l[3]) or 0)
+        status = (_val(l[4]) or 'pending').replace("'", "")
+        payment = float(_val(l[5]) or 0)
+        _gq(f"""
+            MERGE (loan:LoanApplication {{`~id`:'{app_id}'}})
+            SET loan.loan_type = '{ltype}', loan.amount = {amount},
+                loan.status = '{status}', loan.monthly_payment = {payment}
+            WITH loan
+            MATCH (c:Customer {{`~id`:'{cid}'}})
+            MERGE (c)-[:HAS_LOAN]->(loan)
+        """)
+        loan_count += 1
+
+    logger.info(f"Step 1 complete: {updated} customers, {loan_count} loans synced")
     return updated
 
 
@@ -307,7 +358,111 @@ def step4_materialize():
         SET c.peer_pct_high_balance = CASE WHEN total_peers > 0 THEN toInteger(1000.0 * high_balance_peers / total_peers) / 10.0 ELSE 0 END
     """)
 
-    logger.info("Step 4 complete: all peer stats from SIMILAR_TO edges")
+    # 4g. peer_pct_approved_loans: % of SIMILAR peers with approved loans
+    _gq("""
+        MATCH (c:Customer)
+        OPTIONAL MATCH (c)-[:SIMILAR_TO]-(peer:Customer)
+        WITH c, count(DISTINCT peer) as total_peers
+        OPTIONAL MATCH (c)-[:SIMILAR_TO]-(peer2:Customer)-[:HAS_LOAN]->(loan:LoanApplication {status:'approved'})
+        WITH c, total_peers, count(DISTINCT peer2) as with_loans
+        SET c.peer_pct_approved_loans = CASE WHEN total_peers > 0 THEN toInteger(1000.0 * with_loans / total_peers) / 10.0 ELSE 0 END
+    """)
+
+    # 4h. peer_avg_credit_score: avg credit score among SIMILAR peers
+    _gq("""
+        MATCH (c:Customer)
+        OPTIONAL MATCH (c)-[:SIMILAR_TO]-(peer:Customer)
+        WHERE peer.credit_score > 0
+        WITH c, avg(peer.credit_score) as avg_cs
+        SET c.peer_avg_credit_score = toInteger(avg_cs)
+    """)
+
+    # 4i. community_avg_fhs: avg FHS in the customer's community
+    _gq("""
+        MATCH (c:Customer)
+        OPTIONAL MATCH (peer:Customer {community_id: c.community_id})
+        WHERE peer.`~id` <> c.`~id` AND peer.fhs_score > 0
+        WITH c, avg(peer.fhs_score) as avg_fhs
+        SET c.community_avg_fhs = toInteger(avg_fhs)
+    """)
+
+    logger.info("Step 4 complete: all peer stats from SIMILAR_TO edges (including loans + credit)")
+
+
+def step5_export_to_s3():
+    """Export ALL customer data from Neptune to S3 (single source of truth)."""
+    logger.info("Step 5: Exporting to S3 for QuickSight (Neptune only)")
+    import csv, io
+    s3 = boto3.client('s3', region_name='eu-west-1')
+
+    results = _gq("""
+        MATCH (c:Customer)
+        RETURN c.`~id` as customer_id, c.first_name as first_name, c.last_name as last_name,
+               c.email as email, c.phone_number as phone_number,
+               c.nationality as nationality, c.city as city, c.kyc_status as kyc_status,
+               c.credit_score as credit_score, c.total_loans as total_loans,
+               c.approved_loans as approved_loans, c.total_loan_amount as total_loan_amount,
+               c.community_id as community_id, c.fhs_score as fhs_score, c.fhs_band as fhs_band,
+               c.income_band as income_band, c.balance as balance, c.peer_count as peer_count,
+               c.peer_pct_home_loan as peer_pct_home_loan, c.peer_pct_products as peer_pct_products,
+               c.peer_avg_merchants as peer_avg_merchants, c.peer_pct_goals as peer_pct_goals,
+               c.peer_pct_high_balance as peer_pct_high_balance,
+               c.peer_pct_approved_loans as peer_pct_approved_loans,
+               c.peer_avg_credit_score as peer_avg_credit_score,
+               c.community_avg_fhs as community_avg_fhs,
+               c.merchant_count as merchant_count, c.eligible_home_loan as eligible_home_loan
+    """)
+
+    # Get joint holders and account counts
+    joints = _gq("""
+        MATCH (c:Customer)-[:JOINT_HOLDER]->(other:Customer)
+        RETURN c.`~id` as cid, collect(other.`~id`) as joint_ids
+    """)
+    joint_map = {j['cid']: ','.join(j.get('joint_ids', [])) for j in joints}
+
+    accounts = _gq("""
+        MATCH (c:Customer)-[:HAS_ACCOUNT]->(a:Account)
+        RETURN c.`~id` as cid, count(a) as cnt
+    """)
+    acct_map = {a['cid']: a['cnt'] for a in accounts}
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['customer_id','first_name','last_name','email','phone_number',
+                     'nationality','city','kyc_status','credit_score',
+                     'total_loans','approved_loans','total_loan_amount',
+                     'community_id','fhs_score','fhs_band','income_band','balance','peer_count',
+                     'peer_pct_home_loan','peer_pct_products','peer_avg_merchants','peer_pct_goals',
+                     'peer_pct_high_balance','peer_pct_approved_loans','peer_avg_credit_score',
+                     'community_avg_fhs','merchant_count','eligible_home_loan',
+                     'account_count','joint_holder_ids','household_size'])
+
+    for row in results:
+        cid = row.get('customer_id', '')
+        eligible = 1 if row.get('eligible_home_loan') in (True, 'True', 'true') else 0
+        jids = joint_map.get(cid, '')
+        hsize = 1 + len(jids.split(',')) if jids else 1
+        writer.writerow([
+            cid, row.get('first_name',''), row.get('last_name',''), row.get('email',''), row.get('phone_number',''),
+            row.get('nationality',''), row.get('city',''), row.get('kyc_status',''),
+            row.get('credit_score',''), row.get('total_loans',''),
+            row.get('approved_loans',''), row.get('total_loan_amount',''),
+            row.get('community_id',''), row.get('fhs_score',''), row.get('fhs_band',''),
+            row.get('income_band',''), row.get('balance',''), row.get('peer_count',''),
+            row.get('peer_pct_home_loan',''), row.get('peer_pct_products',''),
+            row.get('peer_avg_merchants',''), row.get('peer_pct_goals',''),
+            row.get('peer_pct_high_balance',''), row.get('peer_pct_approved_loans',''),
+            row.get('peer_avg_credit_score',''), row.get('community_avg_fhs',''),
+            row.get('merchant_count',''), eligible,
+            acct_map.get(cid, 0), jids, hsize
+        ])
+
+    s3.put_object(Bucket='aibank-athena-results-eu-west-1',
+                  Key='neptune-exports/customers/customer_peer_stats.csv',
+                  Body=output.getvalue(), ContentType='text/csv')
+    logger.info(f"Step 5 complete: exported {len(results)} rows to S3")
+    return len(results)
+
 
 
 def handler(event, context):
@@ -323,6 +478,8 @@ def handler(event, context):
         results['enrich'] = step3_enrich()
     if step in ('all', 'materialize'):
         results['materialize'] = step4_materialize()
+    if step in ('all', 'export'):
+        results['export'] = step5_export_to_s3()
 
     logger.info(f"Pipeline complete: {results}")
     return {'statusCode': 200, 'results': results}

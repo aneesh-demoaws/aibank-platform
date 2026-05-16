@@ -1,0 +1,7 @@
+[
+    {
+        "Id": "nba-batch-sfn",
+        "Arn": "arn:aws:states:eu-west-1:519124228967:stateMachine:aibank-nba-batch-workflow",
+        "Input": "{}"
+    }
+]

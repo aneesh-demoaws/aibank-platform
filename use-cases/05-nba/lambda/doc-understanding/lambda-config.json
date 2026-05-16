@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "nba-doc-understanding-real.handler",
+    "MemorySize": 512,
+    "Timeout": 60,
+    "Environment": null,
+    "Description": "NBA Document Understanding Agent scaffold — multimodal extraction"
+}

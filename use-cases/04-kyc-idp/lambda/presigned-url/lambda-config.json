@@ -1,0 +1,20 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "presigned-url-v2.lambda_handler",
+    "MemorySize": 128,
+    "Timeout": 30,
+    "Environment": {
+        "SESSION_REGION": "eu-west-1",
+        "DB_REGION": "eu-west-1",
+        "KYC_TABLE": "aibank-customer-kyc",
+        "SESSION_TABLE": "aibank-session-routing",
+        "AURORA_SECRET_ARN": "arn:aws:secretsmanager:eu-west-1:519124228967:secret:aibank-core-banking-CQeAg6",
+        "DDB_REGION": "eu-west-1",
+        "DB_NAME": "corebanking",
+        "BUCKET_REGION": "eu-west-1",
+        "AURORA_CLUSTER_ARN": "arn:aws:rds:eu-west-1:519124228967:cluster:aibank-core-banking-dr",
+        "FRONTEND_ORIGIN": "https://aibank.demoaws.com",
+        "KYC_BUCKET": "aibank-kyc-documents-eu-west-1"
+    },
+    "Description": ""
+}

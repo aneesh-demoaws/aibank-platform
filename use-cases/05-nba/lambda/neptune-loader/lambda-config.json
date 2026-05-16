@@ -1,0 +1,10 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "neptune-count.handler",
+    "MemorySize": 128,
+    "Timeout": 300,
+    "Environment": {
+        "NEPTUNE_ENDPOINT": "aibank-nba-graph-db.cluster-cwzfjxlxp1pw.eu-west-1.neptune.amazonaws.com"
+    },
+    "Description": "Triggers Neptune bulk load from S3 CSVs (VPC-attached)"
+}

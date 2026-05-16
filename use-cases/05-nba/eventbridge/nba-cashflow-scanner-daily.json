@@ -1,0 +1,7 @@
+{
+    "Name": "nba-cashflow-scanner-daily",
+    "Schedule": "cron(0 9 * * ? *)",
+    "State": "ENABLED",
+    "EventBusName": "default",
+    "Description": "Daily cash-flow scanner — detects upcoming debit shortfalls for NBA"
+}

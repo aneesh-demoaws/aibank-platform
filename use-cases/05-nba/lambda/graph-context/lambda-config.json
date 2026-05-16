@@ -1,0 +1,10 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.handler",
+    "MemorySize": 256,
+    "Timeout": 30,
+    "Environment": {
+        "NEPTUNE_ANALYTICS_GRAPH_ID": "g-ruhyz8aj39"
+    },
+    "Description": "MCP Tool: get_graph_context — queries Neptune Analytics for household, peers, communities, merchants"
+}

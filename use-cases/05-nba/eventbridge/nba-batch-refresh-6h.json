@@ -1,0 +1,7 @@
+{
+    "Name": "nba-batch-refresh-6h",
+    "Schedule": "rate(6 hours)",
+    "State": "ENABLED",
+    "EventBusName": "default",
+    "Description": "Triggers NBA Batch Generator every 6 hours for all customers"
+}

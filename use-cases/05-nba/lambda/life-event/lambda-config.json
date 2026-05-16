@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "nba-life-event-real.handler",
+    "MemorySize": 512,
+    "Timeout": 60,
+    "Environment": null,
+    "Description": "NBA Life-Event Detection Agent scaffold — intent classification"
+}

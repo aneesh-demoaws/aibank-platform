@@ -1,0 +1,12 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "neobank_pl_automation_debt_to_income_analysis_summary.lambda_handler",
+    "MemorySize": 1024,
+    "Timeout": 900,
+    "Environment": {
+        "OTEL_PYTHON_DISABLED_INSTRUMENTATIONS": "all",
+        "DYNAMODB_TABLE": "aibank-personal-loan",
+        "OTEL_SDK_DISABLED": "true"
+    },
+    "Description": ""
+}

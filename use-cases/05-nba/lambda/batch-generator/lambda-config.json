@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.handler",
+    "MemorySize": 512,
+    "Timeout": 900,
+    "Environment": null,
+    "Description": "NBA Batch Generator — deterministic rules + calls Reasoning Agent for top-3 per customer"
+}

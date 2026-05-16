@@ -1,0 +1,7 @@
+[
+    {
+        "Id": "cashflow-scanner",
+        "Arn": "arn:aws:lambda:eu-west-1:519124228967:function:aibank-nba-event-placeholder",
+        "Input": "{}"
+    }
+]

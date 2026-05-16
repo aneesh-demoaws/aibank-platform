@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.lambda_handler",
+    "MemorySize": 256,
+    "Timeout": 30,
+    "Environment": null,
+    "Description": ""
+}

@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.handler",
+    "MemorySize": 512,
+    "Timeout": 30,
+    "Environment": null,
+    "Description": "NBA Real-Time Agent — fully agentic, event-triggered NBA generation (the WOW)"
+}

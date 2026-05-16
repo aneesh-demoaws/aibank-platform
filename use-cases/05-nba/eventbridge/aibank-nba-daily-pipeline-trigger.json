@@ -1,0 +1,7 @@
+{
+    "Name": "aibank-nba-daily-pipeline-trigger",
+    "Schedule": "cron(0 6 * * ? *)",
+    "State": "ENABLED",
+    "EventBusName": "default",
+    "Description": "Triggers NBA daily pipeline at 6AM UTC (9AM Bahrain)"
+}

@@ -1,0 +1,125 @@
+{
+    "Comment": "NBA Batch Workflow - fans out NBA generation across all active customers using Map state. Replaces the single-Lambda cron which timed out around customer #180.",
+    "StartAt": "ResolveCustomers",
+    "States": {
+        "ResolveCustomers": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.customer_ids",
+                    "IsPresent": true,
+                    "Next": "PrepareExplicitCustomers"
+                }
+            ],
+            "Default": "ListActiveCustomers"
+        },
+        "PrepareExplicitCustomers": {
+            "Type": "Pass",
+            "Parameters": {
+                "customer_ids.$": "$.customer_ids"
+            },
+            "ResultPath": "$.resolved",
+            "Next": "ProcessCustomers"
+        },
+        "ListActiveCustomers": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::aws-sdk:rdsdata:executeStatement",
+            "Parameters": {
+                "ResourceArn": "arn:aws:rds:eu-west-1:519124228967:cluster:aibank-core-banking-dr",
+                "SecretArn": "arn:aws:secretsmanager:eu-west-1:519124228967:secret:aibank-core-banking-CQeAg6",
+                "Database": "corebanking",
+                "Sql": "SELECT customer_id FROM customers WHERE status='active' OR status IS NULL ORDER BY customer_id LIMIT 500"
+            },
+            "ResultSelector": {
+                "customer_ids.$": "$.Records[*][0].StringValue"
+            },
+            "ResultPath": "$.resolved",
+            "Retry": [
+                {
+                    "ErrorEquals": [
+                        "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 2,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2.0
+                }
+            ],
+            "Next": "ProcessCustomers"
+        },
+        "ProcessCustomers": {
+            "Type": "Map",
+            "ItemsPath": "$.resolved.customer_ids",
+            "MaxConcurrency": 40,
+            "Parameters": {
+                "customer_id.$": "$$.Map.Item.Value"
+            },
+            "Iterator": {
+                "StartAt": "GenerateNBAs",
+                "States": {
+                    "GenerateNBAs": {
+                        "Type": "Task",
+                        "Resource": "arn:aws:states:::lambda:invoke",
+                        "Parameters": {
+                            "FunctionName": "aibank-nba-batch-generator",
+                            "Payload": {
+                                "customer_ids.$": "States.Array($.customer_id)",
+                                "source": "scheduled_batch"
+                            }
+                        },
+                        "ResultSelector": {
+                            "statusCode.$": "$.Payload.statusCode",
+                            "customers_processed.$": "$.Payload.customers_processed",
+                            "nbas_generated.$": "$.Payload.nbas_generated"
+                        },
+                        "Retry": [
+                            {
+                                "ErrorEquals": [
+                                    "Lambda.TooManyRequestsException",
+                                    "Lambda.ServiceException",
+                                    "Lambda.AWSLambdaException",
+                                    "Lambda.SdkClientException",
+                                    "States.Timeout"
+                                ],
+                                "IntervalSeconds": 3,
+                                "MaxAttempts": 3,
+                                "BackoffRate": 2.0
+                            }
+                        ],
+                        "Catch": [
+                            {
+                                "ErrorEquals": [
+                                    "States.ALL"
+                                ],
+                                "ResultPath": "$.error",
+                                "Next": "MarkCustomerFailed"
+                            }
+                        ],
+                        "End": true
+                    },
+                    "MarkCustomerFailed": {
+                        "Type": "Pass",
+                        "Parameters": {
+                            "statusCode": 500,
+                            "nbas_generated": 0,
+                            "customer_id.$": "$.customer_id",
+                            "error.$": "$.error.Cause"
+                        },
+                        "End": true
+                    }
+                }
+            },
+            "ResultPath": "$.results",
+            "Next": "Summarize"
+        },
+        "Summarize": {
+            "Type": "Pass",
+            "Parameters": {
+                "total_customers.$": "States.ArrayLength($.resolved.customer_ids)",
+                "per_customer_results.$": "$.results",
+                "execution_arn.$": "$$.Execution.Id",
+                "started_at.$": "$$.Execution.StartTime"
+            },
+            "End": true
+        }
+    }
+}

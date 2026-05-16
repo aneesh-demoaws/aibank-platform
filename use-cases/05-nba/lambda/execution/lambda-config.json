@@ -1,0 +1,8 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "nba-execution-real.handler",
+    "MemorySize": 512,
+    "Timeout": 60,
+    "Environment": null,
+    "Description": "NBA Execution Agent scaffold — consented action execution"
+}

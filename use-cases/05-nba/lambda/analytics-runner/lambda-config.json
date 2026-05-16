@@ -1,0 +1,10 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "neptune-analytics-algo.handler",
+    "MemorySize": 256,
+    "Timeout": 300,
+    "Environment": {
+        "GRAPH_ID": "g-ruhyz8aj39"
+    },
+    "Description": "Runs Neptune Analytics algorithms (Louvain, LabelProp, Jaccard)"
+}

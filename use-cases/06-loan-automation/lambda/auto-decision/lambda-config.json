@@ -1,0 +1,12 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.lambda_handler",
+    "MemorySize": 256,
+    "Timeout": 30,
+    "Environment": {
+        "AURORA_SECRET_ARN": "arn:aws:secretsmanager:eu-west-1:519124228967:secret:aibank-core-banking-CQeAg6",
+        "AURORA_CLUSTER_ARN": "arn:aws:rds:eu-west-1:519124228967:cluster:aibank-core-banking-dr",
+        "FROM_EMAIL": "noreply@demoaws.com"
+    },
+    "Description": ""
+}

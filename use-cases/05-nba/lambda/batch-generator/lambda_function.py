@@ -288,6 +288,9 @@ def _get_template_peer_stat(template_id, graph_context, customer_id=''):
                    c.peer_avg_merchants as avg_merchants,
                    c.peer_pct_goals as pct_goals,
                    c.peer_pct_high_balance as pct_high_balance,
+                   c.peer_pct_approved_loans as pct_approved_loans,
+                   c.peer_avg_credit_score as avg_credit_score,
+                   c.community_avg_fhs as community_avg_fhs,
                    c.community_id as community_id
         """, language='OPEN_CYPHER')
         data = _j.loads(r['payload'].read()).get('results', [{}])[0]
@@ -300,7 +303,9 @@ def _get_template_peer_stat(template_id, graph_context, customer_id=''):
         pct_high_bal = data.get('pct_high_balance', 0) or 0
 
         if 'home_loan' in template_id:
-            return f"Among {actual_peer_count} customers with similar spending and income patterns, {pct_loan}% have explored home loan products."
+            # Use peer_pct_approved_loans (actual approved applications) for more accurate insight
+            pct_approved = data.get('pct_approved_loans', pct_loan) or pct_loan
+            return f"Among {actual_peer_count} customers with similar spending and income patterns, {pct_approved}% have been approved for home loans."
 
         elif 'fixed_deposit' in template_id:
             return f"Among {actual_peer_count} customers with similar financial profiles, {pct_high_bal}% also have significant idle balances that could benefit from a fixed deposit."

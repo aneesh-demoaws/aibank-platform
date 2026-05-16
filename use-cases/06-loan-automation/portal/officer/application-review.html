@@ -25,7 +25,19 @@
   .badge-pending{background:#fff3cd;color:#856404}
   .badge-approved{background:#d4edda;color:#155724}
   .badge-rejected{background:#f8d7da;color:#721c24}
-  .ai-text{white-space:pre-wrap;font-size:.88rem;line-height:1.6;color:#333;background:#f8f9fa;padding:14px;border-radius:6px;border-left:4px solid #34495e;max-height:320px;overflow-y:auto}
+  .ai-text{font-size:.88rem;line-height:1.65;color:#333;background:#f8f9fa;padding:14px 16px;border-radius:6px;border-left:4px solid #34495e;max-height:380px;overflow-y:auto}
+  .ai-text p{margin:6px 0}
+  .ai-text strong{color:#1a3a5c;font-weight:700}
+  .ai-text em{color:#555;font-style:italic}
+  .ai-text h4{font-size:.85rem;color:#1a3a5c;font-weight:700;margin:12px 0 6px;text-transform:uppercase;letter-spacing:.4px;padding-left:8px;border-left:3px solid #1a3a5c}
+  .ai-text h4:first-child{margin-top:0}
+  .ai-text ul,.ai-text ol{margin:6px 0 8px 22px;padding-left:6px}
+  .ai-text li{margin:3px 0}
+  .ai-text hr{border:0;border-top:1px solid #ddd;margin:10px 0}
+  .ai-text code{background:#e9ecef;padding:1px 5px;border-radius:3px;font-family:'Courier New',monospace;font-size:.82rem;color:#1a3a5c}
+  .ai-text .approve-tag{background:#d4edda;color:#155724;padding:1px 7px;border-radius:3px;font-weight:700;font-size:.82rem}
+  .ai-text .reject-tag{background:#f8d7da;color:#721c24;padding:1px 7px;border-radius:3px;font-weight:700;font-size:.82rem}
+  .ai-text .warn-tag{background:#fff3cd;color:#856404;padding:1px 7px;border-radius:3px;font-weight:700;font-size:.82rem}
   .decision-bar{background:rgba(255,255,255,.97);border-radius:10px;padding:16px 20px;display:flex;gap:12px;align-items:center}
   .decision-bar textarea{flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;resize:vertical;min-height:60px;font-size:.9rem}
   .toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;color:#fff;font-weight:600;z-index:999;display:none}
@@ -59,6 +71,14 @@
         <div class="field"><label>Tenure</label><p id="f-tenure"></p></div>
         <div class="field"><label>Purpose</label><p id="f-purpose"></p></div>
         <div class="field"><label>Submitted</label><p id="f-submitted"></p></div>
+      </div>
+    </div>
+
+    <!-- Underwriting Recommendation -->
+    <div class="section">
+      <h3>🤖 AI UNDERWRITING RECOMMENDATION</h3>
+      <div class="section-content">
+        <div class="ai-text" id="f-underwriting"></div>
       </div>
     </div>
 
@@ -126,14 +146,6 @@
       </div>
     </div>
 
-    <!-- Underwriting Recommendation -->
-    <div class="section">
-      <h3>AI UNDERWRITING RECOMMENDATION</h3>
-      <div class="section-content">
-        <div class="ai-text" id="f-underwriting"></div>
-      </div>
-    </div>
-
     <!-- Decision Bar -->
     <div class="decision-bar">
       <textarea id="notes" placeholder="Officer notes (optional)…"></textarea>
@@ -152,21 +164,148 @@ const params = new URLSearchParams(location.search);
 const appId  = params.get('id');
 
 if (!appId) {
-  document.getElementById('loading').textContent = 'No application ID specified.';
+  loadPendingReviews();
 } else {
   loadApplication();
+}
+
+async function loadPendingReviews() {
+  try {
+    const r = await fetch(`${API}/loans/all`, { credentials: 'include' });
+    if (r.status === 401) { location.href = '/login.html'; return; }
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    const apps = data.applications || [];
+    const pending = apps.filter(a => a.status === 'manual_review' || a.status === 'pending_review' || a.status === 'underwriting');
+
+    document.getElementById('loading').style.display = 'none';
+    const container = document.querySelector('.container');
+
+    container.innerHTML = `
+      <div class="header">
+        <h1>📋 Pending Review Applications</h1>
+        <div class="header-right">
+          <button onclick="loadPendingReviews()" class="btn btn-back" style="background:#3498db">↻ Refresh</button>
+          <a href="/employee/credit/loan-queue.html" class="btn btn-back" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 18px">📊 All Applications</a>
+          <a href="/employee/dashboard.html" class="btn btn-back" style="text-decoration:none;display:inline-flex;align-items:center;padding:8px 18px;background:#27ae60">🏠 Home</a>
+        </div>
+      </div>
+      ${pending.length === 0 ? `
+        <div class="section" style="padding:40px;text-align:center">
+          <div style="font-size:3rem;margin-bottom:12px">✅</div>
+          <h3 style="background:transparent;color:#27ae60;font-size:1.1rem;margin-bottom:8px">All caught up!</h3>
+          <p style="color:#666;font-size:0.9rem;padding:16px 20px">No applications currently pending review. Check back later or visit the full applications list.</p>
+        </div>
+      ` : `
+        <div class="section">
+          <h3 style="background:#34495e">${pending.length} application${pending.length !== 1 ? 's' : ''} pending review</h3>
+          <div class="section-content" style="padding:0">
+            ${pending.map(a => {
+              const customer = ((a.first_name||'') + ' ' + (a.last_name||'')).trim() || a.customer_id || 'Unknown';
+              const amt = parseFloat(a.amount) || 0;
+              return `
+                <a href="/employee/credit/application-review.html?id=${encodeURIComponent(a.application_id)}"
+                   style="display:block;padding:16px 20px;border-bottom:1px solid #eee;text-decoration:none;color:#222;transition:background 0.15s"
+                   onmouseenter="this.style.background='#f8f9fa'" onmouseleave="this.style.background='white'">
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-weight:700;font-size:1rem;color:#1a3a5c;margin-bottom:4px">${customer}</div>
+                      <div style="font-size:0.78rem;color:#666;font-family:monospace">${a.application_id} · ${a.customer_id}</div>
+                      <div style="font-size:0.82rem;color:#888;margin-top:4px">${(a.loan_type||'').replace(/_/g,' ').toUpperCase()} · ${a.duration || '?'} months${a.purpose ? ' · ' + a.purpose : ''}</div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0">
+                      <div style="font-size:1.2rem;font-weight:700;color:#1a3a5c;font-family:monospace">BHD ${amt.toLocaleString('en',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+                      <div style="margin-top:6px"><span class="badge badge-pending">PENDING REVIEW</span></div>
+                      <div style="font-size:0.72rem;color:#888;margin-top:6px">${a.created_at ? new Date(a.created_at).toLocaleDateString('en-BH',{day:'2-digit',month:'short',year:'numeric'}) : ''}</div>
+                    </div>
+                    <div style="flex-shrink:0;color:#1a3a5c;font-size:1.5rem">→</div>
+                  </div>
+                </a>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `}
+    `;
+  } catch(e) {
+    document.getElementById('loading').textContent = 'Error: ' + e.message;
+  }
 }
 
 async function loadApplication() {
   try {
     const r = await fetch(`${API}/application?id=${encodeURIComponent(appId)}`, {credentials:'include'});
-    if (r.status === 401) { location.href = '/employee/login.html'; return; }
-    if (!r.ok) throw new Error(await r.text());
-    const d = await r.json();
+    if (r.status === 401) { location.href = '/login.html'; return; }
+    let d = null;
+    let parseError = false;
+    try {
+      const text = await r.text();
+      if (text) d = JSON.parse(text);
+    } catch(_) { parseError = true; }
+
+    // 404 or no review data — show greyed-out empty state
+    if (r.status === 404 || !d || (d && d.error)) {
+      renderEmpty(d || {});
+      return;
+    }
+    if (!r.ok) throw new Error((d && d.error) || 'HTTP ' + r.status);
     render(d);
   } catch(e) {
-    document.getElementById('loading').textContent = 'Error: ' + e.message;
+    renderEmpty({_errorMsg: e.message});
   }
+}
+
+function renderEmpty(d) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('appIdLabel').textContent = appId || '';
+
+  // Greyed-out banner at top
+  const content = document.getElementById('content');
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:#f8f9fa;border:1px solid #dee2e6;border-left:4px solid #6c757d;border-radius:8px;padding:18px 24px;margin-bottom:16px;color:#495057';
+  banner.innerHTML = `
+    <div style="font-size:1rem;font-weight:600;margin-bottom:6px;color:#495057">⏳ No Review Data Available</div>
+    <div style="font-size:.88rem;line-height:1.55">This application has not been processed through the 5Cs underwriting workflow yet. The detailed review report (Character, Capacity, Capital, Collateral, Conditions, and AI Underwriting Recommendation) becomes available once the loan processing pipeline completes.${d._errorMsg ? '<br><span style="font-size:.78rem;color:#856404;background:#fff3cd;padding:2px 8px;border-radius:4px;display:inline-block;margin-top:8px">'+d._errorMsg+'</span>' : ''}</div>
+  `;
+  content.insertBefore(banner, content.firstChild);
+
+  // Set whatever basic fields we have (from URL or fallback)
+  set('f-app-id', appId || '—');
+  set('f-cust-id', '—');
+  set('f-status', badge('NO_DATA'));
+  set('f-type', '—');
+  set('f-amount', '—');
+  set('f-tenure', '—');
+  set('f-purpose', '—');
+  set('f-submitted', '—');
+
+  // Grey out all 5C and recommendation sections
+  const greyedSections = ['f-social','f-dti','f-financial','f-employer-analysis','f-credit','f-underwriting'];
+  greyedSections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.innerHTML = '<div style="text-align:center;padding:24px;color:#adb5bd;font-style:italic;font-size:.85rem">No data available — pending processing</div>';
+      el.style.background = '#f8f9fa';
+      el.style.borderLeftColor = '#dee2e6';
+      el.style.opacity = '0.7';
+    }
+  });
+
+  // Grey out all field placeholders
+  document.querySelectorAll('.field p').forEach(p => {
+    if (!p.textContent || p.textContent.trim() === '') p.textContent = '—';
+    p.style.color = '#adb5bd';
+  });
+
+  // Disable decision buttons
+  const ba = document.getElementById('btnApprove');
+  const br = document.getElementById('btnReject');
+  if (ba) ba.disabled = true;
+  if (br) br.disabled = true;
+  // Hide decision bar entirely
+  const decisionBar = document.querySelector('.decision-bar');
+  if (decisionBar) decisionBar.style.display = 'none';
 }
 
 function render(d) {
@@ -193,12 +332,12 @@ function render(d) {
   set('f-kyc-id',     kyc.identity_verified === true || kyc.identity_verified === 'true' ? '✅ Yes' : (kyc.identity_verified === false ? '❌ No' : '—'));
   set('f-kyc-addr',   kyc.address_verified  === true || kyc.address_verified  === 'true' ? '✅ Yes' : (kyc.address_verified  === false ? '❌ No' : '—'));
 
-  setText('f-social',           strip(d.social_analysis || d.social_media_analysis || 'No social analysis available.'));
-  setText('f-dti',              strip(d.debt_to_income_analysis_summary || 'No DTI analysis available.'));
-  setText('f-financial',        strip(d.financial_behaviour_analysis || 'No financial profile available.'));
-  setText('f-employer-analysis',strip(d.employer_analysis || 'No employer analysis available.'));
-  setText('f-credit',           strip(d.credit_bureau_analysis || 'No credit bureau analysis available.'));
-  setText('f-underwriting',     strip(d.loan_underwritting_recommendations || 'No underwriting recommendation available.'));
+  setText('f-social', d.social_analysis || d.social_media_analysis);
+  setText('f-dti', d.debt_to_income_analysis_summary);
+  setText('f-financial', d.financial_behaviour_analysis);
+  setText('f-employer-analysis', d.employer_analysis);
+  setText('f-credit', d.credit_bureau_analysis);
+  setText('f-underwriting', d.loan_underwritting_recommendations);
 
   set('f-salary',    d.basic_salary || '—');
   set('f-transfer',  d.salary_transfer || '—');
@@ -245,17 +384,82 @@ async function decide(decision) {
   }
 }
 
+function escHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 function strip(text) {
   if (!text) return text;
-  return text.replace(/<thinking>[\s\S]*?<\/thinking>\s*/g, '').replace(/<\/?result>\s*/g, '').trim();
+  return String(text).replace(/<thinking>[\s\S]*?<\/thinking>\s*/gi, '').replace(/<\/?result>\s*/gi, '').trim();
 }
+
+// Render LLM-generated markdown safely as styled HTML
+function mdToHtml(text) {
+  if (!text) return '';
+  let t = strip(text);
+  if (!t) return '';
+  // Escape HTML first
+  t = escHtml(t);
+  // Code fences
+  t = t.replace(/```([\s\S]*?)```/g, (_, c) => '<pre style="background:#0f172a;color:#e2e8f0;padding:10px 12px;border-radius:5px;overflow-x:auto;font-family:Courier New,monospace;font-size:.78rem">'+c+'</pre>');
+  // Inline code
+  t = t.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Headers (#### or ### or ## or # at line start) → h4 (one style for all)
+  t = t.replace(/^#{1,4}\s+(.+)$/gm, '<h4>$1</h4>');
+  // Horizontal rules
+  t = t.replace(/^-{3,}$/gm, '<hr>');
+  // Bold then italic
+  t = t.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/(?<![*\w])\*([^*\n]+?)\*(?![*\w])/g, '<em>$1</em>');
+  // Highlight key decision phrases
+  t = t.replace(/\b(APPROVED?|APPROVE|AUTO[_ ]APPROVE)\b/g, '<span class="approve-tag">$1</span>');
+  t = t.replace(/\b(REJECTED?|REJECT|DECLINED?|DECLINE|EXCEEDS[_ ]THRESHOLD)\b/g, '<span class="reject-tag">$1</span>');
+  t = t.replace(/\b(MANUAL[_ ]REVIEW|HIGH[_ ]RISK|VERY[_ ]HIGH|WARNING)\b/gi, '<span class="warn-tag">$1</span>');
+  // Lists
+  const lines = t.split('\n');
+  const out = [];
+  let inUL = false, inOL = false;
+  for (const ln of lines) {
+    const ul = ln.match(/^\s*[-*+]\s+(.+)$/);
+    const ol = ln.match(/^\s*\d+\.\s+(.+)$/);
+    if (ul) {
+      if (inOL) { out.push('</ol>'); inOL = false; }
+      if (!inUL) { out.push('<ul>'); inUL = true; }
+      out.push('<li>'+ul[1]+'</li>');
+    } else if (ol) {
+      if (inUL) { out.push('</ul>'); inUL = false; }
+      if (!inOL) { out.push('<ol>'); inOL = true; }
+      out.push('<li>'+ol[1]+'</li>');
+    } else {
+      if (inUL) { out.push('</ul>'); inUL = false; }
+      if (inOL) { out.push('</ol>'); inOL = false; }
+      out.push(ln);
+    }
+  }
+  if (inUL) out.push('</ul>');
+  if (inOL) out.push('</ol>');
+  t = out.join('\n');
+  // Wrap consecutive non-block lines into paragraphs
+  t = t.split(/\n{2,}/).map(blk => {
+    if (/^\s*<(h[1-6]|ul|ol|pre|hr|blockquote|table)/i.test(blk.trim())) return blk;
+    if (!blk.trim()) return '';
+    return '<p>' + blk.replace(/\n/g, '<br>') + '</p>';
+  }).join('\n');
+  return t;
+}
+
 function set(id, html) {
   const el = document.getElementById(id);
   if (el) el.innerHTML = html || '—';
 }
+
+// Render markdown for AI text fields (replaces old setText for those)
 function setText(id, text) {
   const el = document.getElementById(id);
-  if (el) el.textContent = text || '—';
+  if (!el) return;
+  if (!text) { el.textContent = '—'; return; }
+  el.innerHTML = mdToHtml(text) || '—';
 }
 function fmt(ts) {
   if (!ts) return '—';

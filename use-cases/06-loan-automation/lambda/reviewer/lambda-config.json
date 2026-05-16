@@ -1,0 +1,18 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "handler.lambda_handler",
+    "MemorySize": 512,
+    "Timeout": 30,
+    "Environment": {
+        "AURORA_SECRET_ARN": "arn:aws:secretsmanager:eu-west-1:519124228967:secret:aibank-core-banking-CQeAg6",
+        "NOTIFICATION_TOPIC_ARN": "arn:aws:sns:eu-west-1:519124228967:aibank-loan-review-alerts",
+        "DB_NAME": "corebanking",
+        "LOAN_OFFICER_EMAIL": "loanofficer@demoaws.com",
+        "EMPLOYEE_COGNITO_POOL_ID": "eu-west-1_ALFkxDepn",
+        "EMPLOYEE_COGNITO_CLIENT_ID": "2kf9i0tnjgvkchuh411nk3phji",
+        "LOAN_WORKFLOW_ARN": "arn:aws:states:eu-west-1:519124228967:stateMachine:aibank-five-cs-loan-processing-workflow",
+        "AURORA_CLUSTER_ARN": "arn:aws:rds:eu-west-1:519124228967:cluster:aibank-core-banking-dr",
+        "ALLOWED_ORIGIN": "https://aibank.demoaws.com"
+    },
+    "Description": ""
+}

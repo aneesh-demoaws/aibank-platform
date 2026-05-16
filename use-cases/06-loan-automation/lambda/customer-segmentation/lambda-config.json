@@ -1,0 +1,10 @@
+{
+    "Runtime": "python3.12",
+    "Handler": "lambda_function.lambda_handler",
+    "MemorySize": 1024,
+    "Timeout": 900,
+    "Environment": {
+        "DYNAMODB_TABLE": "aibank-personal-loan"
+    },
+    "Description": ""
+}

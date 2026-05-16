@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Bank — The Future of Banking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/assets/index-DI3oX7PN.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="/assets/auth-BR_XXxBC.js">
+  <link rel="modulepreload" crossorigin href="/assets/use-cases-mYAuFBPP.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-Dag1fSx0.css">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><span class="accent">AI</span> Bank</a>
+      <div class="nav-links" id="nav-links">
+        <a href="#capabilities">Capabilities</a>
+        <a href="#technology">Technology</a>
+        <a href="#experience">Experience</a>
+      </div>
+      <div class="nav-actions">
+        <a href="/login.html" class="nb-btn nb-btn-ghost nav-signin">Sign In</a>
+        <button class="nav-hamburger" id="hamburger" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-bg">
+      <img src="/images/hero-banking.jpg" alt="" class="hero-bg-img" loading="eager">
+      <div class="hero-overlay"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">AI-Native Banking Platform</div>
+      <h1>Banking Reimagined<br>with <span class="accent">Artificial Intelligence</span></h1>
+      <p class="hero-sub">Every interaction — from onboarding to lending to relationship management — powered by intelligent agents built on Amazon Bedrock.</p>
+      <div class="hero-actions">
+        <button class="nb-btn nb-btn-primary nb-btn-lg" onclick="document.getElementById('experience').scrollIntoView({behavior:'smooth'})">Experience the Platform</button>
+        <button class="nb-btn nb-btn-ghost nb-btn-lg" onclick="document.getElementById('capabilities').scrollIntoView({behavior:'smooth'})">Explore Capabilities</button>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><span class="hero-stat-value" id="uc-count">—</span><span class="hero-stat-label">AI Use Cases</span></div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat"><span class="hero-stat-value">5</span><span class="hero-stat-label">GCC Countries</span></div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat"><span class="hero-stat-value">7</span><span class="hero-stat-label">Bank Departments</span></div>
+        <div class="hero-stat-divider"></div>
+        <div class="hero-stat"><span class="hero-stat-value">&lt;30s</span><span class="hero-stat-label">Loan Decision</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CAPABILITIES — rendered dynamically ===== -->
+  <section class="section" id="capabilities">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Capabilities</span>
+        <h2><span id="uc-count-title">—</span> AI Use Cases. <span class="accent">One Platform.</span></h2>
+        <p>Each use case is a modular, independently deployable AI agent — built on Amazon Bedrock AgentCore with MCP tool integration.</p>
+      </div>
+      <div class="uc-grid" id="uc-grid"><!-- rendered by JS --></div>
+    </div>
+  </section>
+
+  <!-- ===== TECHNOLOGY ===== -->
+  <section class="section section-dark" id="technology">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Technology</span>
+        <h2>Built on <span class="accent">AWS</span></h2>
+        <p>Production-grade architecture across two regions — data sovereignty in the Middle East, AI compute in Europe.</p>
+      </div>
+      <div class="tech-grid">
+        <div class="tech-card"><div class="tech-icon">🧠</div><h4>Amazon Bedrock</h4><p>Claude Sonnet for reasoning, Nova Canvas for visuals, Titan for embeddings</p></div>
+        <div class="tech-card"><div class="tech-icon">🤖</div><h4>AgentCore</h4><p>Managed agent runtime with MCP tool integration — specialized agents</p></div>
+        <div class="tech-card"><div class="tech-icon">🗄️</div><h4>Amazon Aurora</h4><p>Core banking database — customers, accounts, transactions, products</p></div>
+        <div class="tech-card"><div class="tech-icon">🔗</div><h4>Amazon Neptune</h4><p>Knowledge graph — customer relationships, households, employer networks</p></div>
+        <div class="tech-card"><div class="tech-icon">🎯</div><h4>Amazon Personalize</h4><p>ML-powered recommendations — next best action scoring in under 50ms</p></div>
+        <div class="tech-card"><div class="tech-icon">⚡</div><h4>Step Functions</h4><p>Orchestrated workflows — loan processing, KYC verification, document analysis</p></div>
+      </div>
+      <div class="tech-regions">
+        <div class="tech-region"><div class="tech-region-flag">🇧🇭</div><h4>me-south-1 <span>Bahrain</span></h4><p>Data residency — Aurora, MSSQL, Neptune, DynamoDB, S3</p></div>
+        <div class="tech-region-arrow">→</div>
+        <div class="tech-region"><div class="tech-region-flag">🇮🇪</div><h4>eu-west-1 <span>Ireland</span></h4><p>AI compute — Bedrock, AgentCore, Personalize, Lambda</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== EXPERIENCE ===== -->
+  <section class="section" id="experience">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Experience</span>
+        <h2>See It <span class="accent">In Action</span></h2>
+        <p>Choose a perspective to explore the platform.</p>
+      </div>
+      <div class="demo-grid">
+        <button class="demo-card" onclick="window._auth.demoLogin('customer','customer')">
+          <div class="demo-card-icon">👤</div>
+          <h3>Customer</h3>
+          <p>Dashboard, accounts, loans, Alma AI assistant, personalized recommendations</p>
+          <span class="demo-card-cta">Launch Customer View →</span>
+        </button>
+        <button class="demo-card" onclick="window._auth.demoLogin('employee','rm')">
+          <div class="demo-card-icon">💼</div>
+          <h3>Relationship Manager</h3>
+          <p>Customer 360, Trade Finance AI, Data Analytics, NBA Advisor, ATM Optimizer</p>
+          <span class="demo-card-cta">Launch RM View →</span>
+        </button>
+        <button class="demo-card" onclick="window._auth.demoLogin('employee','admin')">
+          <div class="demo-card-icon">⚙️</div>
+          <h3>Platform Admin</h3>
+          <p>All features plus platform configuration, country switching, system health</p>
+          <span class="demo-card-cta">Launch Admin View →</span>
+        </button>
+      </div>
+      <div class="demo-divider"><span>or sign in with your account</span></div>
+      <div class="demo-auth">
+        <button class="nb-btn nb-btn-primary nb-btn-lg" onclick="window._auth.loginCustomer()">Customer Sign In</button>
+        <a href="/login.html?portal=employee" class="nb-btn nb-btn-outline nb-btn-lg">Employee Sign In</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== DEMO MODAL ===== -->
+  <div class="demo-modal-overlay hidden" id="demoModal">
+    <div class="demo-modal">
+      <button class="demo-modal-close" onclick="window._closeDemoModal()">✕</button>
+      <div id="demoModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand"><div class="footer-logo"><span class="accent">AI</span> Bank</div><p>AI Bank of the Future</p></div>
+        <div class="footer-links">
+          <a href="#capabilities">Capabilities</a>
+          <a href="#technology">Technology</a>
+          <a href="/login.html?portal=employee">Employee Portal</a>
+        </div>
+        <div class="footer-aws">Built on AWS — Bedrock · AgentCore · Aurora · Neptune · Personalize</div>
+      </div>
+      <div class="footer-bottom"><p>© 2025 AI Bank — For demonstration purposes only.</p></div>
+    </div>
+  </footer>
+
+</body>
+</html>

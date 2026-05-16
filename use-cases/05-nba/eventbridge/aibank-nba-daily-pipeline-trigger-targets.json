@@ -1,0 +1,7 @@
+[
+    {
+        "Id": "nba-daily-pipeline",
+        "Arn": "arn:aws:states:eu-west-1:519124228967:stateMachine:aibank-nba-daily-pipeline",
+        "Input": null
+    }
+]

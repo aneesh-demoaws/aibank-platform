@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Customers — AI Bank RM Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --accent: #2563eb; --border: #e5e7eb; --bg: #f8fafc; --text: #1e293b; --muted: #64748b; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); }
+    .header { background: white; border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 16px; }
+    .header h1 { font-size: 1.2rem; font-weight: 700; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .search { width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; margin-bottom: 16px; }
+    .table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    .table th { background: var(--bg); padding: 12px 16px; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .table td { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 0.85rem; }
+    .table tr:hover { background: #f1f5f9; cursor: pointer; }
+    .badge { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; }
+    .badge-good { background: #d1fae5; color: #065f46; }
+    .badge-fair { background: #fef3c7; color: #92400e; }
+    .badge-excellent { background: #dbeafe; color: #1e40af; }
+    .badge-weak { background: #fee2e2; color: #991b1b; }
+    .loading { text-align: center; padding: 40px; color: var(--muted); }
+    .stats { display: flex; gap: 16px; margin-bottom: 16px; }
+    .stat-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 16px; flex: 1; text-align: center; }
+    .stat-card .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .stat-card .label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="header"><a href="/employee/dashboard.html" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#eff6ff;border:1px solid #2563eb;border-radius:8px;text-decoration:none;font-size:0.82rem;font-weight:600;color:#2563eb" title="Home">🏠 Home</a>
+    <h1>👥 My Customers</h1>
+  </div>
+  <div class="container">
+    <div class="stats" id="stats"></div>
+    <input type="text" class="search" id="search" placeholder="Search by name, email, or customer ID..." oninput="filterTable()">
+    <div id="loading" class="loading">Loading customers...</div>
+    <table class="table" id="table" style="display:none">
+      <thead>
+        <tr>
+          <th onclick="sortBy('name')" style="cursor:pointer">Customer ⇅</th>
+          <th onclick="sortBy('customer_id')" style="cursor:pointer">ID ⇅</th>
+          <th onclick="sortBy('email')" style="cursor:pointer">Email ⇅</th>
+          <th onclick="sortBy('fhs_score')" style="cursor:pointer">FHS ⇅</th>
+          <th onclick="sortBy('total_balance')" style="cursor:pointer">Balance (BHD) ⇅</th>
+          <th onclick="sortBy('active_nbas')" style="cursor:pointer">NBAs ⇅</th>
+          <th onclick="sortBy('products_owned')" style="cursor:pointer">Products ⇅</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <script>
+    const API_BASE = 'https://nowkq8lqy5.execute-api.eu-west-1.amazonaws.com/c360';
+    let allCustomers = [];
+
+    async function load() {
+      try {
+        const resp = await fetch(`${API_BASE}/customers`);
+        const data = await resp.json();
+        const body = data.body ? JSON.parse(data.body) : data;
+        allCustomers = body.customers || [];
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('table').style.display = 'table';
+
+        // Stats
+        const total = allCustomers.length;
+        const avgFhs = allCustomers.filter(c=>c.fhs_score).reduce((s,c)=>s+(c.fhs_score||0),0) / Math.max(total,1);
+        const totalBalance = allCustomers.reduce((s,c)=>s+(parseFloat(c.total_balance)||0),0);
+        document.getElementById('stats').innerHTML = `
+          <div class="stat-card"><div class="value">${total}</div><div class="label">Total Customers</div></div>
+          <div class="stat-card"><div class="value">${avgFhs.toFixed(0)}</div><div class="label">Avg FHS</div></div>
+          <div class="stat-card"><div class="value">${(totalBalance/1000).toFixed(0)}K</div><div class="label">Total AUM (BHD)</div></div>
+        `;
+
+        renderTable(allCustomers);
+      } catch(e) {
+        document.getElementById('loading').textContent = 'Error: ' + e.message;
+      }
+    }
+
+    let sortField = 'total_balance';
+    let sortDir = -1;
+
+    function renderTable(customers) {
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = customers.map(c => {
+        const band = c.fhs_band || 'unknown';
+        return `<tr onclick="window.location.href='customer360.html?id=${c.customer_id}'">
+          <td><strong>${c.first_name || ''} ${c.last_name || ''}</strong></td>
+          <td style="font-size:0.75rem;color:var(--muted)">${c.customer_id}</td>
+          <td>${c.email || '-'}</td>
+          <td><span class="badge badge-${band}">${c.fhs_score || '-'} (${band})</span></td>
+          <td>${c.total_balance ? parseFloat(c.total_balance).toLocaleString('en',{minimumFractionDigits:0}) : '-'}</td>
+          <td>${c.active_nbas || 0}</td>
+          <td>${c.products_owned || 0}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function sortBy(field) {
+      if (sortField === field) sortDir *= -1;
+      else { sortField = field; sortDir = -1; }
+
+      const sorted = [...allCustomers].sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (field === 'name') { va = (a.first_name||'')+(a.last_name||''); vb = (b.first_name||'')+(b.last_name||''); }
+        if (field === 'total_balance' || field === 'fhs_score' || field === 'active_nbas' || field === 'products_owned') {
+          va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
+        }
+        if (va < vb) return -1 * sortDir;
+        if (va > vb) return 1 * sortDir;
+        return 0;
+      });
+      renderTable(sorted);
+    }
+
+    function filterTable() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const filtered = allCustomers.filter(c =>
+        (c.first_name||'').toLowerCase().includes(q) ||
+        (c.last_name||'').toLowerCase().includes(q) ||
+        (c.email||'').toLowerCase().includes(q) ||
+        (c.customer_id||'').toLowerCase().includes(q)
+      );
+      renderTable(filtered);
+    }
+
+    load();
+  </script>
+</body>
+</html>
