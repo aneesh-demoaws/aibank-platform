@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Bank — Online Banking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" crossorigin href="/assets/design-system-DgHMlA9q.css">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    .shell { display: flex; height: 100vh; }
+    .shell-sidebar { width: 220px; flex-shrink: 0; background: var(--nb-primary, #0A1628); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,.06); overflow-y: auto; }
+    .shell-content { flex: 1; position: relative; overflow: hidden; }
+    .shell-content iframe { width: 100%; height: 100%; border: none; display: block; }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="shell-sidebar">
+    <div class="nb-sidebar-user" style="border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:10px;padding:16px">
+      <div id="avatarInitials" style="width:36px;height:36px;border-radius:50%;background:#00D4AA;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:#0A1628">?</div>
+      <div><div id="sidebarName" style="font-size:.85rem;font-weight:600;color:#fff">Loading...</div><div style="font-size:.7rem;color:rgba(255,255,255,.4)">Customer</div></div>
+      <button onclick="shellLogout()" title="Sign out" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:1.1rem;padding:4px">⏻</button>
+    </div>
+    <div style="flex:1;padding:8px 0;overflow-y:auto">
+      <div style="padding:0 8px">
+        <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);padding:8px 12px 6px">Menu</div>
+        <a class="nb-nav-item active" href="javascript:void(0)" onclick="navigateTo('/banking/dashboard.html')">Dashboard</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/accounts.html')">Accounts</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/transfers.html')">Transfers</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/transactions.html')">Transactions</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/loans.html')">Loans</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/cards.html')">Cards</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/for-you.html')">For You</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/financial-health.html')">Financial Health</a>
+        <a class="nb-nav-item" href="javascript:void(0)" onclick="navigateTo('/banking/support.html')">Support</a>
+        <div style="padding:8px 0;margin-top:8px;border-top:1px solid rgba(255,255,255,.06)">
+          <a class="nb-nav-item" href="javascript:void(0)" onclick="document.getElementById('contentFrame').contentWindow.location.reload()" style="color:#00D4AA;font-weight:600">↻ Refresh</a>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 16px;border-top:1px solid rgba(255,255,255,.1)"><h1 style="font-size:1rem;font-weight:700;color:#fff;margin:0"><span style="color:#00D4AA">AI</span> Bank</h1><small style="font-size:.7rem;color:rgba(255,255,255,.4)">Online Banking</small></div>
+  </aside>
+  <div class="shell-content"><iframe id="contentFrame" src="/banking/dashboard.html?shell=1"></iframe></div>
+</div>
+<script src="/assets/alma-widget.js"></script>
+<script>
+  const frame = document.getElementById('contentFrame');
+  window.navigateTo = function(page) {
+    frame.src = page + (page.includes('?') ? '&' : '?') + 'shell=1';
+    document.querySelectorAll('.nb-nav-item').forEach(item => {
+      item.classList.toggle('active', item.getAttribute('onclick')?.includes(page));
+    });
+    frame.onload = () => { try { document.title = frame.contentDocument.title; } catch(e) {} };
+  };
+  window.addEventListener('message', (e) => { if (e.data?.type === 'navigate') navigateTo(e.data.page); });
+  (async () => {
+    try {
+      const r = await fetch('/sessions/me', { credentials: 'include' });
+      if (!r.ok) { window.location.href = '/login.html'; return; }
+      const p = await r.json();
+      document.getElementById('sidebarName').textContent = p.name || 'Customer';
+      document.getElementById('avatarInitials').textContent = (p.name||'C').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    } catch(e) {
+      const fb = sessionStorage.getItem('aibank_fallback');
+      if (fb) { const p = JSON.parse(fb); document.getElementById('sidebarName').textContent = p.name; document.getElementById('avatarInitials').textContent = (p.name||'C').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+    }
+  })();
+  window.shellLogout = async function() { try { await fetch('/sessions/me', { method: 'DELETE', credentials: 'include' }); } catch(e) {} sessionStorage.clear(); window.location.href = '/'; };
+</script>
+</body>
+</html>
