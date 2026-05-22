@@ -1,23 +1,23 @@
-default_agent: alma_banking_assistant
+default_agent: alma_graph
 agents:
-  alma_banking_assistant:
-    name: alma_banking_assistant
+  alma_graph:
+    name: alma_graph
     language: python
     node_version: null
-    entrypoint: /tmp/aibank-platform-clone/use-cases/03-alma-banking-assistant/agent/main.py
+    entrypoint: main.py
     deployment_type: container
     runtime_type: null
     platform: linux/arm64
-    container_runtime: none
-    source_path: /tmp/aibank-platform-clone/use-cases/03-alma-banking-assistant/agent
+    container_runtime: null
+    source_path: .
     aws:
       execution_role: arn:aws:iam::519124228967:role/AmazonBedrockAgentCoreSDKRuntime-eu-west-1-3fc2d0d0a3
       execution_role_auto_create: false
       account: '519124228967'
       region: eu-west-1
-      ecr_repository: 519124228967.dkr.ecr.eu-west-1.amazonaws.com/bedrock-agentcore-alma-banking-assistant
+      ecr_repository: 519124228967.dkr.ecr.eu-west-1.amazonaws.com/bedrock-agentcore-alma-graph
       ecr_auto_create: false
-      s3_path: null
+      s3_path: s3://bedrock-agentcore-codebuild-sources-519124228967-eu-west-1
       s3_auto_create: false
       network_configuration:
         network_mode: PUBLIC
@@ -30,18 +30,18 @@ agents:
         idle_runtime_session_timeout: null
         max_lifetime: null
     bedrock_agentcore:
-      agent_id: alma_banking_assistant-zxGWis2H4O
-      agent_arn: arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/alma_banking_assistant-zxGWis2H4O
+      agent_id: alma_graph-vZ5NGFDphP
+      agent_arn: arn:aws:bedrock-agentcore:eu-west-1:519124228967:runtime/alma_graph-vZ5NGFDphP
       agent_session_id: null
     codebuild:
-      project_name: bedrock-agentcore-alma_banking_assistant-builder
+      project_name: bedrock-agentcore-alma_graph-builder
       execution_role: arn:aws:iam::519124228967:role/AmazonBedrockAgentCoreSDKCodeBuild-eu-west-1-10a70c8c41
       source_bucket: bedrock-agentcore-codebuild-sources-519124228967-eu-west-1
     memory:
       mode: STM_ONLY
-      memory_id: alma_banking_assistant_mem-ijns9pFcc6
-      memory_arn: arn:aws:bedrock-agentcore:eu-west-1:519124228967:memory/alma_banking_assistant_mem-ijns9pFcc6
-      memory_name: alma_banking_assistant_mem
+      memory_id: alma_graph_mem-sTlMSG4Tf3
+      memory_arn: arn:aws:bedrock-agentcore:eu-west-1:519124228967:memory/alma_graph_mem-sTlMSG4Tf3
+      memory_name: alma_graph_mem
       event_expiry_days: 30
       first_invoke_memory_check_done: true
       was_created_by_toolkit: true
